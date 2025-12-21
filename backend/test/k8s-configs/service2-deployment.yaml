@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: python-service-2
+  labels:
+    project: process-1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: py-2
+  template:
+    metadata:
+      labels:
+        app: py-2
+        project: process-1
+    spec:
+      containers:
+      - name: python-app
+        image: devmindtan/python-service:python-service-2-v1
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+      imagePullSecrets:
+      - name: my-registry-key

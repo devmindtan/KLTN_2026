@@ -57,25 +57,40 @@ spec:
 
                         // --- TRƯỜNG HỢP 2: BUILD NHÁNH DEV (Quét thay đổi) ---
                         else if (env.BRANCH_NAME == 'develop') {
-                            // 1. Quét thay đổi trong Backend Apps
-                            def backendChanges = sh(script: "git diff --name-only HEAD^ HEAD | grep 'backend/src/apps/' | sed -E 's|backend/src/apps/([^/]+)/.*|\\1|' | uniq", returnStdout: true).trim().split('\n')
+                            // Lấy danh sách file thay đổi một cách an toàn
+                            def changedFiles = ""
 
-                            // 2. Quét thay đổi trong Web (Coi toàn bộ web/src là 1 service tên là 'web-app')
-                            def webChanged = sh(script: "git diff --name-only HEAD^ HEAD | grep 'web/src/'", returnStdout: true).trim()
+                            // Kiểm tra xem có commit cha hay không
+                            def hasParent = sh(script: "git rev-parse HEAD^", returnStatus: true) == 0
 
-                            // Xử lý Backend
-                            for (appName in backendChanges) {
-                                if (appName && appName != "") {
-                                    def servicePath = "backend/src/apps/${appName}"
-                                    def devImage = "${DOCKER_PRIVATE_REPO}:${appName}-dev-${env.BUILD_NUMBER}"
-                                    buildPushDeploy(appName, servicePath, devImage, true)
-                                }
+                            if (hasParent) {
+                                changedFiles = sh(script: "git diff --name-only HEAD^ HEAD", returnStdout: true).trim()
+                            } else {
+                                echo "Lần build đầu tiên hoặc không có commit cha, quét toàn bộ repo."
+                                changedFiles = sh(script: "git ls-files", returnStdout: true).trim()
                             }
 
-                            // Xử lý Frontend (Web)
-                            if (webChanged) {
-                                echo "--- Phat hien thay doi trong Web ---"
-                                buildPushDeploy("web-app", "web", "${DOCKER_PRIVATE_REPO}:web-app-dev-${env.BUILD_NUMBER}", true)
+                            if (changedFiles) {
+                                // 1. Quét thay đổi trong Backend Apps
+                                def backendChanges = sh(script: "echo \"${changedFiles}\" | grep 'backend/src/apps/' | sed -E 's|backend/src/apps/([^/]+)/.*|\\1|' | uniq", returnStdout: true).trim().split('\n')
+
+                                // 2. Quét thay đổi trong Web
+                                def webChanged = sh(script: "echo \"${changedFiles}\" | grep 'web/src/'", returnStdout: true).trim()
+
+                                // Xử lý Backend
+                                for (appName in backendChanges) {
+                                    if (appName && appName != "") {
+                                        def servicePath = "backend/src/apps/${appName}"
+                                        def devImage = "${DOCKER_PRIVATE_REPO}:${appName}-dev-${env.BUILD_NUMBER}"
+                                        buildPushDeploy(appName, servicePath, devImage, true)
+                                    }
+                                }
+
+                                // Xử lý Frontend (Web)
+                                if (webChanged) {
+                                    echo "--- Phat hien thay doi trong Web ---"
+                                    buildPushDeploy("web-app", "web", "${DOCKER_PRIVATE_REPO}:web-app-dev-${env.BUILD_NUMBER}", true)
+                                }
                             }
                         }
                     }

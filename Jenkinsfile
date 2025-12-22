@@ -35,6 +35,7 @@ spec:
                 script {
                     container('tools') {
                         sh 'apk add --no-cache docker-cli'
+                        sh 'git config --global --add safe.directory "*"'
 
                         // --- TRƯỜNG HỢP 1: BUILD THEO TAG (Ví dụ: service-python/v1.0 hoặc web-portal/v2.0) ---
                         if (env.TAG_NAME) {

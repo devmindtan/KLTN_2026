@@ -54,6 +54,9 @@ spec:
             steps {
                 container('tools') {
                     echo "--- Updating K3s to version ${FULL_IMAGE_NAME} ---"
+                    // Đảm bảo Deployment tồn tại (nếu có rồi thì nó chỉ báo 'unchanged')
+                    sh "kubectl apply -f backend/test/k8s-configs/service1-deployment.yaml"
+
                     // Chú ý: python-app phải khớp với tên container trong file Deployment YAML của bạn
                     sh "kubectl set image deployment/${APP_NAME} python-app=${FULL_IMAGE_NAME}"
                     sh "kubectl rollout status deployment/${APP_NAME}"

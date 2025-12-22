@@ -1,0 +1,64 @@
+pipeline {
+    agent {
+        kubernetes {
+            yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: tools
+    image: alpine/k8s:1.28.3
+    command: ['cat']
+    tty: true
+    securityContext:
+      runAsUser: 0
+    volumeMounts:
+    - mountPath: /var/run/docker.sock
+      name: docker-sock
+  volumes:
+  - name: docker-sock
+    hostPath:
+      path: /var/run/docker.sock
+'''
+        }
+    }
+
+    environment {
+        DOCKER_REPO = "devmindtan/python-service"
+        APP_NAME = "python-service-1"
+        VERSION = "v1.0.${BUILD_NUMBER}"
+        // Tạo ra một biến full name để dùng thống nhất cho cả 3 bước
+        FULL_IMAGE_NAME = "${DOCKER_REPO}:${APP_NAME}-${VERSION}"
+        DOCKER_HUB_CREDS = 'docker-hub-creds'
+    }
+
+    stages {
+        stage('Build & Push') {
+            steps {
+                container('tools') {
+                    sh 'apk add --no-cache docker-cli'
+
+                    echo "--- Building: ${FULL_IMAGE_NAME} ---"
+                    sh "docker build -t ${FULL_IMAGE_NAME} ./backend/test/service_1"
+
+                    withCredentials([usernamePassword(credentialsId: "${DOCKER_HUB_CREDS}", passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
+                        sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin"
+                        echo "--- Pushing: ${FULL_IMAGE_NAME} ---"
+                        sh "docker push ${FULL_IMAGE_NAME}"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                container('tools') {
+                    echo "--- Updating K3s to version ${FULL_IMAGE_NAME} ---"
+                    // Chú ý: python-app phải khớp với tên container trong file Deployment YAML của bạn
+                    sh "kubectl set image deployment/${APP_NAME} python-app=${FULL_IMAGE_NAME}"
+                    sh "kubectl rollout status deployment/${APP_NAME}"
+                }
+            }
+        }
+    }
+}

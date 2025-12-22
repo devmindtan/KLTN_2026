@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: python-app
-        image: devmindtan/python-service:python-service-2-v1
+        image: devmindtan/python-service:latest
         env:
         - name: PYTHONUNBUFFERED
           value: "1"

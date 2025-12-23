@@ -1,7 +1,9 @@
+import groovy.transform.Field
+
 // --- KHAI BÁO BIẾN TOÀN CỤC ---
-def isTestPassed = false
-def backendAppsToBuild = ""
-def webNeedsBuild = false
+@Field def isTestPassed = false
+@Field def backendAppsToBuild = ""
+@Field def webNeedsBuild = false
 
 pipeline {
     agent {
@@ -115,7 +117,8 @@ def checkSystemAndGetChanges() {
 
             backendAppsToBuild = sh(script: "echo \"${rawFiles}\" | grep '^backend/src/apps/' | cut -d'/' -f4 | sort | uniq", returnStdout: true).trim()
 
-            def webCheck = sh(script: "echo \"${rawFiles}\" | grep '^web/src/' | cut -d'/' -f1 | uniq", returnStdout: true).trim()
+            def webCheck = sh(script: "echo \"${rawFiles}\" | grep '^web/' | cut -d'/' -f1 | uniq", returnStdout:
+            true).trim()
             webNeedsBuild = (webCheck == "web")
         }
 

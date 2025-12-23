@@ -59,6 +59,7 @@ def targetTime() {
 
 def buildPushDeploy() {
     echo "--- Đang kiểm tra kết nối hệ thống ---"
+    sh 'apk add --no-cache docker-cli'
 
     // 1. Kiểm tra kết nối với Docker Engine (máy HP) thông qua Socket
     sh "docker version"

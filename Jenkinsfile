@@ -42,6 +42,13 @@ spec:
                 container('tools') {
                     script {
                         echo "--- TẦNG 1: KIỂM TRA HỆ THỐNG ---"
+                        sh '''
+                            echo "--- KIỂM TRA MÔI TRƯỜNG ---"
+                            python3 -m pytest --version
+                            node -v
+                            npm -v
+                            docker version
+                        '''
                         sh "git config --global --add safe.directory '*'"
 
                         // Gọi hàm kiểm tra và lấy danh sách cần build
@@ -69,7 +76,6 @@ spec:
                             apps.each { app ->
                                 echo "Đang Build Docker Image cho Backend App: ${app}"
                                 sh """
-                                    pip install pytest --break-system-packages
                                     cd backend/src/apps/${app}
                                     export PYTHONPATH=.
                                     python3 -m pytest tests/ -vs --tb=line
@@ -112,7 +118,6 @@ def targetTime() {
 def checkSystemAndGetChanges() {
     try {
         echo "Kiểm tra Docker Engine..."
-        sh 'apk add --no-cache docker-cli'
 
         withCredentials([usernamePassword(credentialsId: "${DOCKER_HUB_CREDS}", passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
             sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin 2>/dev/null"

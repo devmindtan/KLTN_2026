@@ -34,17 +34,22 @@ spec:
             steps {
                 container('tools') {
                     script {
+                        def isTestPassed = false
                         echo "--- TẦNG 1: KIỂM TRA HỆ THỐNG ---"
                         def branch = env.BRANCH_NAME ?: "Unknown Branch"
                         echo "Nhánh hiện tại: ${branch}"
                         echo "Thời gian: ${targetTime()}"
 
                         // Chạy kiểm tra kết nối
-                        checkDockerConnection()
-
-                        echo "===================================================="
-                        echo "TẦNG 1 HOÀN TẤT!"
-                        echo "===================================================="
+                        if(checkDockerConnection()){
+                            isTestPassed = true
+                            echo "===================================================="
+                            echo "TẦNG 1 HOÀN TẤT!"
+                            echo "===================================================="
+                        }
+                        else{
+                            error "Dừng lại! Code có lỗi cú pháp, không được phép qua tầng 2."
+                        }
                     }
                 }
             }
@@ -53,12 +58,25 @@ spec:
         stage('Stage 2: Build Image') {
             when {
                 // Tạm thời để true để bạn thấy nó sáng đèn
-                expression { return true }
+                expression { return isTestPassed }
             }
             steps {
                 container('tools') {
                     echo "--- TẦNG 2: MÔ PHỎNG BUILD IMAGE ---"
                     echo "Hệ thống sẽ build image từ source code tại đây."
+                    script {
+                        def isTestPassed = false
+
+                        if(true){
+                            isTestPassed = true
+                            echo "===================================================="
+                            echo "TẦNG 2 HOÀN TẤT!"
+                            echo "===================================================="
+                        }
+                        else{
+                            error "Dừng lại! Code có lỗi cú pháp, không được phép qua tầng 3."
+                        }
+                    }
                 }
             }
         }
@@ -69,12 +87,23 @@ spec:
                     branch 'develop'
                     branch 'main'
                 }
-                expression { return true }
+                expression { return isTestPassed }
             }
             steps {
                 container('tools') {
                     echo "--- TẦNG 3: MÔ PHỎNG DEPLOY K8S ---"
                     echo "Đang triển khai lên môi trường: ${env.BRANCH_NAME}"
+
+                    script {
+                        if(true){
+                            echo "===================================================="
+                            echo "TẦNG 3 HOÀN TẤT! - BUILD THÀNH CÔNG"
+                            echo "===================================================="
+                        }
+                        else{
+                            error "Dừng lại! Code có lỗi cú pháp, hãy kiểm tra lại trước khi build lại."
+                        }
+                    }
                 }
             }
         }
@@ -97,4 +126,6 @@ def checkDockerConnection() {
         echo "Đã đăng nhập thành công Docker Hub: ${DOCKER_USER}"
         sh "docker logout"
     }
+
+    return true
 }

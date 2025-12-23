@@ -430,7 +430,7 @@ controller:
 
   # Enable to always override the installed plugins with the values of 'controller.installPlugins' on upgrade or redeployment.
   # -- Overwrite installed plugins on start
-  overwritePlugins: false
+  overwritePlugins: true
 
   # Configures if plugins bundled with `controller.image` should be overwritten with the values of 'controller.installPlugins' on upgrade or redeployment.
   # -- Overwrite plugins that are already installed in the controller image

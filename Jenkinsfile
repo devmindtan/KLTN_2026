@@ -67,7 +67,11 @@ spec:
                             def apps = backendAppsToBuild.split('\n')
                             apps.each { app ->
                                 echo "Đang Build Docker Image cho Backend App: ${app}"
-                                // Sau này lệnh docker build sẽ nằm ở đây
+                                sh """
+                                    cd backend/src/apps/${app}
+                                    export PYTHONPATH=.
+                                    python3 -m pytest tests/ -vs --tb=line
+                                """
                             }
                         }
                         if (webAppToBuild) {

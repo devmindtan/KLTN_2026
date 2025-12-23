@@ -14,10 +14,11 @@ kind: Pod
 spec:
   containers:
   - name: tools
-    image: alpine/k8s:1.28.3
+    image: devmindtan/base-build-kltn-2026:v1.0.0
     command: ['cat']
     tty: true
     securityContext:
+      privileged: true
       runAsUser: 0
     volumeMounts:
     - mountPath: /var/run/docker.sock

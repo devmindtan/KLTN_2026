@@ -29,23 +29,54 @@ spec:
         DOCKER_PRIVATE_REPO = "devmindtan/private-repo"
     }
     stages {
-        stage('Hello Automation') {
+        stage('Stage 1: Linting & Unit Test') {
             steps {
                 container('tools') {
-                    script {
-                        // Lấy tên nhánh hiện tại
-                        def branch = env.BRANCH_NAME ?: "Unknown Branch"
+                    echo "--- Đang kiểm tra cú pháp và chạy Unit Test cho toàn bộ Repo ---"
+                    // Chạy các lệnh kiểm tra nhanh ở đây
+                    def branch = env.BRANCH_NAME ?: "Unknown Branch"
 
-                        echo "===================================================="
-                        echo "Hành động Push đã kích hoạt Pipeline."
-                        echo "Bạn vừa đẩy code lên nhánh: ${branch}"
-                        echo "Thời gian: ${targetTime()}"
-                        echo "Tiến hành build Docker Hub ${buildPushDeploy()}"
+                    echo "===================================================="
+                    echo "Hành động Push đã kích hoạt Pipeline."
+                    echo "Bạn vừa đẩy code lên nhánh: ${branch}"
+                    echo "Thời gian: ${targetTime()}"
+                    echo "Tiến hành build Docker Hub ${buildPushDeploy()}"
 
-                        echo "\n=====================n==============================="
-                        echo "TỰ ĐỘNG HÓA THÀNH CÔNG!"
-                        echo "===================================================="
-                    }
+                    echo "=====================n==============================="
+                    echo "TỰ ĐỘNG HÓA THÀNH CÔNG!"
+                    echo "===================================================="
+                }
+            }
+        }
+        stage('Stage 2: Build Image') {
+            when {
+                // Chỉ chạy khi code trong thư mục backend hoặc web thay đổi
+                expression {
+                    return checkCodeChanges()
+                }
+            }
+            steps {
+                container('tools') {
+                    echo "--- Phát hiện thay đổi trong code hệ thống. Bắt đầu Build Docker Image ---"
+                    // Gọi hàm buildPushDeploy() của bạn ở đây
+                }
+            }
+        }
+
+        // TẦNG 3: Chỉ chạy khi merge vào nhánh develop hoặc main
+        stage('Stage 3: Integration Test & Deploy') {
+            when {
+                anyOf {
+                    branch 'develop'
+                    branch 'main'
+                }
+                // Thêm điều kiện: Phải có thay đổi code mới Deploy
+                expression { return checkCodeChanges() }
+            }
+            steps {
+                container('tools') {
+                    echo "--- Đang thực hiện Deploy lên môi trường: ${env.BRANCH_NAME} ---"
+                    // Chạy lệnh kubectl set image ở đây
                 }
             }
         }
@@ -68,7 +99,7 @@ def buildPushDeploy() {
     // 2. Kiểm tra kết nối tới Docker Hub bằng Credentials
     withCredentials([usernamePassword(credentialsId: "${DOCKER_HUB_CREDS}", passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
         // Sử dụng --password-stdin để bảo mật, không lộ pass trong log
-        sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin"
+        sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin 2>/dev/null"
 
         echo "===================================================="
         echo "KẾT NỐI THÀNH CÔNG!"
@@ -79,4 +110,19 @@ def buildPushDeploy() {
         // Logout ngay sau khi test để đảm bảo an toàn
         sh "docker logout"
     }
+}
+
+// HÀM HỖ TRỢ (Helper Function) để lọc file thay đổi
+def checkCodeChanges() {
+    // Lấy danh sách file thay đổi giữa commit hiện tại và commit trước đó
+    def changedFiles = sh(script: "git diff --name-only HEAD^ HEAD || true", returnStdout: true).trim()
+
+    // Kiểm tra xem có file nào nằm trong các thư mục code quan trọng không
+    // (Dùng Regex để bỏ qua README.md, .txt, .docs, v.v.)
+    def hasCodeChange = sh(
+        script: "echo \"${changedFiles}\" | grep -E '^(backend/|web/)' | grep -vE '\\.(md|txt|docs)$' || true",
+        returnStatus: true
+    ) == 0
+
+    return hasCodeChange
 }

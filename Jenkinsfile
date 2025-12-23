@@ -118,15 +118,27 @@ def targetTime() {
 }
 
 def checkDockerConnection() {
-    echo "--- Đang kiểm tra kết nối Docker ---"
-    sh 'apk add --no-cache docker-cli'
-    sh "docker version"
+    try {
+        echo "--- Đang kiểm tra kết nối Docker ---"
+        sh 'apk add --no-cache docker-cli'
+        sh "docker version"
+        withCredentials([usernamePassword(credentialsId: "${DOCKER_HUB_CREDS}", passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
+            sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin 2>/dev/null"
+            sh "docker logout"
+        }
 
-    withCredentials([usernamePassword(credentialsId: "${DOCKER_HUB_CREDS}", passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
-        sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin 2>/dev/null"
-        echo "Đã đăng nhập thành công Docker Hub: ${DOCKER_USER}"
-        sh "docker logout"
+        def result = sh(script: "git diff --name-only HEAD^ HEAD | sed -E 's|.*/||'", returnStdout: true).trim()
+        def fileList = result.split('\n')
+
+        echo "${fileList}"
+
+        fileList.each { fileName ->
+            echo "Đang xử lý file: ${fileName}"
+        }
+
+        return true
+    } catch (Exception e) {
+        error "Lỗi kết nối: ${e.message}"
+        return false
     }
-
-    return true
 }

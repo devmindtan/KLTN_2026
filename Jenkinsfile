@@ -3,7 +3,7 @@ import groovy.transform.Field
 // --- KHAI BÁO BIẾN TOÀN CỤC ---
 @Field def isTestPassed = false
 @Field def backendAppsToBuild = ""
-@Field def webNeedsBuild = false
+@Field def webAppToBuild = ""
 
 pipeline {
     agent {
@@ -46,7 +46,8 @@ spec:
                         // Gọi hàm kiểm tra và lấy danh sách cần build
                         if(checkSystemAndGetChanges()){
                             isTestPassed = true
-                            echo "TẦNG 1 XONG. Backend cần build: ${backendAppsToBuild ?: 'None'}. Web cần build: ${webNeedsBuild}"
+                            echo "TẦNG 1 XONG. Backend cần build: ${backendAppsToBuild ?: 'None'}. Web cần build:
+                            ${webAppToBuild ?: 'None'}"
                         } else {
                             error "Hệ thống trục trặc hoặc không thể kết nối Docker Hub."
                         }
@@ -56,7 +57,7 @@ spec:
         }
 
         stage('Stage 2: Build Image') {
-            when { expression { return isTestPassed && (backendAppsToBuild || webNeedsBuild) } }
+            when { expression { return isTestPassed && (backendAppsToBuild || webAppToBuild) } }
             steps {
                 container('tools') {
                     script {
@@ -68,8 +69,12 @@ spec:
                                 // Sau này lệnh docker build sẽ nằm ở đây
                             }
                         }
-                        if (webNeedsBuild) {
-                            echo "Đang Build Docker Image cho Frontend (Web)"
+                        if (webAppToBuild) {
+                            def apps = webAppToBuild.split('\n')
+                            apps.each { app ->
+                                echo "Đang Build Docker Image cho Frontend (Web): ${app}"
+                                // Sau này lệnh docker build sẽ nằm ở đây
+                            }
                         }
                     }
                 }
@@ -117,9 +122,8 @@ def checkSystemAndGetChanges() {
 
             backendAppsToBuild = sh(script: "echo \"${rawFiles}\" | grep '^backend/src/apps/' | cut -d'/' -f4 | sort | uniq", returnStdout: true).trim()
 
-            def webCheck = sh(script: "echo \"${rawFiles}\" | grep '^web/' | cut -d'/' -f1 | uniq", returnStdout:
+            webAppToBuild = sh(script: "echo \"${rawFiles}\" | grep '^web/' | cut -d'/' -f2 | uniq", returnStdout:
             true).trim()
-            webNeedsBuild = (webCheck == "web")
         }
 
         return true

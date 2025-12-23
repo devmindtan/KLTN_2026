@@ -46,8 +46,9 @@ spec:
                         // Gọi hàm kiểm tra và lấy danh sách cần build
                         if(checkSystemAndGetChanges()){
                             isTestPassed = true
-                            echo "TẦNG 1 XONG. Backend cần build: ${backendAppsToBuild ?: 'None'}. Web cần
-                            build ${webAppToBuild ?: 'None'}"
+                            def backendLog = backendAppsToBuild ? backendAppsToBuild : "None"
+                            def webLog = webAppToBuild ? webAppToBuild : "None"
+                            echo "TẦNG 1 XONG. Backend cần build: ${backendLog}. Web cần build ${webLog}"
                         } else {
                             error "Hệ thống trục trặc hoặc không thể kết nối Docker Hub."
                         }

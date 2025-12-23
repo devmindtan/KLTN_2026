@@ -52,7 +52,7 @@ spec:
             when {
                 // Chỉ chạy khi code trong thư mục backend hoặc web thay đổi
                 expression {
-                    return checkCodeChanges()
+                    return True //checkCodeChanges()
                 }
             }
             steps {
@@ -71,7 +71,7 @@ spec:
                     branch 'main'
                 }
                 // Thêm điều kiện: Phải có thay đổi code mới Deploy
-                expression { return checkCodeChanges() }
+                expression { return True //checkCodeChanges() }
             }
             steps {
                 container('tools') {

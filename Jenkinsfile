@@ -28,9 +28,9 @@ spec:
         DOCKER_HUB_CREDS = 'docker-hub-creds'
         DOCKER_PRIVATE_REPO = "devmindtan/private-repo"
     }
+    def isTestPassed = false
 
     stages {
-        def isTestPassed = false
         stage('Stage 1: Linting & Unit Test') {
             steps {
                 container('tools') {

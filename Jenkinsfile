@@ -37,8 +37,8 @@ spec:
             steps {
                 container('tools') {
                     script {
-
                         echo "--- TẦNG 1: KIỂM TRA HỆ THỐNG ---"
+                        sh "git config --global --add safe.directory ${WORKSPACE}"
                         def branch = env.BRANCH_NAME ?: "Unknown Branch"
                         echo "Nhánh hiện tại: ${branch}"
                         echo "Thời gian: ${targetTime()}"

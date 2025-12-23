@@ -130,7 +130,10 @@ spec:
                                 if (exists != 0) {
                                      echo "--- LẦN ĐẦU: Tạo mới Deployment ${shortName} ---"
                                      // Quan trọng: Create đúng cái tên đã check ở trên
-                                     sh "kubectl create deployment ${shortName} --image=${imageName}"
+                                     sh """
+                                     kubectl create deployment ${shortName} --image=${imageName}
+                                     kubectl patch deployment ${shortName} -p '{"spec":{"template":{"spec":{"imagePullSecrets":[{"name":"my-registry-key"}]}}}}'
+                                     """
                                 } else {
                                      echo "--- CẬP NHẬT: Đang set image mới cho ${shortName} ---"
                                      // Khi dùng lệnh create ở trên, K8s mặc định đặt tên container trùng với tên deployment
@@ -157,7 +160,10 @@ spec:
                                 if (exists == 0) {
                                      echo "--- LẦN ĐẦU: Tạo mới Deployment ${shortName} ---"
                                      // Quan trọng: Create đúng cái tên đã check ở trên
-                                     sh "kubectl create deployment ${shortName} --image=${imageName}"
+                                     sh """
+                                     kubectl create deployment ${shortName} --image=${imageName}
+                                     kubectl patch deployment ${shortName} -p '{"spec":{"template":{"spec":{"imagePullSecrets":[{"name":"my-registry-key"}]}}}}'
+                                     """
 
                                      def targetPort = (app.contains('web-user')) ? 5173 : 5174
 

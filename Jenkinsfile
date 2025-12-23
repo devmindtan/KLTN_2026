@@ -1,5 +1,7 @@
-// Tạo biến global
+// --- KHAI BÁO BIẾN TOÀN CỤC ---
 def isTestPassed = false
+def backendAppsToBuild = ""
+def webNeedsBuild = false
 
 pipeline {
     agent {
@@ -29,29 +31,22 @@ spec:
     environment {
         DOCKER_USER = "devmindtan"
         DOCKER_HUB_CREDS = 'docker-hub-creds'
-        DOCKER_PRIVATE_REPO = "devmindtan/private-repo"
     }
 
     stages {
-        stage('Stage 1: Linting & Unit Test') {
+        stage('Stage 1: Phân tích & Kiểm tra') {
             steps {
                 container('tools') {
                     script {
                         echo "--- TẦNG 1: KIỂM TRA HỆ THỐNG ---"
-                        sh "git config --global --add safe.directory ${WORKSPACE}"
-                        def branch = env.BRANCH_NAME ?: "Unknown Branch"
-                        echo "Nhánh hiện tại: ${branch}"
-                        echo "Thời gian: ${targetTime()}"
+                        sh "git config --global --add safe.directory '*'"
 
-                        // Chạy kiểm tra kết nối
-                        if(checkDockerConnection()){
+                        // Gọi hàm kiểm tra và lấy danh sách cần build
+                        if(checkSystemAndGetChanges()){
                             isTestPassed = true
-                            echo "===================================================="
-                            echo "TẦNG 1 HOÀN TẤT! - QUA TẦNG 2"
-                            echo "===================================================="
-                        }
-                        else{
-                            error "Dừng lại! Code có lỗi cú pháp, không được phép qua tầng 2."
+                            echo "TẦNG 1 XONG. Backend cần build: ${backendAppsToBuild ?: 'None'}. Web cần build: ${webNeedsBuild}"
+                        } else {
+                            error "Hệ thống trục trặc hoặc không thể kết nối Docker Hub."
                         }
                     }
                 }
@@ -59,23 +54,20 @@ spec:
         }
 
         stage('Stage 2: Build Image') {
-            when {
-                // Tạm thời để true để bạn thấy nó sáng đèn
-                expression { return isTestPassed }
-            }
+            when { expression { return isTestPassed && (backendAppsToBuild || webNeedsBuild) } }
             steps {
                 container('tools') {
-                    echo "--- TẦNG 2: MÔ PHỎNG BUILD IMAGE ---"
-                    echo "Hệ thống sẽ build image từ source code tại đây."
                     script {
-                        if(true){
-                            isTestPassed = true
-                            echo "===================================================="
-                            echo "TẦNG 2 HOÀN TẤT! - QUA TẦNG 3"
-                            echo "===================================================="
+                        echo "--- TẦNG 2: BẮT ĐẦU BUILD ---"
+                        if (backendAppsToBuild) {
+                            def apps = backendAppsToBuild.split('\n')
+                            apps.each { app ->
+                                echo "Đang Build Docker Image cho Backend App: ${app}"
+                                // Sau này lệnh docker build sẽ nằm ở đây
+                            }
                         }
-                        else{
-                            error "Dừng lại! Code có lỗi cú pháp, không được phép qua tầng 3."
+                        if (webNeedsBuild) {
+                            echo "Đang Build Docker Image cho Frontend (Web)"
                         }
                     }
                 }
@@ -84,27 +76,13 @@ spec:
 
         stage('Stage 3: Deploy') {
             when {
-                anyOf {
-                    branch 'develop'
-                    branch 'main'
-                }
+                anyOf { branch 'develop'; branch 'main' }
                 expression { return isTestPassed }
             }
             steps {
                 container('tools') {
-                    echo "--- TẦNG 3: MÔ PHỎNG DEPLOY K8S ---"
-                    echo "Đang triển khai lên môi trường: ${env.BRANCH_NAME}"
-
-                    script {
-                        if(true){
-                            echo "===================================================="
-                            echo "TẦNG 3 HOÀN TẤT! - BUILD THÀNH CÔNG"
-                            echo "===================================================="
-                        }
-                        else{
-                            error "Dừng lại! Code có lỗi cú pháp, hãy kiểm tra lại trước khi build lại."
-                        }
-                    }
+                    echo "--- TẦNG 3: DEPLOY LÊN K8S ---"
+                    echo "Đang triển khai lên nhánh: ${env.BRANCH_NAME}"
                 }
             }
         }
@@ -117,53 +95,33 @@ def targetTime() {
     return new Date().format("dd-MM-yyyy HH:mm:ss", TimeZone.getTimeZone('ICT'))
 }
 
-def checkDockerConnection() {
+def checkSystemAndGetChanges() {
     try {
-        echo "--- Đang kiểm tra kết nối Docker ---"
+        echo "Kiểm tra Docker Engine..."
         sh 'apk add --no-cache docker-cli'
-        sh "docker version"
+
         withCredentials([usernamePassword(credentialsId: "${DOCKER_HUB_CREDS}", passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
             sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin 2>/dev/null"
             sh "docker logout"
         }
 
-        // 1. Kiểm tra xem có tồn tại commit cha không
+        // Lấy danh sách file thay đổi
         def hasParent = sh(script: "git rev-parse HEAD~1", returnStatus: true) == 0
-        def rawChangedFiles = ""
+        def rawFiles = hasParent ? sh(script: "git diff --name-only HEAD~1 HEAD", returnStdout: true).trim() : sh(script: "git ls-files", returnStdout: true).trim()
 
-        if (hasParent) {
-            // Có commit cha: Lấy danh sách file thay đổi (giữ nguyên đường dẫn)
-            rawChangedFiles = sh(script: "git diff --name-only HEAD~1 HEAD", returnStdout: true).trim()
-        } else {
-            // Không có commit cha: Coi như thay đổi tất cả (build toàn bộ)
-            echo "Cảnh báo: Không tìm thấy commit cha, quét toàn bộ dự án."
-            rawChangedFiles = sh(script: "git ls-files", returnStdout: true).trim()
-        }
+        if (rawFiles) {
+            echo "--- DANH SÁCH FILE THAY ĐỔI ---"
+            echo rawFiles
 
-        // 2. Bây giờ mới tách ra: Một cái để LOG, một cái để BUILD
-        if (rawChangedFiles) {
-            def getBackendCmd = '''
-                echo "$rawChangedFiles" | grep '^backend/src/apps/' | cut -d'/' -f4 | sort | uniq
-            '''.stripIndent().trim()
+            backendAppsToBuild = sh(script: "echo \"${rawFiles}\" | grep '^backend/src/apps/' | cut -d'/' -f4 | sort | uniq", returnStdout: true).trim()
 
-            def backendChanged = sh(script: getBackendCmd, returnStdout: true).trim()
-
-            def getWebCmd = '''
-                echo "$rawChangedFiles" | grep '^web/' | cut -d'/' -f1 | uniq
-            '''.stripIndent().trim()
-
-        def webChanged = sh(script: getWebCmd, returnStdout: true).trim()
-
-            echo "--- FILE THAY ĐỔI: ---"
-            echo logFiles
-            echo "--- CÁC APP CẦN BUILD: ---"
-            echo backendChanged
-            echo webChanged
+            def webCheck = sh(script: "echo \"${rawFiles}\" | grep '^web/src/' | cut -d'/' -f1 | uniq", returnStdout: true).trim()
+            webNeedsBuild = (webCheck == "web")
         }
 
         return true
     } catch (Exception e) {
-        error "Lỗi kết nối: ${e.message}"
+        echo "Lỗi: ${e.message}"
         return false
     }
 }

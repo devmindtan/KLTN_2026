@@ -126,7 +126,7 @@ spec:
                                     "devmindtan/private-repo:${app}-v1.0.0" :
                                     "devmindtan/${app}:v1.0.0"
 
-                                def exists = sh(script: "kubectl get ${deployResource} --ignore-not-found", returnStatus: true)
+                                def exists = sh(script: "kubectl get ${deployResource}", returnStatus: true)
                                 if (exists != 0) {
                                      echo "--- LẦN ĐẦU: Tạo mới Deployment ${shortName} ---"
                                      // Quan trọng: Create đúng cái tên đã check ở trên

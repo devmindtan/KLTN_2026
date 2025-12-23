@@ -30,11 +30,12 @@ spec:
     }
 
     stages {
+        def isTestPassed = false
         stage('Stage 1: Linting & Unit Test') {
             steps {
                 container('tools') {
                     script {
-                        def isTestPassed = false
+
                         echo "--- TẦNG 1: KIỂM TRA HỆ THỐNG ---"
                         def branch = env.BRANCH_NAME ?: "Unknown Branch"
                         echo "Nhánh hiện tại: ${branch}"
@@ -44,7 +45,7 @@ spec:
                         if(checkDockerConnection()){
                             isTestPassed = true
                             echo "===================================================="
-                            echo "TẦNG 1 HOÀN TẤT!"
+                            echo "TẦNG 1 HOÀN TẤT! - QUA TẦNG 2"
                             echo "===================================================="
                         }
                         else{
@@ -65,12 +66,10 @@ spec:
                     echo "--- TẦNG 2: MÔ PHỎNG BUILD IMAGE ---"
                     echo "Hệ thống sẽ build image từ source code tại đây."
                     script {
-                        def isTestPassed = false
-
                         if(true){
                             isTestPassed = true
                             echo "===================================================="
-                            echo "TẦNG 2 HOÀN TẤT!"
+                            echo "TẦNG 2 HOÀN TẤT! - QUA TẦNG 3"
                             echo "===================================================="
                         }
                         else{

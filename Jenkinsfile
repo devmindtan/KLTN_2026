@@ -52,7 +52,7 @@ spec:
             when {
                 // Chỉ chạy khi code trong thư mục backend hoặc web thay đổi
                 expression {
-                    return True //checkCodeChanges()
+                    return True
                 }
             }
             steps {
@@ -71,7 +71,7 @@ spec:
                     branch 'main'
                 }
                 // Thêm điều kiện: Phải có thay đổi code mới Deploy
-                expression { return True //checkCodeChanges() }
+                expression { return True }
             }
             steps {
                 container('tools') {
@@ -113,16 +113,3 @@ def buildPushDeploy() {
 }
 
 // HÀM HỖ TRỢ (Helper Function) để lọc file thay đổi
-def checkCodeChanges() {
-    // Lấy danh sách file thay đổi giữa commit hiện tại và commit trước đó
-    def changedFiles = sh(script: "git diff --name-only HEAD^ HEAD || true", returnStdout: true).trim()
-
-    // Kiểm tra xem có file nào nằm trong các thư mục code quan trọng không
-    // (Dùng Regex để bỏ qua README.md, .txt, .docs, v.v.)
-    def hasCodeChange = sh(
-        script: "echo \"${changedFiles}\" | grep -E '^(backend/|web/)' | grep -vE '\\.(md|txt|docs)$' || true",
-        returnStatus: true
-    ) == 0
-
-    return hasCodeChange
-}

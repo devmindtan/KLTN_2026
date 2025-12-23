@@ -68,6 +68,7 @@ spec:
                             apps.each { app ->
                                 echo "Đang Build Docker Image cho Backend App: ${app}"
                                 sh """
+                                    pip install pytest --break-system-packages
                                     cd backend/src/apps/${app}
                                     export PYTHONPATH=.
                                     python3 -m pytest tests/ -vs --tb=line

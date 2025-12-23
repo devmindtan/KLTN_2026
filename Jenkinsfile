@@ -142,21 +142,17 @@ def checkDockerConnection() {
 
         // 2. Bây giờ mới tách ra: Một cái để LOG, một cái để BUILD
         if (rawChangedFiles) {
-            // Để Log (chỉ lấy tên file cuối)
-            def logFiles = sh(script: "echo \"${rawChangedFiles}\" | sed -E 's|.*/||'", returnStdout: true).trim()
+            def getBackendCmd = '''
+                echo "$rawChangedFiles" | grep '^backend/src/apps/' | cut -d'/' -f4 | sort | uniq
+            '''.stripIndent().trim()
 
-            // Để Build (lấy tên thư mục App - ví dụ lấy cấp thư mục thứ 4)
-            // Giả sử đường dẫn: backend/src/apps/service_1/...
-            def backendChanged = sh(
-                script: "echo \"${rawChangedFiles}\" | grep '^backend/src/apps/' | cut -d'/' -f4 |
-            uniq",
-                returnStdout: true
-            ).trim()
+            def backendChanged = sh(script: getBackendCmd, returnStdout: true).trim()
 
-            def webChanged = sh(
-                script: "echo \"${rawChangedFiles}\" | grep '^web/pages/' | cut -d'/' -f4 | uniq",
-                returnStdout: true
-            ).trim()
+            def getWebCmd = '''
+                echo "$rawChangedFiles" | grep '^web/' | cut -d'/' -f1 | uniq
+            '''.stripIndent().trim()
+
+        def webChanged = sh(script: getWebCmd, returnStdout: true).trim()
 
             echo "--- FILE THAY ĐỔI: ---"
             echo logFiles

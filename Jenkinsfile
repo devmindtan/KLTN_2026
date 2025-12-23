@@ -1,3 +1,6 @@
+// Tạo biến global
+def isTestPassed = false
+
 pipeline {
     agent {
         kubernetes {
@@ -28,7 +31,6 @@ spec:
         DOCKER_HUB_CREDS = 'docker-hub-creds'
         DOCKER_PRIVATE_REPO = "devmindtan/private-repo"
     }
-    def isTestPassed = false
 
     stages {
         stage('Stage 1: Linting & Unit Test') {

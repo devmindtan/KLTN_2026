@@ -127,13 +127,42 @@ def checkDockerConnection() {
             sh "docker logout"
         }
 
-        def result = sh(script: "git diff --name-only HEAD^ HEAD | sed -E 's|.*/||'", returnStdout: true).trim()
-        def fileList = result.split('\n')
+        // 1. Kiểm tra xem có tồn tại commit cha không
+        def hasParent = sh(script: "git rev-parse HEAD~1", returnStatus: true) == 0
+        def rawChangedFiles = ""
 
-        echo "${fileList}"
+        if (hasParent) {
+            // Có commit cha: Lấy danh sách file thay đổi (giữ nguyên đường dẫn)
+            rawChangedFiles = sh(script: "git diff --name-only HEAD~1 HEAD", returnStdout: true).trim()
+        } else {
+            // Không có commit cha: Coi như thay đổi tất cả (build toàn bộ)
+            echo "Cảnh báo: Không tìm thấy commit cha, quét toàn bộ dự án."
+            rawChangedFiles = sh(script: "git ls-files", returnStdout: true).trim()
+        }
 
-        fileList.each { fileName ->
-            echo "Đang xử lý file: ${fileName}"
+        // 2. Bây giờ mới tách ra: Một cái để LOG, một cái để BUILD
+        if (rawChangedFiles) {
+            // Để Log (chỉ lấy tên file cuối)
+            def logFiles = sh(script: "echo \"${rawChangedFiles}\" | sed -E 's|.*/||'", returnStdout: true).trim()
+
+            // Để Build (lấy tên thư mục App - ví dụ lấy cấp thư mục thứ 4)
+            // Giả sử đường dẫn: backend/src/apps/service_1/...
+            def backendChanged = sh(
+                script: "echo \"${rawChangedFiles}\" | grep '^backend/src/apps/' | cut -d'/' -f4 |
+            uniq",
+                returnStdout: true
+            ).trim()
+
+            def webChanged = sh(
+                script: "echo \"${rawChangedFiles}\" | grep '^web/pages/' | cut -d'/' -f4 | uniq",
+                returnStdout: true
+            ).trim()
+
+            echo "--- FILE THAY ĐỔI: ---"
+            echo logFiles
+            echo "--- CÁC APP CẦN BUILD: ---"
+            echo backendChanged
+            echo webChanged
         }
 
         return true

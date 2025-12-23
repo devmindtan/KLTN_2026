@@ -152,9 +152,9 @@ spec:
                                     "devmindtan/${app}:v1.0.0"
 
                                 // 2. Kiểm tra xem Deployment đã tồn tại chưa
-                                def exists = sh(script: "kubectl get ${deployResource} --ignore-not-found", returnStatus: true)
+                                def exists = sh(script: "kubectl get ${deployResource}", returnStatus: true)
 
-                                if (exists != 0) {
+                                if (exists == 0) {
                                      echo "--- LẦN ĐẦU: Tạo mới Deployment ${shortName} ---"
                                      // Quan trọng: Create đúng cái tên đã check ở trên
                                      sh "kubectl create deployment ${shortName} --image=${imageName}"

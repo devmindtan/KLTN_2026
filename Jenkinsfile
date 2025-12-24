@@ -175,6 +175,7 @@ spec:
                                      // Quan trọng: Create đúng cái tên đã check ở trên
                                      sh """
                                      kubectl create deployment ${shortName} --image=${imageName}
+                                     kubectl rollout restart ${deployResource}
                                      """
 
                                      sh "kubectl expose deployment ${shortName} --type=NodePort --port=80 --target-port=80"

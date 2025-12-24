@@ -12,5 +12,5 @@ def tinh_tong(a, b):
 
 if __name__ == '__main__':
 	for message in count_generator():
-		print(f"Service 1 đang chạy lần: {message}")
+		print(f"Service 1 đang chạy lần (sửa): {message}")
 		time.sleep(2)

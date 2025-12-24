@@ -80,6 +80,19 @@ spec:
                                     export PYTHONPATH=.
                                     python3 -m pytest tests/ -vs --tb=line
                                 """
+                                def imageName = ""
+                                if (env.BRANCH_NAME == 'develop') {
+                                    imageName = "devmindtan/dev-repo:${app}-v1.0.0"
+                                } else {
+                                    imageName = "devmindtan/${app}:v1.0.0"
+                                }
+
+                                echo "Đang Build & Push Image cho Service: ${imageName}"
+                                sh """
+                                    cd backend/src/apps/${app}/src
+                                    docker build -t ${imageName} .
+                                    docker push ${imageName}
+                                """
                             }
                         }
                         if (webAppToBuild) {
@@ -88,7 +101,7 @@ spec:
                                 echo "Đang Build Docker Image cho Frontend (Web): ${app}"
                                 def imageName = ""
                                 if (env.BRANCH_NAME == 'develop') {
-                                    imageName = "devmindtan/private-repo:${app}-v1.0.0"
+                                    imageName = "devmindtan/dev-repo:${app}-v1.0.0"
                                 } else {
                                     imageName = "devmindtan/${app}:v1.0.0"
                                 }
@@ -119,11 +132,11 @@ spec:
                             def apps = backendAppsToBuild.split('\n')
                             apps.each { app ->
                                 echo "Đang Deploy Docker Image cho Backend App: ${app}"
-                                def shortName = (env.BRANCH_NAME == 'develop') ? "private-repo-${app}" : "${app}"
+                                def shortName = (env.BRANCH_NAME == 'develop') ? "dev-repo-${app}" : "${app}"
                                 def deployResource = "deployment/${shortName}"
 
                                 def imageName = (env.BRANCH_NAME == 'develop') ?
-                                    "devmindtan/private-repo:${app}-v1.0.0" :
+                                    "devmindtan/dev-repo:${app}-v1.0.0" :
                                     "devmindtan/${app}:v1.0.0"
 
                                 def exists = sh(script: "kubectl get ${deployResource}", returnStatus: true)
@@ -132,12 +145,12 @@ spec:
                                      // Quan trọng: Create đúng cái tên đã check ở trên
                                      sh """
                                      kubectl create deployment ${shortName} --image=${imageName}
-                                     kubectl patch deployment ${shortName} -p '{"spec":{"template":{"spec":{"imagePullSecrets":[{"name":"my-registry-key"}]}}}}'
                                      """
                                 } else {
                                      echo "--- CẬP NHẬT: Đang set image mới cho ${shortName} ---"
-                                     // Khi dùng lệnh create ở trên, K8s mặc định đặt tên container trùng với tên deployment
-                                     sh "kubectl set image ${deployResource} ${shortName}=${imageName}"
+                                     sh """
+                                        kubectl patch ${deployResource} --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"${imageName}"}]'
+                                     """
                                 }
                                 sh "kubectl rollout status ${deployResource}"
                             }
@@ -147,35 +160,31 @@ spec:
                             apps.each { app ->
                                 echo "Đang Deploy Docker Image cho Web App: ${app}"
                                 // 1. Định nghĩa tên ngắn gọn cho Deployment (Không đổi qua các lần build)
-                                def shortName = (env.BRANCH_NAME == 'develop') ? "private-repo-${app}" : "${app}"
+                                def shortName = (env.BRANCH_NAME == 'develop') ? "dev-repo-${app}" : "${app}"
                                 def deployResource = "deployment/${shortName}"
 
                                 def imageName = (env.BRANCH_NAME == 'develop') ?
-                                    "devmindtan/private-repo:${app}-v1.0.0" :
+                                    "devmindtan/dev-repo:${app}-v1.0.0" :
                                     "devmindtan/${app}:v1.0.0"
 
                                 // 2. Kiểm tra xem Deployment đã tồn tại chưa
                                 def exists = sh(script: "kubectl get ${deployResource}", returnStatus: true)
 
-                                if (exists == 0) {
+                                if (exists != 0) {
                                      echo "--- LẦN ĐẦU: Tạo mới Deployment ${shortName} ---"
                                      // Quan trọng: Create đúng cái tên đã check ở trên
                                      sh """
                                      kubectl create deployment ${shortName} --image=${imageName}
-                                     kubectl patch deployment ${shortName} -p '{"spec":{"template":{"spec":{"imagePullSecrets":[{"name":"my-registry-key"}]}}}}'
                                      """
 
-                                     def targetPort = (app.contains('web-user')) ? 5173 : 5174
-
-                                     sh """
-                                     kubectl expose deployment ${shortName} --type=NodePort --port=80
-                                     --target-port=${targetPort}
-                                     """
+                                     sh "kubectl expose deployment ${shortName} --type=NodePort --port=80 --target-port=80"
 
                                 } else {
                                      echo "--- CẬP NHẬT: Đang set image mới cho ${shortName} ---"
                                      // Khi dùng lệnh create ở trên, K8s mặc định đặt tên container trùng với tên deployment
-                                     sh "kubectl set image ${deployResource} ${shortName}=${imageName}"
+                                     sh """
+                                        kubectl patch ${deployResource} --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"${imageName}"}]'
+                                     """
                                 }
 
                                 // 3. Đợi K8s thay thế Pod cũ bằng Pod mới thành công

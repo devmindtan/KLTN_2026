@@ -34,6 +34,7 @@ spec:
     environment {
         DOCKER_USER = "devmindtan"
         DOCKER_HUB_CREDS = 'docker-hub-creds'
+        APP_VERSION = "1.0.${env.BUILD_ID}"
     }
 
     stages {
@@ -82,7 +83,7 @@ spec:
                                 """
                                 def imageName = ""
                                 if (env.BRANCH_NAME == 'develop') {
-                                    imageName = "devmindtan/dev-repo:${app}-v1.0.0"
+                                    imageName = "devmindtan/dev-repo:${app}-v${APP_VERSION}"
                                 } else {
                                     imageName = "devmindtan/${app}:v1.0.0"
                                 }
@@ -101,7 +102,7 @@ spec:
                                 echo "Đang Build Docker Image cho Frontend (Web): ${app}"
                                 def imageName = ""
                                 if (env.BRANCH_NAME == 'develop') {
-                                    imageName = "devmindtan/dev-repo:${app}-v1.0.0"
+                                    imageName = "devmindtan/dev-repo:${app}-v${APP_VERSION}"
                                 } else {
                                     imageName = "devmindtan/${app}:v1.0.0"
                                 }
@@ -136,7 +137,7 @@ spec:
                                 def deployResource = "deployment/${shortName}"
 
                                 def imageName = (env.BRANCH_NAME == 'develop') ?
-                                    "devmindtan/dev-repo:${app}-v1.0.0" :
+                                    "devmindtan/dev-repo:${app}-v${APP_VERSION}" :
                                     "devmindtan/${app}:v1.0.0"
 
                                 def exists = sh(script: "kubectl get ${deployResource}", returnStatus: true)
@@ -146,6 +147,9 @@ spec:
                                      sh """
                                      kubectl create deployment ${shortName} --image=${imageName}
                                      """
+                                     sh """
+                                        kubectl patch deployment ${shortName} --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"Always"}]'
+                                     """
                                 } else {
                                      echo "--- CẬP NHẬT: Đang set image mới cho ${shortName} ---"
                                      sh """
@@ -153,6 +157,7 @@ spec:
                                      """
                                 }
                                 sh "kubectl rollout status ${deployResource}"
+                                sh "docker rmi -f ${imageName}"
                             }
                         }
                         if (webAppToBuild) {
@@ -164,7 +169,7 @@ spec:
                                 def deployResource = "deployment/${shortName}"
 
                                 def imageName = (env.BRANCH_NAME == 'develop') ?
-                                    "devmindtan/dev-repo:${app}-v1.0.0" :
+                                    "devmindtan/dev-repo:${app}-v${APP_VERSION}" :
                                     "devmindtan/${app}:v1.0.0"
 
                                 // 2. Kiểm tra xem Deployment đã tồn tại chưa
@@ -175,7 +180,10 @@ spec:
                                      // Quan trọng: Create đúng cái tên đã check ở trên
                                      sh """
                                      kubectl create deployment ${shortName} --image=${imageName}
-                                     kubectl rollout restart ${deployResource}
+                                     """
+
+                                     sh """
+                                        kubectl patch deployment ${shortName} --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"Always"}]'
                                      """
 
                                      sh "kubectl expose deployment ${shortName} --type=NodePort --port=80 --target-port=80"
@@ -190,6 +198,7 @@ spec:
 
                                 // 3. Đợi K8s thay thế Pod cũ bằng Pod mới thành công
                                 sh "kubectl rollout status ${deployResource}"
+                                sh "docker rmi -f ${imageName}"
                             }
                         }
                     }

@@ -1,5 +1,5 @@
 "use client"
-import {createBrowserRouter, RouterProvider, Outlet} from "react-router-dom";
+import {createBrowserRouter, RouterProvider, Outlet, Navigate} from "react-router-dom";
 import {SidebarProvider, SidebarInset} from "@/components/ui/sidebar";
 import {AppSidebar} from "@/components/app-sidebar";
 import Dashboard from "@/pages/dashboard.tsx";
@@ -22,12 +22,12 @@ const RootLayout = () => (
 
 const router = createBrowserRouter([
   {
-    path: "/user",
+    path: "/user/",
     element: <RootLayout/>,
     children: [
       {
-        index: true,
-        element: <Dashboard/>,
+        path: "",
+        element: <Navigate to="/user/dashboard" replace/>
       },
       {path: "dashboard", element: <Dashboard/>},
       {path: "settings", element: <Setting/>},

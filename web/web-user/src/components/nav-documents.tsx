@@ -22,29 +22,32 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import {NavLink, useLocation} from "react-router-dom";
 
 export function NavDocuments({
-  items,
-}: {
+                               items,
+                             }: {
   items: {
     name: string
     url: string
     icon: LucideIcon
   }[]
 }) {
-  const { isMobile } = useSidebar()
-
+  const {isMobile} = useSidebar()
+  const {pathname} = useLocation()
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
       <SidebarGroupLabel>Documents</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => (
           <SidebarMenuItem key={item.name}>
-            <SidebarMenuButton asChild>
-              <a href={item.url}>
-                <item.icon />
+            <SidebarMenuButton asChild isActive={pathname === item.url}>
+              <NavLink
+                to={item.url}
+              >
+                <item.icon/>
                 <span>{item.name}</span>
-              </a>
+              </NavLink>
             </SidebarMenuButton>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -52,7 +55,7 @@ export function NavDocuments({
                   showOnHover
                   className="rounded-sm data-[state=open]:bg-accent"
                 >
-                  <MoreHorizontalIcon />
+                  <MoreHorizontalIcon/>
                   <span className="sr-only">More</span>
                 </SidebarMenuAction>
               </DropdownMenuTrigger>
@@ -62,11 +65,11 @@ export function NavDocuments({
                 align={isMobile ? "end" : "start"}
               >
                 <DropdownMenuItem>
-                  <FolderIcon />
+                  <FolderIcon/>
                   <span>Open</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
-                  <ShareIcon />
+                  <ShareIcon/>
                   <span>Share</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -75,7 +78,7 @@ export function NavDocuments({
         ))}
         <SidebarMenuItem>
           <SidebarMenuButton className="text-sidebar-foreground/70">
-            <MoreHorizontalIcon className="text-sidebar-foreground/70" />
+            <MoreHorizontalIcon className="text-sidebar-foreground/70"/>
             <span>More</span>
           </SidebarMenuButton>
         </SidebarMenuItem>

@@ -1,4 +1,5 @@
 import {type LucideIcon} from "lucide-react"
+import {NavLink, useLocation} from "react-router-dom" // 1. Import NavLink
 
 import {
   SidebarGroup,
@@ -17,20 +18,19 @@ export function NavMain({
     icon?: LucideIcon
   }[]
 }) {
+  const {pathname} = useLocation()
   return (
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
         <SidebarMenu>
-          <SidebarMenuItem className="flex items-center gap-2">
-
-          </SidebarMenuItem>
-        </SidebarMenu>
-        <SidebarMenu>
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton tooltip={item.title}>
-                {item.icon && <item.icon/>}
-                <span>{item.title}</span>
+              {/* 2. Thêm asChild để SidebarMenuButton đóng vai trò là Link */}
+              <SidebarMenuButton asChild tooltip={item.title} isActive={pathname === item.url}>
+                <NavLink to={item.url}>
+                  {item.icon && <item.icon/>}
+                  <span>{item.title}</span>
+                </NavLink>
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}

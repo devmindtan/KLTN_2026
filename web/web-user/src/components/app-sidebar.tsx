@@ -1,5 +1,4 @@
 "use client"
-
 import * as React from "react"
 import {
   IconCamera,
@@ -18,7 +17,7 @@ import {
   IconSettings,
   IconUsers,
 } from "@tabler/icons-react"
-
+import {NavLink} from "react-router-dom"
 import {NavDocuments} from "@/components/nav-documents"
 import {NavMain} from "@/components/nav-main"
 import {NavSecondary} from "@/components/nav-secondary"
@@ -42,7 +41,7 @@ const data = {
   navMain: [
     {
       title: "Dashboard",
-      url: "#",
+      url: "/user/dashboard",
       icon: IconDashboard,
     },
     {
@@ -117,7 +116,7 @@ const data = {
   navSecondary: [
     {
       title: "Settings",
-      url: "#",
+      url: "/user/settings",
       icon: IconSettings,
     },
     {
@@ -134,7 +133,7 @@ const data = {
   documents: [
     {
       name: "Data Library",
-      url: "#",
+      url: "/user/data-library",
       icon: IconDatabase,
     },
     {
@@ -160,10 +159,10 @@ export function AppSidebar({...props}: React.ComponentProps<typeof Sidebar>) {
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
-              <a href="#">
+              <NavLink to="/user/dashboard">
                 <IconInnerShadowTop className="!size-5"/>
                 <span className="text-base font-semibold">Acme Inc.</span>
-              </a>
+              </NavLink>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

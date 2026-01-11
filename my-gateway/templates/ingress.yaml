@@ -1,0 +1,55 @@
+# PHẦN 1: Dành cho các Web Apps (Tech và User)
+# Cần Regex và Rewrite để Nginx bên trong Pod hiểu được request từ thư mục gốc (/)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-web-apps
+  annotations:
+    # Sử dụng Nginx làm controller
+    kubernetes.io/ingress.class: nginx
+    # Ma thuật rewrite: Biến /web-user/abc thành /abc khi gửi vào Pod
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    # Bật tính năng Regex để xử lý đuôi (/|$)(.*)
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    # Cấu hình CORS để Frontend gọi được Backend mà không bị trình duyệt chặn
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+spec:
+  rules:
+  - host: {{ .Values.ingress.host }}
+    http:
+      paths:
+      {{- range $key, $val := .Values.apps }}
+      {{- if ne $val.name "jenkins" }}
+      - path: {{ $val.path }}(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: {{ $val.name }}
+            port:
+              number: 80
+      {{- end }}
+      {{- end }}
+---
+# PHẦN 2: Dành riêng cho Jenkins
+# KHÔNG dùng Rewrite vì Jenkins đã được cấu hình tự nhận diện prefix /jenkins
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-jenkins
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    # Cho phép upload file lớn lên Jenkins
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+spec:
+  rules:
+  - host: {{ .Values.ingress.host }}
+    http:
+      paths:
+      - path: /jenkins
+        pathType: Prefix
+        backend:
+          service:
+            name: jenkins
+            port:
+              number: 8080

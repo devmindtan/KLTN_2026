@@ -23,7 +23,7 @@ FROM nginx:stable-alpine AS production-stage
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # 2. Copy code đã build vào thư mục mà nginx.conf trỏ tới
-COPY --from=build-stage /app/dist /usr/share/nginx/html
+COPY --from=build-stage /app/dist /usr/share/nginx/html/user
 
 # Mở cổng 80 cho Nginx (Kớp với cổng --port 80 trong Jenkinsfile của bạn)
 EXPOSE 80

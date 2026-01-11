@@ -1,12 +1,15 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react-swc'
+import path from "path";
+import tailwindcss from "@tailwindcss/vite";
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vite";
 
 // https://vite.dev/config/
 export default defineConfig({
-    plugins: [react()],
-    server: {
-        port: 5173,
-        strictPort: true, // Nếu cổng 3000 đã bị dùng, Vite sẽ báo lỗi thay vì tự đổi sang cổng khác
-        host: '0.0.0.0',
-    }
-})
+  base: "/user/",
+  plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
+});

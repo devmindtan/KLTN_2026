@@ -1,0 +1,70 @@
+import gevent.monkey
+
+gevent.monkey.patch_all()
+
+from flask import Flask, request
+from flask_socketio import SocketIO
+import logging
+import socket
+import psutil
+
+app = Flask(__name__)
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent')
+
+logging.basicConfig(
+	level=logging.INFO,
+	format='%(asctime)s - %(levelname)s - %(message)s',
+	datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
+
+
+def get_ip():
+	"""Hàm lấy IP nội bộ của máy/container"""
+	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+	try:
+		# không cần kết nối thật, chỉ để lấy interface mạng đang dùng
+		s.connect(('8.8.8.8', 1))
+		IP = s.getsockname()[0]
+		print(IP)
+	except Exception:
+		IP = '127.0.0.1'
+	finally:
+		s.close()
+	return IP
+
+
+def show_all_ips(port):
+	"""Quét và in ra tất cả các IP khả dụng trên máy"""
+	print("\n" + "=" * 60)
+	print(f"🚀 BACKEND SERVER IS RUNNING (Listening on 0.0.0.0:{port})")
+	print("--- Các địa chỉ bạn có thể dùng để gọi Webhook: ---")
+	
+	interfaces = psutil.net_if_addrs()
+	for iface_name, addresses in interfaces.items():
+		for addr in addresses:
+			# Chỉ lấy IPv4 (AddressFamily.AF_INET) và bỏ qua loopback (127.0.0.1)
+			if addr.family == socket.AF_INET:
+				print(f" ➤ {iface_name:12}: http://{addr.address}:{port}")
+	
+	print(f"🛠  Mode: Production (Gevent)")
+	print("=" * 60 + "\n")
+
+
+@app.route('/webhook', methods=['POST'])
+def fiware_webhook():
+	payload = request.json
+	logger.info("--- Nhận từ Orion ---")
+	if payload and 'data' in payload:
+		for entity in payload['data']:
+			socketio.emit('CAMERA_UPDATED', entity)
+			logger.info(f"Đã emit dữ liệu của: {entity['id']}")
+	return "", 204
+
+
+if __name__ == '__main__':
+	internal_ip = get_ip()
+	port = 5000
+	
+	show_all_ips(port)
+	socketio.run(app, host='0.0.0.0', port=port)

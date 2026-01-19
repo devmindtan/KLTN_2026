@@ -1,0 +1,7 @@
+aiohttp==3.13.3
+boto3==1.42.27
+numpy==2.4.1
+opencv-python-headless
+psycopg2_binary==2.9.11
+python-dotenv==1.2.1
+ultralytics==8.4.0

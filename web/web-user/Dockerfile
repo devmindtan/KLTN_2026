@@ -1,32 +1,32 @@
 # --- Giai đoạn 1: Build dự án ---
 FROM node:20-alpine AS build-stage
 
-# Đặt thư mục làm việc
 WORKDIR /app
 
-# Copy các file quản lý thư viện vào trước để tận dụng Docker Cache
-COPY package*.json ./
+# Định nghĩa các tham số nhận vào từ câu lệnh build
+ARG VITE_SOCKET_URL
+ARG VITE_MINIO_URL
 
-# Cài đặt thư viện
+# Chuyển tham số ARG thành biến ENV để Vite nhận ra lúc build
+ENV VITE_SOCKET_URL=$VITE_SOCKET_URL
+ENV VITE_MINIO_URL=$VITE_MINIO_URL
+
+COPY package*.json ./
 RUN npm install
 
-# Copy toàn bộ code nguồn vào container
 COPY . .
 
-# Build dự án ra thư mục dist
+# Khi lệnh này chạy, Vite sẽ tìm các biến ENV bắt đầu bằng VITE_ để nhúng vào JS
 RUN npm run build
 
 # --- Giai đoạn 2: Chạy với Nginx ---
 FROM nginx:stable-alpine AS production-stage
 
-# 1. Copy file cấu hình tùy chỉnh vào đúng chỗ của Nginx
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# 2. Copy code đã build vào thư mục mà nginx.conf trỏ tới
+# Lưu ý: Sửa lại đường dẫn đích nếu nginx.conf của bạn trỏ vào /usr/share/nginx/html/user
 COPY --from=build-stage /app/dist /usr/share/nginx/html/user
 
-# Mở cổng 80 cho Nginx (Kớp với cổng --port 80 trong Jenkinsfile của bạn)
 EXPOSE 80
 
-# Chạy Nginx
 CMD ["nginx", "-g", "daemon off;"]

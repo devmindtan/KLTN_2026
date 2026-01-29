@@ -3,3 +3,4 @@
 *.key
 *.pem
 k8s-configs
+*.joblib

@@ -99,10 +99,6 @@ async def update_fiware(camera_id, detections, total_objects, minio_key):
         "type": "Camera",
         "total_objects": {"type": "Integer", "value": total_objects},
         "detections": {"type": "StructuredValue", "value": detections},
-        "prediction": {
-            "type": "StructuredValue",
-            "value": {"next_5_mins": 45, "status": "congested", "confidence": 0.89},
-        },
         "minio_key": {"type": "Text", "value": minio_key},
         "last_updated": {"type": "DateTime", "value": datetime.now().isoformat()},
     }

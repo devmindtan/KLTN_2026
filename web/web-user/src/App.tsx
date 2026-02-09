@@ -7,17 +7,20 @@ import Setting from "@/pages/setting.tsx";
 
 import {SiteHeader} from "@/components/site-header"
 import DataLibrary from "@/pages/data-library.tsx";
+import {SocketProvider} from "@/contexts/SocketContext";
 
 const RootLayout = () => (
-  <SidebarProvider>
-    <AppSidebar/>
-    <SidebarInset data-slot="sidebar-inset">
-      <SiteHeader/>
-      <main className="flex flex-1 flex-col">
-        <Outlet/>
-      </main>
-    </SidebarInset>
-  </SidebarProvider>
+  <SocketProvider>
+    <SidebarProvider>
+      <AppSidebar/>
+      <SidebarInset data-slot="sidebar-inset">
+        <SiteHeader/>
+        <main className="flex flex-1 flex-col">
+          <Outlet/>
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
+  </SocketProvider>
 );
 
 const router = createBrowserRouter([

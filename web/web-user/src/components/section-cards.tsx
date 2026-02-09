@@ -1,4 +1,4 @@
-import { TrendingDownIcon, TrendingUpIcon } from "lucide-react"
+import { TrendingDownIcon, TrendingUpIcon, ActivityIcon, CameraIcon } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import {
@@ -9,91 +9,142 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
-export function SectionCards() {
+interface Metrics {
+  totalVehicles: number;
+  totalCars: number;
+  totalMotorbikes: number;
+  avgVehiclesPerCamera: number;
+  activeCameras: number;
+  clearStatus: number;
+  congestionStatus: number;
+  trendingUp: number;
+  trendingDown: number;
+}
+
+interface SectionCardsProps {
+  metrics: Metrics;
+  isConnected: boolean;
+}
+
+export function SectionCards({ metrics, isConnected }: SectionCardsProps) {
+  const trendPercentage = metrics.activeCameras > 0
+    ? Math.round((metrics.trendingUp / metrics.activeCameras) * 100)
+    : 0;
+
+  const congestionPercentage = metrics.activeCameras > 0
+    ? Math.round((metrics.congestionStatus / metrics.activeCameras) * 100)
+    : 0;
+
   return (
     <div className="*:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4 grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card lg:px-6">
       <Card className="@container/card">
         <CardHeader className="relative">
-          <CardDescription>Total Revenue</CardDescription>
+          <CardDescription>Total Vehicles</CardDescription>
           <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
-            $1,250.00
+            {metrics.totalVehicles}
           </CardTitle>
           <div className="absolute right-4 top-4">
-            <Badge variant="outline" className="flex gap-1 rounded-lg text-xs">
-              <TrendingUpIcon className="size-3" />
-              +12.5%
+            <Badge
+              variant="outline"
+              className={`flex gap-1 rounded-lg text-xs ${
+                isConnected ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"
+              }`}
+            >
+              <ActivityIcon className="size-3" />
+              {isConnected ? "Live" : "Offline"}
             </Badge>
           </div>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Trending up this month <TrendingUpIcon className="size-4" />
+          <div className="line-clamp-1 flex gap-2 font-medium text-muted-foreground">
+            Cars: {metrics.totalCars} • Motorbikes: {metrics.totalMotorbikes}
           </div>
           <div className="text-muted-foreground">
-            Visitors for the last 6 months
+            Real-time vehicle detection
           </div>
         </CardFooter>
       </Card>
+
       <Card className="@container/card">
         <CardHeader className="relative">
-          <CardDescription>New Customers</CardDescription>
+          <CardDescription>Active Cameras</CardDescription>
           <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
-            1,234
+            {metrics.activeCameras}
           </CardTitle>
           <div className="absolute right-4 top-4">
             <Badge variant="outline" className="flex gap-1 rounded-lg text-xs">
-              <TrendingDownIcon className="size-3" />
-              -20%
+              <CameraIcon className="size-3" />
+              Online
             </Badge>
           </div>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            Down 20% this period <TrendingDownIcon className="size-4" />
+            Avg: {metrics.avgVehiclesPerCamera} vehicles/cam
           </div>
           <div className="text-muted-foreground">
-            Acquisition needs attention
+            Monitoring traffic flow
           </div>
         </CardFooter>
       </Card>
+
       <Card className="@container/card">
         <CardHeader className="relative">
-          <CardDescription>Active Accounts</CardDescription>
+          <CardDescription>Traffic Status</CardDescription>
           <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
-            45,678
+            {metrics.clearStatus}/{metrics.activeCameras}
           </CardTitle>
           <div className="absolute right-4 top-4">
-            <Badge variant="outline" className="flex gap-1 rounded-lg text-xs">
-              <TrendingUpIcon className="size-3" />
-              +12.5%
+            <Badge
+              variant="outline"
+              className={`flex gap-1 rounded-lg text-xs ${
+                congestionPercentage > 50
+                  ? "bg-red-500/10 text-red-600"
+                  : "bg-green-500/10 text-green-600"
+              }`}
+            >
+              {congestionPercentage > 50 ? "⚠️" : "✓"} {congestionPercentage}%
             </Badge>
           </div>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            Strong user retention <TrendingUpIcon className="size-4" />
+            Clear roads detected
           </div>
-          <div className="text-muted-foreground">Engagement exceed targets</div>
+          <div className="text-muted-foreground">
+            {metrics.congestionStatus} cameras show congestion
+          </div>
         </CardFooter>
       </Card>
+
       <Card className="@container/card">
         <CardHeader className="relative">
-          <CardDescription>Growth Rate</CardDescription>
+          <CardDescription>Traffic Trend</CardDescription>
           <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
-            4.5%
+            {trendPercentage}%
           </CardTitle>
           <div className="absolute right-4 top-4">
             <Badge variant="outline" className="flex gap-1 rounded-lg text-xs">
-              <TrendingUpIcon className="size-3" />
-              +4.5%
+              {metrics.trendingUp > metrics.trendingDown ? (
+                <TrendingUpIcon className="size-3 text-orange-500" />
+              ) : (
+                <TrendingDownIcon className="size-3 text-green-500" />
+              )}
+              {metrics.trendingUp > metrics.trendingDown ? "Up" : "Down"}
             </Badge>
           </div>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            Steady performance <TrendingUpIcon className="size-4" />
+            {metrics.trendingUp > metrics.trendingDown ? (
+              <>Traffic increasing <TrendingUpIcon className="size-4 text-orange-500" /></>
+            ) : (
+              <>Traffic decreasing <TrendingDownIcon className="size-4 text-green-500" /></>
+            )}
           </div>
-          <div className="text-muted-foreground">Meets growth projections</div>
+          <div className="text-muted-foreground">
+            {metrics.trendingUp} up • {metrics.trendingDown} down
+          </div>
         </CardFooter>
       </Card>
     </div>

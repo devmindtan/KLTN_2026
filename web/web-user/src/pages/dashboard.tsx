@@ -1,20 +1,87 @@
-import {ChartAreaInteractive} from "@/components/chart-area-interactive"
-import {DataTable} from "@/components/data-table"
-import {SectionCards} from "@/components/section-cards"
-import data from "../mock/data.json"
+"use client";
+import { useMemo } from "react";
+import { ChartAreaInteractive } from "@/components/chart-area-interactive";
+import { DataTable } from "@/components/data-table";
+import { SectionCards } from "@/components/section-cards";
+// import { SocketDebug } from "@/components/socket-debug";
+import { useSocket } from "@/contexts/SocketContext";
 
 export default function Dashboard() {
+  // Lấy dữ liệu từ Global Socket Context
+  const { processedCameras, isConnected } = useSocket();
+
+  // Calculate aggregate metrics từ processedCameras
+  const metrics = useMemo(() => {
+    if (processedCameras.length === 0) {
+      return {
+        totalVehicles: 0,
+        totalCars: 0,
+        totalMotorbikes: 0,
+        avgVehiclesPerCamera: 0,
+        activeCameras: 0,
+        clearStatus: 0,
+        congestionStatus: 0,
+        trendingUp: 0,
+        trendingDown: 0,
+      };
+    }
+
+    const totalVehicles = processedCameras.reduce(
+      (sum, cam) => sum + cam.totalObjects,
+      0
+    );
+    const totalCars = processedCameras.reduce((sum, cam) => sum + cam.carCount, 0);
+    const totalMotorbikes = processedCameras.reduce(
+      (sum, cam) => sum + cam.motorbikeCount,
+      0
+    );
+    const activeCameras = processedCameras.length;
+    const avgVehiclesPerCamera =
+      activeCameras > 0 ? Math.round(totalVehicles / activeCameras) : 0;
+
+    const clearStatus = processedCameras.filter(
+      (cam) => cam.status === "clear"
+    ).length;
+    const congestionStatus = processedCameras.filter(
+      (cam) => cam.status === "congestion"
+    ).length;
+
+    const trendingUp = processedCameras.filter(
+      (cam) => cam.trend === "increasing"
+    ).length;
+    const trendingDown = processedCameras.filter(
+      (cam) => cam.trend === "decreasing"
+    ).length;
+
+    return {
+      totalVehicles,
+      totalCars,
+      totalMotorbikes,
+      avgVehiclesPerCamera,
+      activeCameras,
+      clearStatus,
+      congestionStatus,
+      trendingUp,
+      trendingDown,
+    };
+  }, [processedCameras]);
+
   return (
     <div className="flex flex-1 flex-col">
       <div className="@container/main flex flex-1 flex-col gap-2">
         <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-          <SectionCards/>
+          {/* Debug Panel - Remove this after debugging */}
+          {/* <div className="px-4 lg:px-6"> */}
+          {/*   <SocketDebug /> */}
+          {/* </div> */}
+
+          <SectionCards metrics={metrics} isConnected={isConnected} />
           <div className="px-4 lg:px-6">
-            <ChartAreaInteractive/>
+            <ChartAreaInteractive cameras={processedCameras} />
           </div>
-          <DataTable data={data}/>
+          <DataTable data={processedCameras} />
         </div>
       </div>
     </div>
-  )
+  );
 }

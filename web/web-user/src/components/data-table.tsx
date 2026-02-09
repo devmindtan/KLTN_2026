@@ -46,9 +46,10 @@ import {
   MoreVerticalIcon,
   PlusIcon,
   TrendingUpIcon,
+  TrendingDownIcon,
 } from "lucide-react"
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
-import { toast } from "sonner"
+// import { toast } from "sonner"
 import { z } from "zod"
 
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -69,7 +70,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
+// import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -100,22 +101,33 @@ import {
 import {
   Tabs,
   TabsContent,
-  TabsList,
-  TabsTrigger,
+  // TabsList,
+  // TabsTrigger,
 } from "@/components/ui/tabs"
 
+// Camera data schema for traffic monitoring
 export const schema = z.object({
-  id: z.number(),
-  header: z.string(),
-  type: z.string(),
+  id: z.string(),
+  shortId: z.string(),
+  totalObjects: z.number(),
+  carCount: z.number(),
+  motorbikeCount: z.number(),
+  imageUrl: z.string(),
+  lastUpdated: z.string(),
   status: z.string(),
-  target: z.string(),
-  limit: z.string(),
-  reviewer: z.string(),
+  trend: z.string(),
+  forecasts: z.object({
+    "5m": z.number(),
+    "10m": z.number(),
+    "15m": z.number(),
+    "30m": z.number(),
+    "60m": z.number(),
+  }),
+  lastPredicted: z.string(),
 })
 
 // Create a separate component for the drag handle
-function DragHandle({ id }: { id: number }) {
+function DragHandle({ id }: { id: string }) {
   const { attributes, listeners } = useSortable({
     id,
   })
@@ -167,20 +179,23 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     enableHiding: false,
   },
   {
-    accessorKey: "header",
-    header: "Header",
+    accessorKey: "shortId",
+    header: "Camera ID",
     cell: ({ row }) => {
       return <TableCellViewer item={row.original} />
     },
     enableHiding: false,
   },
   {
-    accessorKey: "type",
-    header: "Section Type",
+    accessorKey: "totalObjects",
+    header: "Total Vehicles",
     cell: ({ row }) => (
-      <div className="w-32">
-        <Badge variant="outline" className="px-1.5 text-muted-foreground">
-          {row.original.type}
+      <div className="flex items-center gap-2">
+        <span className="text-lg font-semibold tabular-nums">
+          {row.original.totalObjects}
+        </span>
+        <Badge variant="outline" className="px-1.5 text-xs">
+          🚗 {row.original.carCount} • 🏍️ {row.original.motorbikeCount}
         </Badge>
       </div>
     ),
@@ -191,103 +206,67 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     cell: ({ row }) => (
       <Badge
         variant="outline"
-        className="flex gap-1 px-1.5 text-muted-foreground [&_svg]:size-3"
+        className={`flex gap-1 px-2 py-1 ${row.original.status === "clear"
+          ? "bg-green-500/10 text-green-600"
+          : row.original.status === "congestion"
+            ? "bg-red-500/10 text-red-600"
+            : "bg-gray-500/10 text-gray-600"
+          }`}
       >
-        {row.original.status === "Done" ? (
-          <CheckCircle2Icon className="text-green-500 dark:text-green-400" />
+        {row.original.status === "clear" ? (
+          <CheckCircle2Icon className="size-3" />
         ) : (
-          <LoaderIcon />
+          <LoaderIcon className="size-3" />
         )}
         {row.original.status}
       </Badge>
     ),
   },
   {
-    accessorKey: "target",
-    header: () => <div className="w-full text-right">Target</div>,
+    accessorKey: "trend",
+    header: "Trend",
     cell: ({ row }) => (
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          toast.promise(new Promise((resolve) => setTimeout(resolve, 1000)), {
-            loading: `Saving ${row.original.header}`,
-            success: "Done",
-            error: "Error",
-          })
-        }}
+      <Badge
+        variant="outline"
+        className={`flex gap-1 px-2 ${row.original.trend === "increasing"
+          ? "text-orange-600"
+          : row.original.trend === "decreasing"
+            ? "text-green-600"
+            : "text-gray-600"
+          }`}
       >
-        <Label htmlFor={`${row.original.id}-target`} className="sr-only">
-          Target
-        </Label>
-        <Input
-          className="h-8 w-16 border-transparent bg-transparent text-right shadow-none hover:bg-input/30 focus-visible:border focus-visible:bg-background"
-          defaultValue={row.original.target}
-          id={`${row.original.id}-target`}
-        />
-      </form>
+        {row.original.trend === "increasing" ? (
+          <TrendingUpIcon className="size-3" />
+        ) : row.original.trend === "decreasing" ? (
+          <TrendingDownIcon className="size-3" />
+        ) : null}
+        {row.original.trend}
+      </Badge>
     ),
   },
   {
-    accessorKey: "limit",
-    header: () => <div className="w-full text-right">Limit</div>,
+    accessorKey: "forecasts.5m",
+    header: () => <div className="w-full text-center">5min Forecast</div>,
     cell: ({ row }) => (
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          toast.promise(new Promise((resolve) => setTimeout(resolve, 1000)), {
-            loading: `Saving ${row.original.header}`,
-            success: "Done",
-            error: "Error",
-          })
-        }}
-      >
-        <Label htmlFor={`${row.original.id}-limit`} className="sr-only">
-          Limit
-        </Label>
-        <Input
-          className="h-8 w-16 border-transparent bg-transparent text-right shadow-none hover:bg-input/30 focus-visible:border focus-visible:bg-background"
-          defaultValue={row.original.limit}
-          id={`${row.original.id}-limit`}
-        />
-      </form>
+      <div className="text-center font-semibold tabular-nums">
+        {Math.round(row.original.forecasts["5m"])}
+      </div>
     ),
   },
   {
-    accessorKey: "reviewer",
-    header: "Reviewer",
-    cell: ({ row }) => {
-      const isAssigned = row.original.reviewer !== "Assign reviewer"
-
-      if (isAssigned) {
-        return row.original.reviewer
-      }
-
-      return (
-        <>
-          <Label htmlFor={`${row.original.id}-reviewer`} className="sr-only">
-            Reviewer
-          </Label>
-          <Select>
-            <SelectTrigger
-              className="h-8 w-40"
-              id={`${row.original.id}-reviewer`}
-            >
-              <SelectValue placeholder="Assign reviewer" />
-            </SelectTrigger>
-            <SelectContent align="end">
-              <SelectItem value="Eddie Lake">Eddie Lake</SelectItem>
-              <SelectItem value="Jamik Tashpulatov">
-                Jamik Tashpulatov
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </>
-      )
-    },
+    accessorKey: "lastUpdated",
+    header: "Last Updated",
+    cell: ({ row }) => (
+      <div className="text-xs text-muted-foreground">
+        {row.original.lastUpdated
+          ? new Date(row.original.lastUpdated).toLocaleString()
+          : "N/A"}
+      </div>
+    ),
   },
   {
     id: "actions",
-    cell: () => (
+    cell: ({ }) => (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -299,12 +278,12 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
             <span className="sr-only">Open menu</span>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-32">
-          <DropdownMenuItem>Edit</DropdownMenuItem>
-          <DropdownMenuItem>Make a copy</DropdownMenuItem>
-          <DropdownMenuItem>Favorite</DropdownMenuItem>
+        <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuItem>View Details</DropdownMenuItem>
+          <DropdownMenuItem>View History</DropdownMenuItem>
+          <DropdownMenuItem>Download Image</DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem>Delete</DropdownMenuItem>
+          <DropdownMenuItem className="text-red-600">Reset Data</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     ),
@@ -375,7 +354,7 @@ export function DataTable({
       columnFilters,
       pagination,
     },
-    getRowId: (row) => row.id.toString(),
+    getRowId: (row) => row.id,
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
@@ -403,49 +382,16 @@ export function DataTable({
 
   return (
     <Tabs
-      defaultValue="outline"
+      defaultValue="cameras"
       className="flex w-full flex-col justify-start gap-6"
     >
       <div className="flex items-center justify-between px-4 lg:px-6">
-        <Label htmlFor="view-selector" className="sr-only">
-          View
-        </Label>
-        <Select defaultValue="outline">
-          <SelectTrigger
-            className="@4xl/main:hidden flex w-fit"
-            id="view-selector"
-          >
-            <SelectValue placeholder="Select a view" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="outline">Outline</SelectItem>
-            <SelectItem value="past-performance">Past Performance</SelectItem>
-            <SelectItem value="key-personnel">Key Personnel</SelectItem>
-            <SelectItem value="focus-documents">Focus Documents</SelectItem>
-          </SelectContent>
-        </Select>
-        <TabsList className="@4xl/main:flex hidden">
-          <TabsTrigger value="outline">Outline</TabsTrigger>
-          <TabsTrigger value="past-performance" className="gap-1">
-            Past Performance{" "}
-            <Badge
-              variant="secondary"
-              className="flex h-5 w-5 items-center justify-center rounded-full bg-muted-foreground/30"
-            >
-              3
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="key-personnel" className="gap-1">
-            Key Personnel{" "}
-            <Badge
-              variant="secondary"
-              className="flex h-5 w-5 items-center justify-center rounded-full bg-muted-foreground/30"
-            >
-              2
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="focus-documents">Focus Documents</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold">Live Camera Feed</h2>
+          <Badge variant="secondary" className="flex h-5 items-center justify-center rounded-full px-2">
+            {table.getFilteredRowModel().rows.length} cameras
+          </Badge>
+        </div>
         <div className="flex items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -487,7 +433,7 @@ export function DataTable({
         </div>
       </div>
       <TabsContent
-        value="outline"
+        value="cameras"
         className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6"
       >
         <div className="overflow-hidden rounded-lg border">
@@ -508,9 +454,9 @@ export function DataTable({
                           {header.isPlaceholder
                             ? null
                             : flexRender(
-                                header.column.columnDef.header,
-                                header.getContext()
-                              )}
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
                         </TableHead>
                       )
                     })}
@@ -619,41 +565,13 @@ export function DataTable({
           </div>
         </div>
       </TabsContent>
-      <TabsContent
-        value="past-performance"
-        className="flex flex-col px-4 lg:px-6"
-      >
-        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed"></div>
-      </TabsContent>
-      <TabsContent value="key-personnel" className="flex flex-col px-4 lg:px-6">
-        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed"></div>
-      </TabsContent>
-      <TabsContent
-        value="focus-documents"
-        className="flex flex-col px-4 lg:px-6"
-      >
-        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed"></div>
-      </TabsContent>
     </Tabs>
   )
 }
 
-const chartData = [
-  { month: "January", desktop: 186, mobile: 80 },
-  { month: "February", desktop: 305, mobile: 200 },
-  { month: "March", desktop: 237, mobile: 120 },
-  { month: "April", desktop: 73, mobile: 190 },
-  { month: "May", desktop: 209, mobile: 130 },
-  { month: "June", desktop: 214, mobile: 140 },
-]
-
-const chartConfig = {
-  desktop: {
-    label: "Desktop",
-    color: "var(--primary)",
-  },
-  mobile: {
-    label: "Mobile",
+const forecastChartConfig = {
+  vehicles: {
+    label: "Vehicles",
     color: "var(--primary)",
   },
 } satisfies ChartConfig
@@ -661,156 +579,175 @@ const chartConfig = {
 function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
   const isMobile = useIsMobile()
 
+  // Transform forecasts to chart data
+  const forecastData = [
+    { time: "5 min", vehicles: Math.round(item.forecasts["5m"]) },
+    { time: "10 min", vehicles: Math.round(item.forecasts["10m"]) },
+    { time: "15 min", vehicles: Math.round(item.forecasts["15m"]) },
+    { time: "30 min", vehicles: Math.round(item.forecasts["30m"]) },
+    { time: "60 min", vehicles: Math.round(item.forecasts["60m"]) },
+  ];
+
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="link" className="w-fit px-0 text-left text-foreground">
-          {item.header}
+        <Button variant="link" className="w-fit px-0 text-left font-mono text-sm text-foreground">
+          Camera {item.shortId}
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="flex flex-col">
+      <SheetContent side="right" className="flex flex-col overflow-y-auto">
         <SheetHeader className="gap-1">
-          <SheetTitle>{item.header}</SheetTitle>
+          <SheetTitle>Camera {item.shortId}</SheetTitle>
           <SheetDescription>
-            Showing total visitors for the last 6 months
+            Detailed traffic information and predictions
           </SheetDescription>
         </SheetHeader>
-        <div className="flex flex-1 flex-col gap-4 overflow-y-auto py-4 text-sm">
-          {!isMobile && (
+        <div className="flex flex-1 flex-col gap-4 py-4 text-sm">
+          {/* Camera Image */}
+          {item.imageUrl && (
+            <div className="rounded-lg border overflow-hidden">
+              <img
+                src={item.imageUrl}
+                alt={`Camera ${item.shortId}`}
+                className="w-full h-48 object-cover"
+                onError={(e) => {
+                  e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='200'%3E%3Crect width='400' height='200' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239ca3af' font-family='sans-serif'%3EImage Not Available%3C/text%3E%3C/svg%3E";
+                }}
+              />
+            </div>
+          )}
+
+          <Separator />
+
+          {/* Current Status */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs text-muted-foreground">Total Vehicles</Label>
+              <div className="text-2xl font-bold tabular-nums">{item.totalObjects}</div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs text-muted-foreground">Status</Label>
+              <Badge
+                variant="outline"
+                className={`w-fit ${item.status === "clear"
+                  ? "bg-green-500/10 text-green-600"
+                  : "bg-red-500/10 text-red-600"
+                  }`}
+              >
+                {item.status}
+              </Badge>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs text-muted-foreground">Cars</Label>
+              <div className="text-xl font-semibold tabular-nums">🚗 {item.carCount}</div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs text-muted-foreground">Motorbikes</Label>
+              <div className="text-xl font-semibold tabular-nums">🏍️ {item.motorbikeCount}</div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Forecast Chart */}
+          {!isMobile && forecastData.some(d => d.vehicles > 0) && (
             <>
-              <ChartContainer config={chartConfig}>
-                <AreaChart
-                  accessibilityLayer
-                  data={chartData}
-                  margin={{
-                    left: 0,
-                    right: 10,
-                  }}
-                >
-                  <CartesianGrid vertical={false} />
-                  <XAxis
-                    dataKey="month"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    tickFormatter={(value) => value.slice(0, 3)}
-                    hide
-                  />
-                  <ChartTooltip
-                    cursor={false}
-                    content={<ChartTooltipContent indicator="dot" />}
-                  />
-                  <Area
-                    dataKey="mobile"
-                    type="natural"
-                    fill="var(--color-mobile)"
-                    fillOpacity={0.6}
-                    stroke="var(--color-mobile)"
-                    stackId="a"
-                  />
-                  <Area
-                    dataKey="desktop"
-                    type="natural"
-                    fill="var(--color-desktop)"
-                    fillOpacity={0.4}
-                    stroke="var(--color-desktop)"
-                    stackId="a"
-                  />
-                </AreaChart>
-              </ChartContainer>
-              <Separator />
-              <div className="grid gap-2">
-                <div className="flex gap-2 font-medium leading-none">
-                  Trending up by 5.2% this month{" "}
-                  <TrendingUpIcon className="size-4" />
-                </div>
-                <div className="text-muted-foreground">
-                  Showing total visitors for the last 6 months. This is just
-                  some random text to test the layout. It spans multiple lines
-                  and should wrap around.
-                </div>
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm font-medium">Traffic Forecast</Label>
+                <ChartContainer config={forecastChartConfig} className="h-[200px]">
+                  <AreaChart
+                    accessibilityLayer
+                    data={forecastData}
+                    margin={{ left: 0, right: 0, top: 10, bottom: 0 }}
+                  >
+                    <CartesianGrid vertical={false} />
+                    <XAxis
+                      dataKey="time"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                    />
+                    <ChartTooltip
+                      cursor={false}
+                      content={<ChartTooltipContent indicator="dot" />}
+                    />
+                    <Area
+                      dataKey="vehicles"
+                      type="monotone"
+                      fill="var(--color-vehicles)"
+                      fillOpacity={0.4}
+                      stroke="var(--color-vehicles)"
+                    />
+                  </AreaChart>
+                </ChartContainer>
               </div>
               <Separator />
             </>
           )}
-          <form className="flex flex-col gap-4">
-            <div className="flex flex-col gap-3">
-              <Label htmlFor="header">Header</Label>
-              <Input id="header" defaultValue={item.header} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-3">
-                <Label htmlFor="type">Type</Label>
-                <Select defaultValue={item.type}>
-                  <SelectTrigger id="type" className="w-full">
-                    <SelectValue placeholder="Select a type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Table of Contents">
-                      Table of Contents
-                    </SelectItem>
-                    <SelectItem value="Executive Summary">
-                      Executive Summary
-                    </SelectItem>
-                    <SelectItem value="Technical Approach">
-                      Technical Approach
-                    </SelectItem>
-                    <SelectItem value="Design">Design</SelectItem>
-                    <SelectItem value="Capabilities">Capabilities</SelectItem>
-                    <SelectItem value="Focus Documents">
-                      Focus Documents
-                    </SelectItem>
-                    <SelectItem value="Narrative">Narrative</SelectItem>
-                    <SelectItem value="Cover Page">Cover Page</SelectItem>
-                  </SelectContent>
-                </Select>
+
+          {/* Forecast Values */}
+          <div className="flex flex-col gap-2">
+            <Label className="text-sm font-medium">Predicted Vehicle Count</Label>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="flex flex-col gap-1 rounded-md border p-2">
+                <span className="text-xs text-muted-foreground">5 min</span>
+                <span className="text-lg font-semibold tabular-nums">{Math.round(item.forecasts["5m"])}</span>
               </div>
-              <div className="flex flex-col gap-3">
-                <Label htmlFor="status">Status</Label>
-                <Select defaultValue={item.status}>
-                  <SelectTrigger id="status" className="w-full">
-                    <SelectValue placeholder="Select a status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Done">Done</SelectItem>
-                    <SelectItem value="In Progress">In Progress</SelectItem>
-                    <SelectItem value="Not Started">Not Started</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="flex flex-col gap-1 rounded-md border p-2">
+                <span className="text-xs text-muted-foreground">15 min</span>
+                <span className="text-lg font-semibold tabular-nums">{Math.round(item.forecasts["15m"])}</span>
+              </div>
+              <div className="flex flex-col gap-1 rounded-md border p-2">
+                <span className="text-xs text-muted-foreground">60 min</span>
+                <span className="text-lg font-semibold tabular-nums">{Math.round(item.forecasts["60m"])}</span>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-3">
-                <Label htmlFor="target">Target</Label>
-                <Input id="target" defaultValue={item.target} />
-              </div>
-              <div className="flex flex-col gap-3">
-                <Label htmlFor="limit">Limit</Label>
-                <Input id="limit" defaultValue={item.limit} />
-              </div>
+          </div>
+
+          <Separator />
+
+          {/* Additional Info */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-muted-foreground">Trend</Label>
+              <Badge variant="outline" className="flex gap-1">
+                {item.trend === "increasing" ? (
+                  <TrendingUpIcon className="size-3 text-orange-500" />
+                ) : item.trend === "decreasing" ? (
+                  <TrendingDownIcon className="size-3 text-green-500" />
+                ) : null}
+                {item.trend}
+              </Badge>
             </div>
-            <div className="flex flex-col gap-3">
-              <Label htmlFor="reviewer">Reviewer</Label>
-              <Select defaultValue={item.reviewer}>
-                <SelectTrigger id="reviewer" className="w-full">
-                  <SelectValue placeholder="Select a reviewer" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Eddie Lake">Eddie Lake</SelectItem>
-                  <SelectItem value="Jamik Tashpulatov">
-                    Jamik Tashpulatov
-                  </SelectItem>
-                  <SelectItem value="Emily Whalen">Emily Whalen</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-muted-foreground">Last Updated</Label>
+              <span className="text-xs">
+                {item.lastUpdated
+                  ? new Date(item.lastUpdated).toLocaleString()
+                  : "N/A"}
+              </span>
             </div>
-          </form>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-muted-foreground">Last Predicted</Label>
+              <span className="text-xs">
+                {item.lastPredicted
+                  ? new Date(item.lastPredicted).toLocaleString()
+                  : "N/A"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-muted-foreground">Camera ID</Label>
+              <span className="font-mono text-xs">{item.id}</span>
+            </div>
+          </div>
         </div>
-        <SheetFooter className="mt-auto flex gap-2 sm:flex-col sm:space-x-0">
-          <Button className="w-full">Submit</Button>
+        <SheetFooter className="mt-auto">
           <SheetClose asChild>
             <Button variant="outline" className="w-full">
-              Done
+              Close
             </Button>
           </SheetClose>
         </SheetFooter>

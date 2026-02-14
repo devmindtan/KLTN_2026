@@ -31,6 +31,7 @@ import {
 
 interface CameraData {
   id: string;
+  name: string;
   shortId: string;
   forecasts: {
     "5m": number;
@@ -56,6 +57,19 @@ const chartConfig = {
 
 export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
   const [selectedCamera, setSelectedCamera] = React.useState<string>("all")
+  const [searchQuery, setSearchQuery] = React.useState<string>("")
+
+  // Filter cameras based on search query
+  const filteredCameras = React.useMemo(() => {
+    if (!searchQuery.trim()) return cameras;
+    
+    const query = searchQuery.toLowerCase();
+    return cameras.filter(cam => 
+      cam.name.toLowerCase().includes(query) ||
+      cam.shortId.toLowerCase().includes(query) ||
+      cam.id.toLowerCase().includes(query)
+    );
+  }, [cameras, searchQuery]);
 
   // Transform forecast data to chart format
   const chartData = React.useMemo(() => {
@@ -136,15 +150,34 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
             >
               <SelectValue placeholder="All Cameras" />
             </SelectTrigger>
-            <SelectContent className="rounded-xl">
-              <SelectItem value="all" className="rounded-lg">
-                All Cameras (Average)
-              </SelectItem>
-              {cameras.map((cam) => (
-                <SelectItem key={cam.id} value={cam.id} className="rounded-lg">
-                  Camera {cam.shortId}
+            <SelectContent className="rounded-xl max-h-[400px]">
+              <div className="sticky top-0 z-10 bg-background p-2 border-b">
+                <input
+                  type="text"
+                  placeholder="Search camera..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                />
+              </div>
+              <div className="overflow-y-auto max-h-[300px]">
+                <SelectItem value="all" className="rounded-lg">
+                  All Cameras (Average)
                 </SelectItem>
-              ))}
+                {filteredCameras.length > 0 ? (
+                  filteredCameras.map((cam) => (
+                    <SelectItem key={cam.id} value={cam.id} className="rounded-lg">
+                      {cam.name}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                    No cameras found
+                  </div>
+                )}
+              </div>
             </SelectContent>
           </Select>
         </div>

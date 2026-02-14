@@ -40,28 +40,28 @@ const data = {
   },
   navMain: [
     {
-      title: "Dashboard",
+      title: "Bảng điều khiển",
       url: "/user/dashboard",
       icon: IconDashboard,
     },
     {
-      title: "Lifecycle",
-      url: "#",
+      title: "Giám sát",
+      url: "/user/lifecycle",
       icon: IconListDetails,
     },
     {
-      title: "Analytics",
-      url: "#",
+      title: "Phân tích",
+      url: "/user/analytics",
       icon: IconChartBar,
     },
     {
-      title: "Projects",
-      url: "#",
+      title: "Mô hình ML",
+      url: "/user/projects",
       icon: IconFolder,
     },
     {
-      title: "Team",
-      url: "#",
+      title: "Đội ngũ",
+      url: "/user/team",
       icon: IconUsers,
     },
   ],
@@ -115,35 +115,35 @@ const data = {
   ],
   navSecondary: [
     {
-      title: "Settings",
+      title: "Cài đặt",
       url: "/user/settings",
       icon: IconSettings,
     },
     {
-      title: "Get Help",
-      url: "#",
+      title: "Liên hệ",
+      url: "/user/help",
       icon: IconHelp,
     },
     {
-      title: "Search",
-      url: "#",
+      title: "Tìm kiếm",
+      url: "/user/search",
       icon: IconSearch,
     },
   ],
   documents: [
     {
-      name: "Data Library",
+      name: "Dữ liệu",
       url: "/user/data-library",
       icon: IconDatabase,
     },
     {
-      name: "Reports",
-      url: "#",
+      name: "Báo cáo",
+      url: "/user/reports",
       icon: IconReport,
     },
     {
-      name: "Word Assistant",
-      url: "#",
+      name: "Hỗ trợ",
+      url: "/user/word-assistant",
       icon: IconFileWord,
     },
   ],
@@ -161,7 +161,7 @@ export function AppSidebar({...props}: React.ComponentProps<typeof Sidebar>) {
             >
               <NavLink to="/user/dashboard">
                 <IconInnerShadowTop className="!size-5"/>
-                <span className="text-base font-semibold">Acme Inc.</span>
+                <span className="text-base font-semibold">KLTN_2026</span>
               </NavLink>
             </SidebarMenuButton>
           </SidebarMenuItem>

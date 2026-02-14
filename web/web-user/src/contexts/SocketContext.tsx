@@ -2,6 +2,7 @@
 import * as React from "react";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import io, { Socket } from "socket.io-client";
+import { getAllCameras, type CameraInfo } from "@/services/camera.service";
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
 const MINIO_URL = import.meta.env.VITE_MINIO_URL;
@@ -73,6 +74,7 @@ interface NGSILDCamera {
 export interface CameraData {
   id: string;
   shortId: string;
+  name: string; // Display name from database
   totalObjects: number;
   carCount: number;
   motorbikeCount: number;
@@ -95,6 +97,7 @@ interface SocketContextType {
   processedCameras: CameraData[];
   isConnected: boolean;
   socket: Socket | null;
+  cameraInfoMap: Record<string, CameraInfo>; // Map cam_id -> camera info from database
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
@@ -103,6 +106,86 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [cameras, setCameras] = useState<Record<string, NGSILDCamera>>({});
   const [isConnected, setIsConnected] = useState(false);
+  const [cameraInfoMap, setCameraInfoMap] = useState<Record<string, CameraInfo>>({});
+
+  // Fetch camera list từ database khi component mount
+  // Tạo initial cameras với dữ liệu mặc định, socket sẽ update sau
+  useEffect(() => {
+    async function fetchCameraInfo() {
+      const cameraList = await getAllCameras();
+      const infoMap: Record<string, CameraInfo> = {};
+      const initialCameras: Record<string, NGSILDCamera> = {};
+      
+      const now = Date.now() / 1000;
+      
+      cameraList.forEach((cam) => {
+        infoMap[cam.cam_id] = cam;
+        
+        // Tạo initial camera data với format NGSI-LD
+        const fullId = `urn:ngsi-ld:Camera:${cam.cam_id}`;
+        initialCameras[fullId] = {
+          _id: {
+            id: fullId,
+            type: "Camera",
+            servicePath: "/",
+          },
+          attrs: {
+            total_objects: {
+              value: 0,
+              type: "Integer",
+              modDate: now,
+            },
+            detections: {
+              value: {
+                car: 0,
+                motorbike: 0,
+              },
+              type: "StructuredValue",
+              modDate: now,
+            },
+            minio_key: {
+              value: "",
+              type: "Text",
+              modDate: now,
+            },
+            last_updated: {
+              value: now,
+              type: "DateTime",
+              modDate: now,
+            },
+            prediction: {
+              value: {
+                forecasts: {
+                  "5m": 0,
+                  "10m": 0,
+                  "15m": 0,
+                  "30m": 0,
+                  "60m": 0,
+                },
+                status: "unknown",
+                trend: "stable",
+              },
+              type: "StructuredValue",
+              modDate: now,
+            },
+            last_predicted: {
+              value: "",
+              type: "Text",
+              modDate: now,
+            },
+          },
+          modDate: now,
+        };
+      });
+      
+      setCameraInfoMap(infoMap);
+      setCameras(initialCameras); // Set initial cameras với dữ liệu mặc định
+      console.log(`📍 Loaded ${cameraList.length} cameras from database`);
+      console.log(`✅ Initialized ${Object.keys(initialCameras).length} cameras with default data`);
+    }
+    
+    fetchCameraInfo();
+  }, []);
 
   useEffect(() => {
     // Khởi tạo socket connection một lần duy nhất
@@ -173,7 +256,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         });
       }
     });
-
     socketInstance.on("connect_error", (err) => {
       console.error("❌ Socket connection error:", err.message);
       setIsConnected(false);
@@ -219,15 +301,26 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   }, []); // Empty dependency array đảm bảo chỉ chạy một lần
 
   // Transform NGSI-LD data to processed camera data với Optional Chaining
+  // Merge với camera info từ database
   const processedCameras: CameraData[] = React.useMemo(() => {
     const processed = Object.values(cameras).map((cam) => {
       // Ép kiểu an toàn: nếu là số thì giữ nguyên, nếu không có thì trả về chuỗi rỗng
       const rawLastUpdated = cam.attrs.last_updated?.value;
       const rawLastPredicted = cam.attrs.last_predicted?.value;
       const predictionAttr = cam.attrs.prediction?.value;
+      
+      // Extract cam_id từ NGSI-LD format: "urn:ngsi-ld:Camera:5d9dde1f766c880017188c98"
+      const fullId = cam._id.id;
+      const shortId = fullId.split(":").pop() || fullId;
+      
+      // Lấy camera info từ database (name, location)
+      const cameraInfo = cameraInfoMap[shortId];
+      const displayName = cameraInfo?.display_name || shortId;
+
       return {
-        id: cam._id.id,
-        shortId: cam._id.id.split(":").pop() || cam._id.id,
+        id: fullId,
+        shortId: shortId,
+        name: displayName, // From database
         totalObjects: cam.attrs.total_objects?.value ?? 0,
         carCount: cam.attrs.detections?.value?.car ?? 0,
         motorbikeCount: cam.attrs.detections?.value?.motorbike ?? 0,
@@ -250,12 +343,27 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     });
 
     return processed;
-  }, [cameras]);
+  }, [cameras, cameraInfoMap]);
+
+  // useEffect(() => {
+  //   if (processedCameras.length > 0) {
+  //     console.group("🔍 Kiểm tra dữ liệu Dự báo (Forecasts)");
+  //     processedCameras.forEach((cam) => {
+  //       console.log(`Camera: ${cam.shortId}`);
+  //       console.log("- Forecasts:", cam.forecasts);
+  //       console.log("- Last Predicted:", cam.lastPredicted === "" ? "❌ Trống" : cam.lastPredicted);
+  //       console.log("-----------------------------------");
+  //     });
+  //     console.groupEnd();
+  //   }
+  // }, [processedCameras]);
+  // console.table(processedCameras);
   const value: SocketContextType = {
     cameras,
     processedCameras,
     isConnected,
     socket,
+    cameraInfoMap,
   };
 
   return (

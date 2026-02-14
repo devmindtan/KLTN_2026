@@ -6,10 +6,12 @@ WORKDIR /app
 # Định nghĩa các tham số nhận vào từ câu lệnh build
 ARG VITE_SOCKET_URL
 ARG VITE_MINIO_URL
+ARG VITE_BACKEND_URL
 
 # Chuyển tham số ARG thành biến ENV để Vite nhận ra lúc build
 ENV VITE_SOCKET_URL=$VITE_SOCKET_URL
 ENV VITE_MINIO_URL=$VITE_MINIO_URL
+ENV VITE_BACKEND_URL=$VITE_BACKEND_URL
 
 COPY package*.json ./
 RUN npm install

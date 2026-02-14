@@ -47,6 +47,9 @@ import {
   PlusIcon,
   TrendingUpIcon,
   TrendingDownIcon,
+  SearchIcon,
+  FilterIcon,
+  XIcon,
 } from "lucide-react"
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 // import { toast } from "sonner"
@@ -70,7 +73,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-// import { Input } from "@/components/ui/input"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -109,6 +112,7 @@ import {
 export const schema = z.object({
   id: z.string(),
   shortId: z.string(),
+  name: z.string(), // Display name from database
   totalObjects: z.number(),
   carCount: z.number(),
   motorbikeCount: z.number(),
@@ -184,6 +188,16 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     cell: ({ row }) => {
       return <TableCellViewer item={row.original} />
     },
+    enableHiding: false,
+  },
+  {
+    accessorKey: "name",
+    header: "Location Name",
+    cell: ({ row }) => (
+      <div className="max-w-[250px] text-sm">
+        {row.original.name}
+      </div>
+    ),
     enableHiding: false,
   },
   {
@@ -266,7 +280,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
   },
   {
     id: "actions",
-    cell: ({ }) => (
+    cell: () => (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -332,12 +346,20 @@ export function DataTable({
     pageIndex: 0,
     pageSize: 10,
   })
+  // Filter states
+  const [statusFilter, setStatusFilter] = React.useState("all")
+  const [trendFilter, setTrendFilter] = React.useState("all")
   const sortableId = React.useId()
   const sensors = useSensors(
     useSensor(MouseSensor, {}),
     useSensor(TouchSensor, {}),
     useSensor(KeyboardSensor, {})
   )
+
+  // Sync data với initialData khi props thay đổi (từ socket updates)
+  React.useEffect(() => {
+    setData(initialData)
+  }, [initialData])
 
   const dataIds = React.useMemo<UniqueIdentifier[]>(
     () => data?.map(({ id }) => id) || [],
@@ -367,6 +389,9 @@ export function DataTable({
     getSortedRowModel: getSortedRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
+    // Ngăn tự động reset khi data update từ socket
+    autoResetPageIndex: false, // Giữ nguyên trang hiện tại
+    autoResetExpanded: false, // Giữ nguyên expanded state
   })
 
   function handleDragEnd(event: DragEndEvent) {
@@ -432,6 +457,85 @@ export function DataTable({
           </Button>
         </div>
       </div>
+      
+      {/* Search and Filters */}
+      <div className="px-4 lg:px-6">
+        <div className="rounded-lg border bg-card p-4">
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Search by name */}
+            <div className="relative flex-1">
+              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by camera name or location..."
+                value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
+                onChange={(event) =>
+                  table.getColumn("name")?.setFilterValue(event.target.value)
+                }
+                className="pl-9"
+              />
+            </div>
+            
+            {/* Status Filter */}
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => {
+                setStatusFilter(value);
+                table.getColumn("status")?.setFilterValue(value === "all" ? undefined : value);
+              }}
+            >
+              <SelectTrigger className="w-[150px]">
+                <FilterIcon className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="clear">Clear</SelectItem>
+                <SelectItem value="congestion">Congestion</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            {/* Trend Filter */}
+            <Select
+              value={trendFilter}
+              onValueChange={(value) => {
+                setTrendFilter(value);
+                table.getColumn("trend")?.setFilterValue(value === "all" ? undefined : value);
+              }}
+            >
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Trend" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Trends</SelectItem>
+                <SelectItem value="increasing">Increasing</SelectItem>
+                <SelectItem value="stable">Stable</SelectItem>
+                <SelectItem value="decreasing">Decreasing</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            {/* Clear filters */}
+            {(table.getColumn("name")?.getFilterValue() ||
+              statusFilter !== "all" ||
+              trendFilter !== "all") && (
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  table.getColumn("name")?.setFilterValue(undefined);
+                  setStatusFilter("all");
+                  setTrendFilter("all");
+                  table.getColumn("status")?.setFilterValue(undefined);
+                  table.getColumn("trend")?.setFilterValue(undefined);
+                }}
+                size="sm"
+              >
+                <XIcon className="w-4 h-4 mr-1" />
+                Clear
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>      
+      
       <TabsContent
         value="cameras"
         className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6"
@@ -592,14 +696,14 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
     <Sheet>
       <SheetTrigger asChild>
         <Button variant="link" className="w-fit px-0 text-left font-mono text-sm text-foreground">
-          Camera {item.shortId}
+          {item.shortId}
         </Button>
       </SheetTrigger>
       <SheetContent side="right" className="flex flex-col overflow-y-auto">
         <SheetHeader className="gap-1">
-          <SheetTitle>Camera {item.shortId}</SheetTitle>
+          <SheetTitle>{item.name}</SheetTitle>
           <SheetDescription>
-            Detailed traffic information and predictions
+            Camera ID: {item.shortId} • Detailed traffic information and predictions
           </SheetDescription>
         </SheetHeader>
         <div className="flex flex-1 flex-col gap-4 py-4 text-sm">
@@ -740,7 +844,11 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
             </div>
             <div className="flex items-center justify-between">
               <Label className="text-xs text-muted-foreground">Camera ID</Label>
-              <span className="font-mono text-xs">{item.id}</span>
+              <span className="font-mono text-xs">{item.shortId}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-muted-foreground">Location</Label>
+              <span className="text-xs">{item.name}</span>
             </div>
           </div>
         </div>

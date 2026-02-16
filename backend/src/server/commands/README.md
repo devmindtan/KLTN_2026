@@ -2,6 +2,18 @@
 
 Documentation folder cho backend Traffic Management API Server.
 
+## Project Structure Note
+
+Backend gồm nhiều services, mỗi service có `commands/PROJECT_CONTEXT.md` riêng:
+- `backend/src/server/commands/` - Node.js API server
+- `backend/src/app-route/commands/` - Flask SocketIO gateway
+- `backend/src/image-process/commands/` - YOLOv8 detection service
+- `backend/src/image-predict/commands/` - ML prediction service
+
+Shared schemas: `/schemas/DATABASE_SCHEMA.md`, `/schemas/FIWARE_ORION_DATA_TEMPLATE.md`
+
+---
+
 ## Files Overview
 
 ### 📘 [PROJECT_CONTEXT_BACKEND.md](./PROJECT_CONTEXT_BACKEND.md)
@@ -26,26 +38,25 @@ Documentation folder cho backend Traffic Management API Server.
 
 ---
 
-### 🗄️ [SQL_COMMAND.md](./SQL_COMMAND.md)
-**Mục đích**: Database schema và setup commands
+### 🗑️ [DATABASE_SCHEMA.md](../../../../../schemas/DATABASE_SCHEMA.md)
+**Mục đích**: Database schema và setup commands (shared across project)
 
 **Nội dung**:
 - CREATE TABLE statements cho 3 tables:
-  - `camera_data` (20 cameras - currently used)
-  - `camera_detections` (future use)
-  - `camera_forecasts` (future use)
+  - `camera_data` (20 cameras)
+  - `camera_detections` (YOLO detection results)
+  - `camera_forecasts` (ML predictions)
+- Dynamic Capacity calculation (95th percentile, 30 days)
+- Level of Service (LOS) classification
 - CREATE INDEX statements
 - INSERT statements cho 20 cameras (Hồ Chí Minh City)
-- Sample data với GPS coordinates
 
 **Sử dụng khi**:
 - Setup database lần đầu
-- Add thêm cameras
-- Verify database structure
 - Reference table schemas
-- Troubleshoot database issues
+- Hiểu capacity và LOS logic
 
-**Note**: File này giống với `client/commands/SQL_COMMAND.md` (shared reference)
+**Location**: `/schemas/DATABASE_SCHEMA.md` (shared reference)
 
 ---
 
@@ -59,7 +70,7 @@ Documentation folder cho backend Traffic Management API Server.
                │
                ▼
          ┌────────────┐
-         │ SQL_COMMAND │
+         │ DATABASE_SCHEMA │
          │ (Database)  │
          └─────┬──────┘
                │
@@ -141,7 +152,7 @@ curl "http://localhost:8080/api/cameras/nearby?lat=10.791&lng=106.691"
 psql -U postgres
 CREATE DATABASE traffic_db;
 \c traffic_db
-# Copy SQL from SQL_COMMAND.md
+# Copy SQL from /schemas/DATABASE_SCHEMA.md
 ```
 
 ### Environment Setup
@@ -204,7 +215,7 @@ Cameras → FIWARE Orion → Socket.IO → Frontend
 - ✏️ Thêm middleware mới
 - ✏️ Thay đổi error handling
 
-**SQL_COMMAND.md**:
+**/schemas/DATABASE_SCHEMA.md**:
 - ✏️ Thêm table mới
 - ✏️ Modify table schema
 - ✏️ Add/remove cameras

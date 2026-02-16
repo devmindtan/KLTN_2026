@@ -184,7 +184,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
   },
   {
     accessorKey: "shortId",
-    header: "Camera ID",
+    header: "Mã Camera",
     cell: ({ row }) => {
       return <TableCellViewer item={row.original} />
     },
@@ -192,7 +192,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
   },
   {
     accessorKey: "name",
-    header: "Location Name",
+    header: "Vị Trí",
     cell: ({ row }) => (
       <div className="max-w-[250px] text-sm">
         {row.original.name}
@@ -202,7 +202,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
   },
   {
     accessorKey: "totalObjects",
-    header: "Total Vehicles",
+    header: "Tổng Số Xe",
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
         <span className="text-lg font-semibold tabular-nums">
@@ -216,51 +216,85 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
   },
   {
     accessorKey: "status",
-    header: "Status",
-    cell: ({ row }) => (
-      <Badge
-        variant="outline"
-        className={`flex gap-1 px-2 py-1 ${row.original.status === "clear"
-          ? "bg-green-500/10 text-green-600"
-          : row.original.status === "congestion"
-            ? "bg-red-500/10 text-red-600"
-            : "bg-gray-500/10 text-gray-600"
-          }`}
-      >
-        {row.original.status === "clear" ? (
-          <CheckCircle2Icon className="size-3" />
-        ) : (
-          <LoaderIcon className="size-3" />
-        )}
-        {row.original.status}
-      </Badge>
-    ),
+    header: "Trạng Thái",
+    cell: ({ row }) => {
+      const status = row.original.status;
+      let badgeClass = "bg-gray-500/10 text-gray-600";
+      let statusText = "Không rõ";
+      let icon = <LoaderIcon className="size-3" />;
+
+      switch (status) {
+        case "free_flow":
+          badgeClass = "bg-green-500/10 text-green-600";
+          statusText = "Thông thoáng";
+          icon = <CheckCircle2Icon className="size-3" />;
+          break;
+        case "smooth":
+          badgeClass = "bg-blue-500/10 text-blue-600";
+          statusText = "Ổn định";
+          icon = <CheckCircle2Icon className="size-3" />;
+          break;
+        case "moderate":
+          badgeClass = "bg-yellow-500/10 text-yellow-600";
+          statusText = "Trung bình";
+          icon = <LoaderIcon className="size-3" />;
+          break;
+        case "heavy":
+          badgeClass = "bg-orange-500/10 text-orange-600";
+          statusText = "Nặng";
+          icon = <LoaderIcon className="size-3" />;
+          break;
+        case "congested":
+          badgeClass = "bg-red-500/10 text-red-600";
+          statusText = "Ùn tắc";
+          icon = <LoaderIcon className="size-3" />;
+          break;
+      }
+
+      return (
+        <Badge
+          variant="outline"
+          className={`flex gap-1 px-2 py-1 ${badgeClass}`}
+        >
+          {icon}
+          {statusText}
+        </Badge>
+      );
+    },
   },
   {
     accessorKey: "trend",
-    header: "Trend",
-    cell: ({ row }) => (
-      <Badge
-        variant="outline"
-        className={`flex gap-1 px-2 ${row.original.trend === "increasing"
-          ? "text-orange-600"
-          : row.original.trend === "decreasing"
-            ? "text-green-600"
-            : "text-gray-600"
-          }`}
-      >
-        {row.original.trend === "increasing" ? (
-          <TrendingUpIcon className="size-3" />
-        ) : row.original.trend === "decreasing" ? (
-          <TrendingDownIcon className="size-3" />
-        ) : null}
-        {row.original.trend}
-      </Badge>
-    ),
+    header: "Xu Hướng",
+    cell: ({ row }) => {
+      const trend = row.original.trend;
+      let trendText = "Ổn định";
+      let trendClass = "text-gray-600";
+      let icon = null;
+
+      if (trend === "increasing") {
+        trendText = "Tăng";
+        trendClass = "text-orange-600";
+        icon = <TrendingUpIcon className="size-3" />;
+      } else if (trend === "decreasing") {
+        trendText = "Giảm";
+        trendClass = "text-green-600";
+        icon = <TrendingDownIcon className="size-3" />;
+      }
+
+      return (
+        <Badge
+          variant="outline"
+          className={`flex gap-1 px-2 ${trendClass}`}
+        >
+          {icon}
+          {trendText}
+        </Badge>
+      );
+    },
   },
   {
     accessorKey: "forecasts.5m",
-    header: () => <div className="w-full text-center">5min Forecast</div>,
+    header: () => <div className="w-full text-center">Dự Báo 5'</div>,
     cell: ({ row }) => (
       <div className="text-center font-semibold tabular-nums">
         {Math.round(row.original.forecasts["5m"])}
@@ -269,7 +303,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
   },
   {
     accessorKey: "lastUpdated",
-    header: "Last Updated",
+    header: "Cập Nhật Cuối",
     cell: ({ row }) => (
       <div className="text-xs text-muted-foreground">
         {row.original.lastUpdated
@@ -422,8 +456,8 @@ export function DataTable({
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
                 <ColumnsIcon />
-                <span className="hidden lg:inline">Customize Columns</span>
-                <span className="lg:hidden">Columns</span>
+                <span className="hidden lg:inline">Tùy Chỉnh Cột</span>
+                <span className="lg:hidden">Cột</span>
                 <ChevronDownIcon />
               </Button>
             </DropdownMenuTrigger>
@@ -453,7 +487,7 @@ export function DataTable({
           </DropdownMenu>
           <Button variant="outline" size="sm">
             <PlusIcon />
-            <span className="hidden lg:inline">Add Section</span>
+            <span className="hidden lg:inline">Thêm Phần</span>
           </Button>
         </div>
       </div>
@@ -466,7 +500,7 @@ export function DataTable({
             <div className="relative flex-1">
               <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Search by camera name or location..."
+                placeholder="Tìm kiếm theo tên hoặc vị trí..."
                 value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
                 onChange={(event) =>
                   table.getColumn("name")?.setFilterValue(event.target.value)
@@ -485,12 +519,15 @@ export function DataTable({
             >
               <SelectTrigger className="w-[150px]">
                 <FilterIcon className="w-4 h-4 mr-2" />
-                <SelectValue placeholder="Status" />
+                <SelectValue placeholder="Trạng thái" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="clear">Clear</SelectItem>
-                <SelectItem value="congestion">Congestion</SelectItem>
+                <SelectItem value="all">Tất cả</SelectItem>
+                <SelectItem value="free_flow">Thông thoáng</SelectItem>
+                <SelectItem value="smooth">Ổn định</SelectItem>
+                <SelectItem value="moderate">Trung bình</SelectItem>
+                <SelectItem value="heavy">Nặng</SelectItem>
+                <SelectItem value="congested">Ùn tắc</SelectItem>
               </SelectContent>
             </Select>
             
@@ -503,13 +540,13 @@ export function DataTable({
               }}
             >
               <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="Trend" />
+                <SelectValue placeholder="Xu hướng" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Trends</SelectItem>
-                <SelectItem value="increasing">Increasing</SelectItem>
-                <SelectItem value="stable">Stable</SelectItem>
-                <SelectItem value="decreasing">Decreasing</SelectItem>
+                <SelectItem value="all">Tất cả</SelectItem>
+                <SelectItem value="increasing">Tăng</SelectItem>
+                <SelectItem value="stable">Ổn định</SelectItem>
+                <SelectItem value="decreasing">Giảm</SelectItem>
               </SelectContent>
             </Select>
             
@@ -529,7 +566,7 @@ export function DataTable({
                 size="sm"
               >
                 <XIcon className="w-4 h-4 mr-1" />
-                Clear
+                Xóa
               </Button>
             )}
           </div>
@@ -622,8 +659,7 @@ export function DataTable({
               </Select>
             </div>
             <div className="flex w-fit items-center justify-center text-sm font-medium">
-              Page {table.getState().pagination.pageIndex + 1} of{" "}
-              {table.getPageCount()}
+              Trang {table.getState().pagination.pageIndex + 1} / {table.getPageCount()}
             </div>
             <div className="ml-auto flex items-center gap-2 lg:ml-0">
               <Button
@@ -726,30 +762,40 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
           {/* Current Status */}
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1">
-              <Label className="text-xs text-muted-foreground">Total Vehicles</Label>
+              <Label className="text-xs text-muted-foreground">Tổng Phương Tiện</Label>
               <div className="text-2xl font-bold tabular-nums">{item.totalObjects}</div>
             </div>
             <div className="flex flex-col gap-1">
-              <Label className="text-xs text-muted-foreground">Status</Label>
+              <Label className="text-xs text-muted-foreground">Trạng Thái</Label>
               <Badge
                 variant="outline"
-                className={`w-fit ${item.status === "clear"
-                  ? "bg-green-500/10 text-green-600"
-                  : "bg-red-500/10 text-red-600"
-                  }`}
+                className={`w-fit ${
+                  item.status === "free_flow" ? "bg-green-500/10 text-green-600" :
+                  item.status === "smooth" ? "bg-blue-500/10 text-blue-600" :
+                  item.status === "moderate" ? "bg-yellow-500/10 text-yellow-600" :
+                  item.status === "heavy" ? "bg-orange-500/10 text-orange-600" :
+                  item.status === "congested" ? "bg-red-500/10 text-red-600" :
+                  "bg-gray-500/10 text-gray-600"
+                }`}
               >
-                {item.status}
+                {
+                  item.status === "free_flow" ? "Thông thoáng" :
+                  item.status === "smooth" ? "Ổn định" :
+                  item.status === "moderate" ? "Trung bình" :
+                  item.status === "heavy" ? "Nặng" :
+                  item.status === "congested" ? "Ùn tắc" : item.status
+                }
               </Badge>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1">
-              <Label className="text-xs text-muted-foreground">Cars</Label>
+              <Label className="text-xs text-muted-foreground">Ô tô</Label>
               <div className="text-xl font-semibold tabular-nums">🚗 {item.carCount}</div>
             </div>
             <div className="flex flex-col gap-1">
-              <Label className="text-xs text-muted-foreground">Motorbikes</Label>
+              <Label className="text-xs text-muted-foreground">Xe máy</Label>
               <div className="text-xl font-semibold tabular-nums">🏍️ {item.motorbikeCount}</div>
             </div>
           </div>
@@ -760,7 +806,7 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
           {!isMobile && forecastData.some(d => d.vehicles > 0) && (
             <>
               <div className="flex flex-col gap-2">
-                <Label className="text-sm font-medium">Traffic Forecast</Label>
+                <Label className="text-sm font-medium">Dự báo luồng giao thông</Label>
                 <ChartContainer config={forecastChartConfig} className="h-[200px]">
                   <AreaChart
                     accessibilityLayer
@@ -794,18 +840,18 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
 
           {/* Forecast Values */}
           <div className="flex flex-col gap-2">
-            <Label className="text-sm font-medium">Predicted Vehicle Count</Label>
+            <Label className="text-sm font-medium">Dự đoán số lượng phương tiện</Label>
             <div className="grid grid-cols-3 gap-2">
               <div className="flex flex-col gap-1 rounded-md border p-2">
-                <span className="text-xs text-muted-foreground">5 min</span>
+                <span className="text-xs text-muted-foreground">5 phút</span>
                 <span className="text-lg font-semibold tabular-nums">{Math.round(item.forecasts["5m"])}</span>
               </div>
               <div className="flex flex-col gap-1 rounded-md border p-2">
-                <span className="text-xs text-muted-foreground">15 min</span>
+                <span className="text-xs text-muted-foreground">15 phút</span>
                 <span className="text-lg font-semibold tabular-nums">{Math.round(item.forecasts["15m"])}</span>
               </div>
               <div className="flex flex-col gap-1 rounded-md border p-2">
-                <span className="text-xs text-muted-foreground">60 min</span>
+                <span className="text-xs text-muted-foreground">60 phút</span>
                 <span className="text-lg font-semibold tabular-nums">{Math.round(item.forecasts["60m"])}</span>
               </div>
             </div>
@@ -816,38 +862,38 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
           {/* Additional Info */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground">Trend</Label>
+              <Label className="text-xs text-muted-foreground">Xu hướng</Label>
               <Badge variant="outline" className="flex gap-1">
                 {item.trend === "increasing" ? (
                   <TrendingUpIcon className="size-3 text-orange-500" />
                 ) : item.trend === "decreasing" ? (
                   <TrendingDownIcon className="size-3 text-green-500" />
                 ) : null}
-                {item.trend}
+                {item.trend === "increasing" ? "Tăng" : item.trend === "decreasing" ? "Giảm" : "Ổn định"}
               </Badge>
             </div>
             <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground">Last Updated</Label>
+              <Label className="text-xs text-muted-foreground">Cập nhật cuối</Label>
               <span className="text-xs">
                 {item.lastUpdated
-                  ? new Date(item.lastUpdated).toLocaleString()
+                  ? new Date(item.lastUpdated).toLocaleString("vi-VN")
                   : "N/A"}
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground">Last Predicted</Label>
+              <Label className="text-xs text-muted-foreground">Dự đoán cuối</Label>
               <span className="text-xs">
                 {item.lastPredicted
-                  ? new Date(item.lastPredicted).toLocaleString()
+                  ? new Date(item.lastPredicted).toLocaleString("vi-VN")
                   : "N/A"}
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground">Camera ID</Label>
+              <Label className="text-xs text-muted-foreground">Mã Camera</Label>
               <span className="font-mono text-xs">{item.shortId}</span>
             </div>
             <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground">Location</Label>
+              <Label className="text-xs text-muted-foreground">Vị trí</Label>
               <span className="text-xs">{item.name}</span>
             </div>
           </div>
@@ -855,7 +901,7 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
         <SheetFooter className="mt-auto">
           <SheetClose asChild>
             <Button variant="outline" className="w-full">
-              Close
+              Đóng
             </Button>
           </SheetClose>
         </SheetFooter>

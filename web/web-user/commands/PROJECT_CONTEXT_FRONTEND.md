@@ -216,7 +216,6 @@ client/
     ├── PROJECT_CONTEXT_FRONTEND.md    # This file
     ├── CAMERA_API_INTEGRATION.md      # Backend API guide
     ├── FIWARE_ORION_DATA_TEMPLATE.md  # Orion data format reference
-    └── SQL_COMMAND.md                 # Database schema reference
 ```
 
 ## Tính năng chính của các Page:

@@ -32,6 +32,26 @@ import {
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import { useIsMobile } from "@/hooks/use-mobile";
 
+/**
+ * Hiển thị badge theo Level of Service (LOS)
+ */
+const getStatusBadge = (status: string) => {
+  switch (status) {
+    case "free_flow":
+      return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200"><IconCheck className="w-3 h-3 mr-1" />Thông thoáng</Badge>;
+    case "smooth":
+      return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200"><IconCheck className="w-3 h-3 mr-1" />Ổn định</Badge>;
+    case "moderate":
+      return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200"><IconAlertTriangle className="w-3 h-3 mr-1" />Trung bình</Badge>;
+    case "heavy":
+      return <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200"><IconAlertTriangle className="w-3 h-3 mr-1" />Nặng</Badge>;
+    case "congested":
+      return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200"><IconAlertTriangle className="w-3 h-3 mr-1" />Ùn tắc</Badge>;
+    default:
+      return <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">Không rõ</Badge>;
+  }
+};
+
 // Chart config for forecast
 const forecastChartConfig = {
   vehicles: {
@@ -61,26 +81,6 @@ export default function TrafficMonitoring() {
     return `${Math.floor(diffInSeconds / 86400)} ngày trước`;
   };
 
-  // Map trend thành status
-  const getStatusFromTrend = (totalVehicles: number, trend: string) => {
-    if (totalVehicles > 200) return "congested";
-    if (totalVehicles > 150 || trend === "increasing") return "warning";
-    return "normal";
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "normal":
-        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200"><IconCheck className="w-3 h-3 mr-1" />Bình thường</Badge>;
-      case "warning":
-        return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200"><IconAlertTriangle className="w-3 h-3 mr-1" />Cảnh báo</Badge>;
-      case "congested":
-        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200"><IconAlertTriangle className="w-3 h-3 mr-1" />Ùn tắc</Badge>;
-      default:
-        return null;
-    }
-  };
-
   // Filter và sort cameras
   const filteredAndSortedCameras = React.useMemo(() => {
     const filtered = processedCameras.filter((camera) => {
@@ -89,9 +89,8 @@ export default function TrafficMonitoring() {
         camera.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         camera.shortId.toLowerCase().includes(searchQuery.toLowerCase());
 
-      // Status filter
-      const status = getStatusFromTrend(camera.totalObjects, camera.trend);
-      const matchesStatus = statusFilter === "all" || status === statusFilter;
+      // Status filter - dùng status từ backend (LOS)
+      const matchesStatus = statusFilter === "all" || camera.status === statusFilter;
 
       // Trend filter
       const matchesTrend = trendFilter === "all" || camera.trend === trendFilter;
@@ -168,8 +167,10 @@ export default function TrafficMonitoring() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Tất cả</SelectItem>
-                      <SelectItem value="normal">Bình thường</SelectItem>
-                      <SelectItem value="warning">Cảnh báo</SelectItem>
+                      <SelectItem value="free_flow">Thông thoáng</SelectItem>
+                      <SelectItem value="smooth">Ổn định</SelectItem>
+                      <SelectItem value="moderate">Trung bình</SelectItem>
+                      <SelectItem value="heavy">Nặng</SelectItem>
                       <SelectItem value="congested">Ùn tắc</SelectItem>
                     </SelectContent>
                   </Select>
@@ -243,7 +244,6 @@ export default function TrafficMonitoring() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
           {filteredAndSortedCameras.map((camera) => {
-            const status = getStatusFromTrend(camera.totalObjects, camera.trend);
             return (
               <Card key={camera.id} className="overflow-hidden">
                 <CardHeader>
@@ -252,7 +252,7 @@ export default function TrafficMonitoring() {
                       <IconMapPin className="w-5 h-5 text-primary" />
                       <CardTitle className="text-base">{camera.name}</CardTitle>
                     </div>
-                    {getStatusBadge(status)}
+                    {getStatusBadge(camera.status)}
                   </div>
                   <CardDescription>Camera {camera.shortId}</CardDescription>
                 </CardHeader>
@@ -322,6 +322,7 @@ function CameraDetailDialog({ camera }: { camera: CameraData }) {
     { time: "60 min", vehicles: Math.round(camera.forecasts["60m"]) },
   ];
 
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -362,15 +363,8 @@ function CameraDetailDialog({ camera }: { camera: CameraData }) {
             </div>
             <div className="flex flex-col gap-1">
               <Label className="text-xs text-muted-foreground">Trạng thái</Label>
-              <Badge
-                variant="outline"
-                className={`w-fit ${camera.status === "clear"
-                  ? "bg-green-500/10 text-green-600"
-                  : "bg-red-500/10 text-red-600"
-                  }`}
-              >
-                {camera.status === "clear" ? "Thông thoáng" : "Đông đúc"}
-              </Badge>
+              {getStatusBadge(camera.status)}
+              {}
             </div>
           </div>
 

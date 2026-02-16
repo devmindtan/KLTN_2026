@@ -90,7 +90,14 @@ s3_client = boto3.client(
 
 
 async def update_fiware(camera_id, detections, total_objects, minio_key):
-    """Cập nhật dữ liệu realtime sang FIWARE Orion Context Broker"""
+    """
+    Cập nhật dữ liệu realtime sang FIWARE Orion Context Broker
+    Args:
+        camera_id: ID của camera
+        detections: Dict chứa kết quả phát hiện (e.g., {"car": 30, "motorcycle": 15})
+        total_objects: Tổng số phương tiện phát hiện được
+        minio_key: Đường dẫn file trên MinIO
+    """
     entity_id = f"urn:ngsi-ld:Camera:{camera_id}"
 
     # Payload theo chuẩn NGSI-v2
@@ -127,7 +134,14 @@ async def update_fiware(camera_id, detections, total_objects, minio_key):
 
 
 def save_to_db(minio_key, cam_id, detections, total_objects):
-    """Hàm đồng bộ để chèn dữ liệu vào Postgres"""
+    """
+    Lưu kết quả phát hiện vào PostgreSQL
+    Args:
+        minio_key: Đường dẫn file trên MinIO
+        cam_id: ID của camera
+        detections: Dict chứa kết quả phát hiện
+        total_objects: Tổng số phương tiện
+    """
     conn = None
     try:
         conn = db_pool.getconn()
@@ -137,7 +151,8 @@ def save_to_db(minio_key, cam_id, detections, total_objects):
             VALUES (%s, %s, %s, %s, %s)
         """
         cur.execute(
-            query, (minio_key, cam_id, Json(detections), total_objects, datetime.now())
+            query, (minio_key, cam_id, Json(detections),
+                    total_objects, datetime.now())
         )
         conn.commit()
         cur.close()
@@ -151,7 +166,15 @@ def save_to_db(minio_key, cam_id, detections, total_objects):
 
 
 def process_and_upload(camera_id, image_bytes):
-    """Hàm xử lý AI và Upload (Chạy trong thread riêng để không block async)"""
+    """
+    Xử lý AI (YOLOv8) và upload lên MinIO
+    Chạy trong thread riêng để không block async event loop
+    Args:
+        camera_id: ID của camera
+        image_bytes: Dữ liệu ảnh dạng bytes
+    Returns:
+        Dict chứa minio_key, detections, total_objects hoặc message lỗi
+    """
     try:
         # Decode ảnh
         nparr = np.frombuffer(image_bytes, np.uint8)
@@ -190,7 +213,8 @@ def process_and_upload(camera_id, image_bytes):
             logger.info(f"[{camera_id}] Phát hiện: {detection_counts}")
 
             # Vẽ kết quả
-            annotated_frame = results[0].plot(line_width=1, font_size=0.5, labels=False)
+            annotated_frame = results[0].plot(
+                line_width=1, font_size=0.5, labels=False)
 
             # Encode lại thành JPEG
             _, buffer = cv2.imencode(".jpg", annotated_frame)
@@ -199,7 +223,8 @@ def process_and_upload(camera_id, image_bytes):
             # Upload lên MinIO
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             file_name = (
-                f"{camera_id}/{timestamp}.jpg"  # Lưu vào thư mục riêng cho từng cam
+                # Lưu vào thư mục riêng cho từng cam
+                f"{camera_id}/{timestamp}.jpg"
             )
 
             s3_client.upload_fileobj(
@@ -228,7 +253,12 @@ def process_and_upload(camera_id, image_bytes):
 
 
 async def fetch_camera(session, camera_id):
-    """Tải một ảnh từ một camera"""
+    """
+    Tải ảnh snapshot từ một camera và xử lý
+    Args:
+        session: aiohttp ClientSession instance
+        camera_id: ID của camera cần tải
+    """
     url = f"https://giaothong.hochiminhcity.gov.vn:8007/Render/CameraHandler.ashx?id={camera_id}"
     headers = {
         "User-Agent": "Mozilla/5.0",
@@ -259,6 +289,10 @@ async def fetch_camera(session, camera_id):
 
 
 async def main():
+    """
+    Vòng lặp chính xử lý tất cả cameras
+    Khởi tạo cookie và chạy async fetch cho tất cả 20 cameras
+    """
     # Khởi tạo cookie lần đầu
     async with aiohttp.ClientSession() as session:
         logger.info("Đang khởi tạo Cookie...")

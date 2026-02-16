@@ -3,7 +3,10 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// Tạo connection pool cho PostgreSQL
+/**
+ * Khởi tạo PostgreSQL connection pool
+ * Sử dụng environment variable DATABASE_URL
+ */
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   // Optional: cấu hình connection pool

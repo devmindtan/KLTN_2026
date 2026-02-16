@@ -20,7 +20,10 @@ logger = logging.getLogger(__name__)
 
 
 def get_ip():
-    """Hàm lấy IP nội bộ của máy/container"""
+    """
+    Lấy địa chỉ IP nội bộ của máy/container
+    Sử dụng không kết nối thực sự, chỉ để xác định interface mạng đang sử dụng
+    """
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         # không cần kết nối thật, chỉ để lấy interface mạng đang dùng
@@ -35,7 +38,11 @@ def get_ip():
 
 
 def show_all_ips(port):
-    """Quét và in ra tất cả các IP khả dụng trên máy"""
+    """
+    Quét và hiển thị tất cả các địa chỉ IP khả dụng trên máy
+    Args:
+        port: Số cổng đang lắng nghe
+    """
     print("\n" + "=" * 60)
     print(f"🚀 BACKEND SERVER IS RUNNING (Listening on 0.0.0.0:{port})")
     print("--- Các địa chỉ bạn có thể dùng để gọi Webhook: ---")
@@ -53,7 +60,17 @@ def show_all_ips(port):
 
 @app.route('/webhook', methods=['POST'])
 def fiware_webhook():
+    """
+    Xử lý FIWARE Orion webhook và broadcast data qua Socket.IO
+    POST /webhook
+    """
     payload = request.json
+
+    # Validation: Kiểm tra payload có tồn tại và có trường 'data'
+    if not payload or 'data' not in payload:
+        logger.warning("Webhook payload thiếu trường 'data'")
+        return "", 400
+
     logger.info("--- Nhận từ Orion ---")
     if payload and 'data' in payload:
         for entity in payload['data']:

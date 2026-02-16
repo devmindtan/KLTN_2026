@@ -1,6 +1,6 @@
 /**
- * Camera Service
- * API service để xử lý các request liên quan đến camera
+ * Camera Service - API service để xử lý các request liên quan đến camera
+ * Tương tác với Backend API để lấy thông tin camera tĩnh (static data)
  */
 
 const BACKEND_API_URL = import.meta.env.VITE_BACKEND_URL;
@@ -24,8 +24,8 @@ export interface CamerasResponse {
 }
 
 /**
- * Lấy danh sách tất cả camera từ database
- * API Endpoint: GET /api/cameras
+ * Lấy danh sách tất cả camera từ database (thông tin tĩnh)
+ * GET /api/cameras
  */
 export async function getAllCameras(): Promise<CameraInfo[]> {
   try {
@@ -57,10 +57,16 @@ export async function getAllCameras(): Promise<CameraInfo[]> {
 
 /**
  * Lấy chi tiết một camera theo ID
- * API Endpoint: GET /api/cameras/:cam_id
+ * GET /api/cameras/:cam_id
  */
 export async function getCameraById(camId: string): Promise<CameraInfo | null> {
   try {
+    // Validation: Kiểm tra camId hợp lệ
+    if (!camId || camId.trim() === '') {
+      console.error('❌ camId không hợp lệ');
+      return null;
+    }
+    
     const response = await fetch(`${BACKEND_API_URL}/api/cameras/${camId}`, {
       method: 'GET',
       headers: {
@@ -87,8 +93,8 @@ export async function getCameraById(camId: string): Promise<CameraInfo | null> {
 }
 
 /**
- * Tìm camera gần vị trí hiện tại
- * API Endpoint: GET /api/cameras/nearby?lat=<lat>&lng=<lng>&radius=<radius>
+ * Tìm camera gần vị trí GPS được chỉ định
+ * GET /api/cameras/nearby?lat=<lat>&lng=<lng>&radius=<radius>
  */
 export async function getNearbyCameras(
   lat: number,
@@ -96,6 +102,12 @@ export async function getNearbyCameras(
   radius: number = 1000
 ): Promise<CameraInfo[]> {
   try {
+    // Validation: Kiểm tra lat, lng hợp lệ
+    if (isNaN(lat) || isNaN(lng) || isNaN(radius)) {
+      console.error('❌ Tham số lat, lng, radius phải là số hợp lệ');
+      return [];
+    }
+    
     const response = await fetch(
       `${BACKEND_API_URL}/api/cameras/nearby?lat=${lat}&lng=${lng}&radius=${radius}`,
       {

@@ -1,3 +1,4 @@
+from monitor_performance import monitor_performance
 import logging
 import os
 import sys
@@ -9,7 +10,6 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.pool import QueuePool
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from monitor_performance import monitor_performance
 
 load_dotenv()
 # ENV
@@ -34,9 +34,16 @@ engine = create_engine(
 )
 
 
-# Hàm này sẽ sử dụng cho query tổng và train và đánh giá
 @monitor_performance
 def query_from_db_total(start_date, end_date):
+    """
+    Truy vấn dữ liệu lịch sử với LAG/LEAD features cho training và evaluation
+    Args:
+        start_date: Ngày bắt đầu (format: YYYY-MM-DD)
+        end_date: Ngày kết thúc (format: YYYY-MM-DD)
+    Returns:
+        pandas DataFrame chứa features và targets hoặc empty DataFrame nếu lỗi
+    """
     start_time = f"{start_date} 00:00:00"
     end_time = f"{end_date} 23:59:59"
     try:
@@ -110,7 +117,8 @@ def query_from_db_total(start_date, end_date):
             # chunksize=30000,
         )
 
-        logger.info(f"✅ Xử lý xong. Tổng số dòng thỏa điều kiện (>5): {len(chunks)}")
+        logger.info(
+            f"✅ Xử lý xong. Tổng số dòng thỏa điều kiện (>5): {len(chunks)}")
         return chunks
 
     except Exception as e:
@@ -118,9 +126,13 @@ def query_from_db_total(start_date, end_date):
         return pd.DataFrame()
 
 
-# Hàm này sẽ sử dụng cho query realtime thực tế
 @monitor_performance
 def query_from_db_realtime():
+    """
+    Truy vấn dữ liệu realtime (2 giờ gần nhất) với LAG features cho prediction
+    Returns:
+        pandas DataFrame chứa dữ liệu hiện tại hoặc empty DataFrame nếu lỗi
+    """
     try:
         query = text("""
             WITH base_data AS (
@@ -181,7 +193,8 @@ def query_from_db_realtime():
             engine,
         )
 
-        logger.info(f"✅ Xử lý xong. Tổng số dòng thỏa điều kiện (>5): {len(chunks)}")
+        logger.info(
+            f"✅ Xử lý xong. Tổng số dòng thỏa điều kiện (>5): {len(chunks)}")
         return chunks
 
     except Exception as e:
@@ -234,6 +247,71 @@ def forecast_and_save_to_db(y_preds, df_input):
 
 
 @monitor_performance
+def get_camera_capacity_map(lookback_days: int = 30, percentile: float = 95):
+    """
+    Tính toán capacity động cho từng camera dựa trên dữ liệu lịch sử
+    Sử dụng percentile cao (default 95th) để tránh outliers
+    Args:
+        lookback_days: Số ngày lịch sử để tính capacity (default: 30 ngày)
+        percentile: Percentile để tính capacity (default: 95)
+    Returns:
+        Dict[camera_id, capacity] hoặc empty dict nếu lỗi
+    """
+    try:
+        query = text("""
+            WITH base_data AS (
+                SELECT
+                    camera_id,
+                    total_objects,
+                    to_timestamp(floor(extract(epoch from created_at) / 300) * 300) AS time_bucket
+                FROM camera_detections
+                WHERE created_at >= NOW() - INTERVAL :days
+                  AND total_objects > 5
+            ),
+            aggregated_stats AS (
+                SELECT
+                    camera_id,
+                    time_bucket,
+                    AVG(total_objects) AS avg_objects
+                FROM base_data
+                GROUP BY camera_id, time_bucket
+            )
+            SELECT
+                camera_id,
+                PERCENTILE_CONT(:pct) WITHIN GROUP (ORDER BY avg_objects) AS capacity
+            FROM aggregated_stats
+            GROUP BY camera_id
+            ORDER BY camera_id;
+        """)
+
+        df = pd.read_sql(
+            query,
+            engine,
+            params={"days": f"{lookback_days} days", "pct": percentile / 100.0}
+        )
+
+        if df.empty:
+            logger.warning(
+                "⚠️ Không có dữ liệu lịch sử để tính capacity. Sử dụng default = 100.")
+            return {}
+
+        capacity_map = dict(zip(df['camera_id'], df['capacity']))
+        logger.info(
+            f"✅ Đã tính capacity cho {len(capacity_map)} cameras (lookback={lookback_days} days, p{percentile})")
+
+        # Log min/max/avg capacity để kiểm tra
+        capacities = list(capacity_map.values())
+        logger.info(
+            f"   📊 Capacity range: min={min(capacities):.1f}, max={max(capacities):.1f}, avg={sum(capacities)/len(capacities):.1f}")
+
+        return capacity_map
+
+    except Exception as e:
+        logger.error(f"Lỗi khi tính capacity: {e}")
+        return {}
+
+
+@monitor_performance
 def sync_actual_values():
     # Phải dùng utcnow để khớp với DB đã reset timezone
     current_time_utc = datetime.now()
@@ -260,7 +338,8 @@ def sync_actual_values():
     with engine.begin() as conn:
         result = conn.execute(sync_query, {"now": current_time_utc})
         if result.rowcount > 0:
-            logger.info(f"📊 Đã đối soát thành công {result.rowcount} mốc dự báo.")
+            logger.info(
+                f"📊 Đã đối soát thành công {result.rowcount} mốc dự báo.")
 
 
 # data = query_from_db_total("2026-01-22", "2026-01-22")

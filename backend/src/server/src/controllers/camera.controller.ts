@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import pool from "../config/database";
 
 /**
- * Lấy danh sách tất cả camera
+ * Lấy danh sách tất cả camera trong hệ thống
  * GET /api/cameras
  */
 export const getAllCameras = async (req: Request, res: Response) => {
@@ -34,6 +34,14 @@ export const getCameraById = async (req: Request, res: Response) => {
   try {
     const { cam_id } = req.params;
 
+    // Validation: Kiểm tra cam_id có tồn tại
+    if (!cam_id || typeof cam_id !== 'string' || cam_id.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: "cam_id không hợp lệ hoặc thiếu",
+      });
+    }
+
     const result = await pool.query(
       `SELECT cam_id, location, display_name FROM camera_data WHERE cam_id = $1`,
       [cam_id]
@@ -61,18 +69,29 @@ export const getCameraById = async (req: Request, res: Response) => {
 };
 
 /**
- * Lấy camera theo vị trí gần nhất
- * GET /api/cameras/nearby?lat=10.7918902432446&lng=106.691054105759
- * Note: Đây là phiên bản đơn giản, có thể nâng cấp với PostGIS cho chính xác hơn
+ * Tìm camera gần vị trí được chỉ định (tọa độ GPS)
+ * GET /api/cameras/nearby?lat=10.7918902432446&lng=106.691054105759&radius=1
  */
 export const getNearbyCamera = async (req: Request, res: Response) => {
   try {
     const { lat, lng, radius = 1 } = req.query;
 
+    // Validation: Kiểm tra lat, lng phải là số hợp lệ
     if (!lat || !lng) {
       return res.status(400).json({
         success: false,
         message: "Thiếu tham số lat và lng",
+      });
+    }
+
+    const latNum = parseFloat(lat as string);
+    const lngNum = parseFloat(lng as string);
+    const radiusNum = parseFloat(radius as string);
+
+    if (isNaN(latNum) || isNaN(lngNum) || isNaN(radiusNum)) {
+      return res.status(400).json({
+        success: false,
+        message: "Tham số lat, lng, radius phải là số hợp lệ",
       });
     }
 

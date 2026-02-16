@@ -42,7 +42,7 @@ File này hướng dẫn backend implementation cho các API endpoints liên qua
 ```
 
 **Backend Implementation Notes**:
-- Query table `camera_data` (theo SQL_COMMAND.md)
+- Query table `camera_data` (theo DATABASE_SCHEMA.md)
 - Return ALL cameras có trong database
 - Ensure `cam_id` matches với camera ID từ Orion Context Broker
 
@@ -160,7 +160,7 @@ Result: {
 ---
 
 ## Database Schema Reference
-Xem file: `client/commands/SQL_COMMAND.md`
+Xem file: `/schemas/DATABASE_SCHEMA.md`
 
 **Table**: `camera_data`
 ```sql
@@ -273,5 +273,6 @@ CORS_ORIGIN=http://localhost:5173
 
 ## Related Documentation
 - `client/commands/API_BACKEND.md` - API endpoints overview
-- `client/commands/SQL_COMMAND.md` - Database schema
+- `/schemas/DATABASE_SCHEMA.md` - Database schema
+- `/schemas/FIWARE_ORION_DATA_TEMPLATE.md` - FIWARE format
 - `client/commands/PROJECT_CONTEXT_FRONTEND.md` - Project overview

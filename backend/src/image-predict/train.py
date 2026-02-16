@@ -1,3 +1,4 @@
+from monitor_performance import monitor_performance
 import logging
 import os
 import sys
@@ -10,7 +11,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from monitor_performance import monitor_performance
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,6 +22,13 @@ logger = logging.getLogger(__name__)
 
 @monitor_performance
 def train_camera_model(df):
+    """
+    Hun luyện mô hình Random Forest Regressor dự đoán lưu lượng giao thông
+    Args:
+        df: pandas DataFrame chứa dữ liệu lịch sử với LAG/LEAD features
+    Returns:
+        Trained model hoặc None nếu dữ liệu không đủ
+    """
     if df.empty or len(df) < 100:
         logger.warning("Dữ liệu quá ít để huấn luyện!")
         return None
@@ -53,7 +60,8 @@ def train_camera_model(df):
         "trend_30m",
         "trend_60m",
     ]
-    target = ["target_5m", "target_10m", "target_15m", "target_30m", "target_60m"]
+    target = ["target_5m", "target_10m",
+              "target_15m", "target_30m", "target_60m"]
 
     # 2. Làm sạch dữ liệu (Xử lý giá trị NaN do LAG gây ra)
     # RandomForest không chấp nhận NaN. Ta điền bằng 0 hoặc dùng dropna
@@ -96,7 +104,7 @@ def train_camera_model(df):
 
 # --- THỰC THI ---
 # 1. Lấy dữ liệu đã có feature lag/trend
-data = query_from_db_total("2026-01-18", "2026-01-21")
+data = query_from_db_total("2026-02-13", "2026-02-15")
 # print(data.head(100))
 # 2. Huấn luyện
 model = train_camera_model(data)

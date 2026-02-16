@@ -1,3 +1,4 @@
+from monitor_performance import monitor_performance
 import logging
 import os
 import sys
@@ -9,7 +10,6 @@ from query import query_from_db_total
 from sklearn.metrics import mean_absolute_error
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from monitor_performance import monitor_performance
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,6 +21,13 @@ logger = logging.getLogger(__name__)
 
 @monitor_performance
 def predict_total(new_data):
+    """
+    Dự đoán và đánh giá mô hình trên dữ liệu lịch sử (batch evaluation)
+    Args:
+        new_data: pandas DataFrame chứa dữ liệu test với LAG/LEAD features
+    Returns:
+        DataFrame so sánh giữa dự đoán và thực tế
+    """
     # 1. Load Model và Encoder
     try:
         model = joblib.load("camera_rf_model.joblib")
@@ -53,7 +60,8 @@ def predict_total(new_data):
 
     # Các mốc bạn muốn đối chiếu (Target)
     # Lưu ý: SQL của bạn phải có các cột LEAD tương ứng: target_10m, target_15m, target_30m
-    target_cols = ["target_5m", "target_10m", "target_15m", "target_30m", "target_60m"]
+    target_cols = ["target_5m", "target_10m",
+                   "target_15m", "target_30m", "target_60m"]
 
     # Làm sạch: Chỉ giữ những dòng có đủ Feature và đủ ĐÁP ÁN của cả 3 mốc để so sánh
     df_test = df_test.dropna(subset=features + target_cols)

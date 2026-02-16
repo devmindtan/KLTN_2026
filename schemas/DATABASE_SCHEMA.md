@@ -39,6 +39,31 @@ CREATE INDEX idx_sync_null_values ON camera_forecasts (camera_id, forecast_for_t
 WHERE actual_value IS NULL;
 
 
+-- ============================================
+-- TRAFFIC CAPACITY & LEVEL OF SERVICE (LOS)
+-- ============================================
+-- Hằng số Capacity cho tính toán Level of Service
+-- Đơn vị: vehicles/5minutes (dựa trên đặc điểm giao thông đô thị Việt Nam)
+-- 
+-- ROAD_CAPACITY = 100 vehicles/5min (trung bình)
+--
+-- Level of Service (LOS) Classification:
+-- +-------------+------------------+------------------+
+-- | LOS Level   | V/C Ratio        | Status           |
+-- +-------------+------------------+------------------+
+-- | A (Ưu tú)   | < 0.60           | free_flow        |
+-- | B-C (Tốt)   | 0.60 - 0.75      | smooth           |
+-- | D (Ổn)      | 0.75 - 0.85      | moderate         |
+-- | E (Kém)     | 0.85 - 1.00      | heavy            |
+-- | F (Tắc)     | >= 1.00          | congested        |
+-- +-------------+------------------+------------------+
+--
+-- Trend Classification (threshold = 5 vehicles):
+-- - "stable": |predicted - current| < 5
+-- - "increasing": predicted - current >= 5
+-- - "decreasing": predicted - current <= -5
+
+
 CREATE TABLE camera_data (
     cam_id VARCHAR(50) PRIMARY KEY,
     location TEXT, -- Lưu dưới dạng chuỗi '[lat, long]' hoặc sử dụng PostGIS POINT

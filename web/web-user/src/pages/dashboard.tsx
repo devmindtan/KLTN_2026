@@ -19,8 +19,9 @@ export default function Dashboard() {
         totalMotorbikes: 0,
         avgVehiclesPerCamera: 0,
         activeCameras: 0,
-        clearStatus: 0,
-        congestionStatus: 0,
+        goodStatus: 0,        // free_flow + smooth
+        moderateStatus: 0,    // moderate
+        badStatus: 0,         // heavy + congested
         trendingUp: 0,
         trendingDown: 0,
       };
@@ -39,11 +40,15 @@ export default function Dashboard() {
     const avgVehiclesPerCamera =
       activeCameras > 0 ? Math.round(totalVehicles / activeCameras) : 0;
 
-    const clearStatus = processedCameras.filter(
-      (cam) => cam.status === "clear"
+    // Level of Service (LOS) status grouping
+    const goodStatus = processedCameras.filter(
+      (cam) => cam.status === "free_flow" || cam.status === "smooth"
     ).length;
-    const congestionStatus = processedCameras.filter(
-      (cam) => cam.status === "congestion"
+    const moderateStatus = processedCameras.filter(
+      (cam) => cam.status === "moderate"
+    ).length;
+    const badStatus = processedCameras.filter(
+      (cam) => cam.status === "heavy" || cam.status === "congested"
     ).length;
 
     const trendingUp = processedCameras.filter(
@@ -59,8 +64,9 @@ export default function Dashboard() {
       totalMotorbikes,
       avgVehiclesPerCamera,
       activeCameras,
-      clearStatus,
-      congestionStatus,
+      goodStatus,
+      moderateStatus,
+      badStatus,
       trendingUp,
       trendingDown,
     };

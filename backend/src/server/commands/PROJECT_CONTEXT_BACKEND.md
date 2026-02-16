@@ -63,12 +63,13 @@ server/
 │   │   └── camera.api.ts
 │   └── commands/            # Documentation và SQL commands
 │       ├── PROJECT_CONTEXT.md
-│       └── SQL_COMMAND.md
 ├── package.json
 └── tsconfig.json
 ```
 
 ### Database Schema:
+
+**Reference**: See `/schemas/DATABASE_SCHEMA.md` for complete schema
 
 #### Bảng `camera_data`:
 - Lưu trữ thông tin camera giao thông
@@ -186,7 +187,7 @@ setCameraInfoMap(cameras);              // Store static data
 
 ## Related Documentation
 
-- **Database Schema**: `SQL_COMMAND.md`
+- **Database Schema**: `/schemas/DATABASE_SCHEMA.md`
 - **Frontend Guide**: `../../../client/commands/CAMERA_API_INTEGRATION.md`
 - **Setup Instructions**: `../../README.md`
 

@@ -44,8 +44,10 @@ Folder này chứa các tài liệu hướng dẫn và reference cho dự án Tr
 
 ---
 
-### 📊 [FIWARE_ORION_DATA_TEMPLATE.md](./FIWARE_ORION_DATA_TEMPLATE.md)
-**Mục đích**: Reference format dữ liệu từ FIWARE Orion Context Broker
+### 📊 [FIWARE_ORION_DATA_TEMPLATE.md](../../../../../schemas/FIWARE_ORION_DATA_TEMPLATE.md)
+**Mục đích**: Reference format dữ liệu từ FIWARE Orion Context Broker (shared)
+
+**Location**: `/schemas/FIWARE_ORION_DATA_TEMPLATE.md`
 
 **Nội dung**:
 - NGSI-LD data structure
@@ -64,7 +66,7 @@ Folder này chứa các tài liệu hướng dẫn và reference cho dự án Tr
 
 ---
 
-### 🗄️ [SQL_COMMAND.md](./SQL_COMMAND.md)
+### 🗄️ [DATABASE_SCHEMA.md](../../../../../schemas/DATABASE_SCHEMA.md)
 **Mục đích**: Database schema reference
 
 **Nội dung**:
@@ -105,7 +107,7 @@ Folder này chứa các tài liệu hướng dẫn và reference cho dự án Tr
        │    │
        ▼    ▼
     ┌─────────────┐
-    │ SQL_COMMAND │
+    DATABASE_SCHEMA │
     │ (Schema)    │
     └─────────────┘
 ```
@@ -114,7 +116,7 @@ Folder này chứa các tài liệu hướng dẫn và reference cho dự án Tr
 
 ### Static Data (Database)
 - **Source**: PostgreSQL → GET /api/cameras
-- **Files**: `CAMERA_API_INTEGRATION.md`, `SQL_COMMAND.md`
+- **Files**: `CAMERA_API_INTEGRATION.md`, `DATABASE_SCHEMA.md`
 - **Content**: cam_id, display_name, location
 - **Frequency**: Fetch once on app mount
 
@@ -149,7 +151,7 @@ Folder này chứa các tài liệu hướng dẫn và reference cho dự án Tr
 - ✏️ Thay đổi data structure
 - ✏️ Update transformation logic
 
-**SQL_COMMAND.md**:
+**/schemas/DATABASE_SCHEMA.md**:
 - ✏️ Thêm/sửa table schema
 - ✏️ Thêm camera mới
 - ✏️ Update indexes

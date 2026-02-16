@@ -153,13 +153,13 @@ function DragHandle({ id }: { id: string }) {
 const columns: ColumnDef<z.infer<typeof schema>>[] = [
   {
     id: "drag",
-    header: () => null,
-    cell: ({ row }) => <DragHandle id={row.original.id} />,
+    header: () => <div className="hidden lg:block" />,
+    cell: ({ row }) => <div className="hidden lg:block"><DragHandle id={row.original.id} /></div>,
   },
   {
     id: "select",
     header: ({ table }) => (
-      <div className="flex items-center justify-center">
+      <div className="hidden md:flex items-center justify-center">
         <Checkbox
           checked={
             table.getIsAllPageRowsSelected() ||
@@ -171,7 +171,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
       </div>
     ),
     cell: ({ row }) => (
-      <div className="flex items-center justify-center">
+      <div className="hidden md:flex items-center justify-center">
         <Checkbox
           checked={row.getIsSelected()}
           onCheckedChange={(value) => row.toggleSelected(!!value)}
@@ -184,10 +184,12 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
   },
   {
     accessorKey: "shortId",
-    header: "Mã Camera",
-    cell: ({ row }) => {
-      return <TableCellViewer item={row.original} />
-    },
+    header: () => <div className="hidden sm:block">Mã Camera</div>,
+    cell: ({ row }) => (
+      <div className="hidden sm:block">
+        <TableCellViewer item={row.original} />
+      </div>
+    ),
     enableHiding: false,
   },
   {
@@ -195,16 +197,17 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     header: "Vị Trí",
     cell: ({ row }) => (
       <div className="max-w-[250px] text-sm">
-        {row.original.name}
+        <div className="font-medium">{row.original.name}</div>
+        <div className="text-xs text-muted-foreground sm:hidden">ID: {row.original.shortId}</div>
       </div>
     ),
     enableHiding: false,
   },
   {
     accessorKey: "totalObjects",
-    header: "Tổng Số Xe",
+    header: () => <div className="hidden xl:block">Tổng Số Xe</div>,
     cell: ({ row }) => (
-      <div className="flex items-center gap-2">
+      <div className="hidden xl:flex items-center gap-2">
         <span className="text-lg font-semibold tabular-nums">
           {row.original.totalObjects}
         </span>
@@ -303,42 +306,45 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
   },
   {
     accessorKey: "lastUpdated",
-    header: "Cập Nhật Cuối",
+    header: () => <div className="hidden 2xl:block">Cập Nhật Cuối</div>,
     cell: ({ row }) => (
-      <div className="text-xs text-muted-foreground">
+      <div className="hidden 2xl:block text-xs text-muted-foreground">
         {row.original.lastUpdated
-          ? new Date(row.original.lastUpdated).toLocaleString()
+          ? new Date(row.original.lastUpdated).toLocaleString("vi-VN")
           : "N/A"}
       </div>
     ),
   },
   {
     id: "actions",
+    header: () => <div className="hidden lg:block" />,
     cell: () => (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            className="flex size-8 text-muted-foreground data-[state=open]:bg-muted"
-            size="icon"
-          >
-            <MoreVerticalIcon />
-            <span className="sr-only">Open menu</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-40">
-          <DropdownMenuItem>View Details</DropdownMenuItem>
-          <DropdownMenuItem>View History</DropdownMenuItem>
-          <DropdownMenuItem>Download Image</DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem className="text-red-600">Reset Data</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <div className="hidden lg:block">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              className="flex size-8 text-muted-foreground data-[state=open]:bg-muted"
+              size="icon"
+            >
+              <MoreVerticalIcon />
+              <span className="sr-only">Mở menu</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuItem>Xem Chi Tiết</DropdownMenuItem>
+            <DropdownMenuItem>Xem Lịch Sử</DropdownMenuItem>
+            <DropdownMenuItem>Tải Ảnh</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-red-600">Đặt Lại</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     ),
   },
 ]
 
-function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
+function DraggableRow({ row, onRowClick }: { row: Row<z.infer<typeof schema>>, onRowClick: (item: z.infer<typeof schema>) => void }) {
   const { transform, transition, setNodeRef, isDragging } = useSortable({
     id: row.original.id,
   })
@@ -348,14 +354,20 @@ function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
       data-state={row.getIsSelected() && "selected"}
       data-dragging={isDragging}
       ref={setNodeRef}
-      className="relative z-0 data-[dragging=true]:z-10 data-[dragging=true]:opacity-80"
+      className="relative z-0 data-[dragging=true]:z-10 data-[dragging=true]:opacity-80 cursor-pointer hover:bg-muted/50"
+      onClick={() => onRowClick(row.original)}
       style={{
         transform: CSS.Transform.toString(transform),
         transition: transition,
       }}
     >
       {row.getVisibleCells().map((cell) => (
-        <TableCell key={cell.id}>
+        <TableCell key={cell.id} onClick={(e) => {
+          // Ngăn trigger row click khi click vào checkbox, actions, shortId, hoặc drag handle
+          if (cell.column.id === 'select' || cell.column.id === 'actions' || cell.column.id === 'shortId' || cell.column.id === 'drag') {
+            e.stopPropagation();
+          }
+        }}>
           {flexRender(cell.column.columnDef.cell, cell.getContext())}
         </TableCell>
       ))}
@@ -383,6 +395,8 @@ export function DataTable({
   // Filter states
   const [statusFilter, setStatusFilter] = React.useState("all")
   const [trendFilter, setTrendFilter] = React.useState("all")
+  // Detail modal state
+  const [selectedItem, setSelectedItem] = React.useState<z.infer<typeof schema> | null>(null)
   const sortableId = React.useId()
   const sensors = useSensors(
     useSensor(MouseSensor, {}),
@@ -446,9 +460,9 @@ export function DataTable({
     >
       <div className="flex items-center justify-between px-4 lg:px-6">
         <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold">Live Camera Feed</h2>
+          <h2 className="text-lg font-semibold">Nguồn Camera Trực Tiếp</h2>
           <Badge variant="secondary" className="flex h-5 items-center justify-center rounded-full px-2">
-            {table.getFilteredRowModel().rows.length} cameras
+            {table.getFilteredRowModel().rows.length} camera
           </Badge>
         </div>
         <div className="flex items-center gap-2">
@@ -611,7 +625,11 @@ export function DataTable({
                     strategy={verticalListSortingStrategy}
                   >
                     {table.getRowModel().rows.map((row) => (
-                      <DraggableRow key={row.id} row={row} />
+                      <DraggableRow 
+                        key={row.id} 
+                        row={row} 
+                        onRowClick={(item) => setSelectedItem(item)}
+                      />
                     ))}
                   </SortableContext>
                 ) : (
@@ -620,7 +638,7 @@ export function DataTable({
                       colSpan={columns.length}
                       className="h-24 text-center"
                     >
-                      No results.
+                      Không có kết quả.
                     </TableCell>
                   </TableRow>
                 )}
@@ -630,13 +648,12 @@ export function DataTable({
         </div>
         <div className="flex items-center justify-between px-4">
           <div className="hidden flex-1 text-sm text-muted-foreground lg:flex">
-            {table.getFilteredSelectedRowModel().rows.length} of{" "}
-            {table.getFilteredRowModel().rows.length} row(s) selected.
+            {table.getFilteredSelectedRowModel().rows.length} / {table.getFilteredRowModel().rows.length} dòng đã chọn
           </div>
           <div className="flex w-full items-center gap-8 lg:w-fit">
             <div className="hidden items-center gap-2 lg:flex">
               <Label htmlFor="rows-per-page" className="text-sm font-medium">
-                Rows per page
+                Dòng mỗi trang
               </Label>
               <Select
                 value={`${table.getState().pagination.pageSize}`}
@@ -705,6 +722,15 @@ export function DataTable({
           </div>
         </div>
       </TabsContent>
+      
+      {/* Detail Modal - Controlled by selectedItem state */}
+      {selectedItem && (
+        <TableCellViewerModal 
+          item={selectedItem} 
+          open={!!selectedItem}
+          onOpenChange={(open) => !open && setSelectedItem(null)}
+        />
+      )}
     </Tabs>
   )
 }
@@ -739,7 +765,197 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
         <SheetHeader className="gap-1">
           <SheetTitle>{item.name}</SheetTitle>
           <SheetDescription>
-            Camera ID: {item.shortId} • Detailed traffic information and predictions
+            Mã Camera: {item.shortId} • Thông tin chi tiết và dự đoán giao thông
+          </SheetDescription>
+        </SheetHeader>
+        <div className="flex flex-1 flex-col gap-4 py-4 text-sm">
+          {/* Camera Image */}
+          {item.imageUrl && (
+            <div className="rounded-lg border overflow-hidden">
+              <img
+                src={item.imageUrl}
+                alt={`Camera ${item.shortId}`}
+                className="w-full h-48 object-cover"
+                onError={(e) => {
+                  e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='200'%3E%3Crect width='400' height='200' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239ca3af' font-family='sans-serif'%3EImage Not Available%3C/text%3E%3C/svg%3E";
+                }}
+              />
+            </div>
+          )}
+
+          <Separator />
+
+          {/* Current Status */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs text-muted-foreground">Tổng Phương Tiện</Label>
+              <div className="text-2xl font-bold tabular-nums">{item.totalObjects}</div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs text-muted-foreground">Trạng Thái</Label>
+              <Badge
+                variant="outline"
+                className={`w-fit ${
+                  item.status === "free_flow" ? "bg-green-500/10 text-green-600" :
+                  item.status === "smooth" ? "bg-blue-500/10 text-blue-600" :
+                  item.status === "moderate" ? "bg-yellow-500/10 text-yellow-600" :
+                  item.status === "heavy" ? "bg-orange-500/10 text-orange-600" :
+                  item.status === "congested" ? "bg-red-500/10 text-red-600" :
+                  "bg-gray-500/10 text-gray-600"
+                }`}
+              >
+                {
+                  item.status === "free_flow" ? "Thông thoáng" :
+                  item.status === "smooth" ? "Ổn định" :
+                  item.status === "moderate" ? "Trung bình" :
+                  item.status === "heavy" ? "Nặng" :
+                  item.status === "congested" ? "Ùn tắc" : item.status
+                }
+              </Badge>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs text-muted-foreground">Ô tô</Label>
+              <div className="text-xl font-semibold tabular-nums">🚗 {item.carCount}</div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs text-muted-foreground">Xe máy</Label>
+              <div className="text-xl font-semibold tabular-nums">🏍️ {item.motorbikeCount}</div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Forecast Chart */}
+          {!isMobile && forecastData.some(d => d.vehicles > 0) && (
+            <>
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm font-medium">Dự báo luồng giao thông</Label>
+                <ChartContainer config={forecastChartConfig} className="h-[200px]">
+                  <AreaChart
+                    accessibilityLayer
+                    data={forecastData}
+                    margin={{ left: 0, right: 0, top: 10, bottom: 0 }}
+                  >
+                    <CartesianGrid vertical={false} />
+                    <XAxis
+                      dataKey="time"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                    />
+                    <ChartTooltip
+                      cursor={false}
+                      content={<ChartTooltipContent indicator="dot" />}
+                    />
+                    <Area
+                      dataKey="vehicles"
+                      type="monotone"
+                      fill="var(--color-vehicles)"
+                      fillOpacity={0.4}
+                      stroke="var(--color-vehicles)"
+                    />
+                  </AreaChart>
+                </ChartContainer>
+              </div>
+              <Separator />
+            </>
+          )}
+
+          {/* Forecast Values */}
+          <div className="flex flex-col gap-2">
+            <Label className="text-sm font-medium">Dự đoán số lượng phương tiện</Label>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="flex flex-col gap-1 rounded-md border p-2">
+                <span className="text-xs text-muted-foreground">5 phút</span>
+                <span className="text-lg font-semibold tabular-nums">{Math.round(item.forecasts["5m"])}</span>
+              </div>
+              <div className="flex flex-col gap-1 rounded-md border p-2">
+                <span className="text-xs text-muted-foreground">15 phút</span>
+                <span className="text-lg font-semibold tabular-nums">{Math.round(item.forecasts["15m"])}</span>
+              </div>
+              <div className="flex flex-col gap-1 rounded-md border p-2">
+                <span className="text-xs text-muted-foreground">60 phút</span>
+                <span className="text-lg font-semibold tabular-nums">{Math.round(item.forecasts["60m"])}</span>
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Additional Info */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-muted-foreground">Xu hướng</Label>
+              <Badge variant="outline" className="flex gap-1">
+                {item.trend === "increasing" ? (
+                  <TrendingUpIcon className="size-3 text-orange-500" />
+                ) : item.trend === "decreasing" ? (
+                  <TrendingDownIcon className="size-3 text-green-500" />
+                ) : null}
+                {item.trend === "increasing" ? "Tăng" : item.trend === "decreasing" ? "Giảm" : "Ổn định"}
+              </Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-muted-foreground">Cập nhật cuối</Label>
+              <span className="text-xs">
+                {item.lastUpdated
+                  ? new Date(item.lastUpdated).toLocaleString("vi-VN")
+                  : "N/A"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-muted-foreground">Dự đoán cuối</Label>
+              <span className="text-xs">
+                {item.lastPredicted
+                  ? new Date(item.lastPredicted).toLocaleString("vi-VN")
+                  : "N/A"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-muted-foreground">Mã Camera</Label>
+              <span className="font-mono text-xs">{item.shortId}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-muted-foreground">Vị trí</Label>
+              <span className="text-xs">{item.name}</span>
+            </div>
+          </div>
+        </div>
+        <SheetFooter className="mt-auto">
+          <SheetClose asChild>
+            <Button variant="outline" className="w-full">
+              Đóng
+            </Button>
+          </SheetClose>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+// Separate controlled modal component for row click
+function TableCellViewerModal({ item, open, onOpenChange }: { item: z.infer<typeof schema>, open: boolean, onOpenChange: (open: boolean) => void }) {
+  const isMobile = useIsMobile()
+
+  // Transform forecasts to chart data
+  const forecastData = [
+    { time: "5 phút", vehicles: Math.round(item.forecasts["5m"]) },
+    { time: "10 phút", vehicles: Math.round(item.forecasts["10m"]) },
+    { time: "15 phút", vehicles: Math.round(item.forecasts["15m"]) },
+    { time: "30 phút", vehicles: Math.round(item.forecasts["30m"]) },
+    { time: "60 phút", vehicles: Math.round(item.forecasts["60m"]) },
+  ];
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="flex flex-col overflow-y-auto">
+        <SheetHeader className="gap-1">
+          <SheetTitle>{item.name}</SheetTitle>
+          <SheetDescription>
+            Mã Camera: {item.shortId} • Thông tin chi tiết và dự đoán giao thông
           </SheetDescription>
         </SheetHeader>
         <div className="flex flex-1 flex-col gap-4 py-4 text-sm">

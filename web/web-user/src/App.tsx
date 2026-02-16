@@ -16,19 +16,25 @@ import Search from "@/pages/search.tsx";
 
 import {SiteHeader} from "@/components/site-header";
 import {SocketProvider} from "@/contexts/SocketContext";
+import {ThemeProvider} from "@/contexts/ThemeContext";
+import {ScrollToTop} from "@/components/scroll-to-top";
 
 const RootLayout = () => (
-  <SocketProvider>
-    <SidebarProvider>
-      <AppSidebar/>
-      <SidebarInset data-slot="sidebar-inset">
-        <SiteHeader/>
-        <main className="flex flex-1 flex-col">
-          <Outlet/>
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
-  </SocketProvider>
+  <ThemeProvider>
+    <SocketProvider>
+      <SidebarProvider>
+        <AppSidebar/>
+        <SidebarInset data-slot="sidebar-inset">
+          <SiteHeader/>
+          <main className="flex flex-1 flex-col">
+            <Outlet/>
+          </main>
+        </SidebarInset>
+      </SidebarProvider>
+      {/* ScrollToTop - Global component hiển thị ở mọi trang */}
+      <ScrollToTop />
+    </SocketProvider>
+  </ThemeProvider>
 );
 
 const router = createBrowserRouter([

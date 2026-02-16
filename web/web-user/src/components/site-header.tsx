@@ -3,6 +3,7 @@
 import {useLocation, Link} from "react-router-dom"
 import {Separator} from "@/components/ui/separator"
 import {SidebarTrigger} from "@/components/ui/sidebar"
+import {Button} from "@/components/ui/button"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -11,10 +12,13 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
+import {MoonIcon, SunIcon} from "lucide-react"
+import {useTheme} from "@/contexts/ThemeContext"
 import React from "react"
 
 export function SiteHeader() {
   const {pathname} = useLocation()
+  const {theme, toggleTheme} = useTheme()
 
   // Tách path: "/user/dashboard" -> ["user", "dashboard"]
   const pathSegments = pathname.split("/").filter(Boolean)
@@ -54,6 +58,23 @@ export function SiteHeader() {
             })}
           </BreadcrumbList>
         </Breadcrumb>
+
+        {/* Theme Toggle Button - Góc phải */}
+        <div className="ml-auto">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            className="size-8"
+            aria-label={theme === "light" ? "Chuyển sang chế độ tối" : "Chuyển sang chế độ sáng"}
+          >
+            {theme === "light" ? (
+              <MoonIcon className="size-4" />
+            ) : (
+              <SunIcon className="size-4" />
+            )}
+          </Button>
+        </div>
       </div>
     </header>
   )

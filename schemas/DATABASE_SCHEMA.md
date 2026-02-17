@@ -42,26 +42,28 @@ WHERE actual_value IS NULL;
 -- ============================================
 -- TRAFFIC CAPACITY & LEVEL OF SERVICE (LOS)
 -- ============================================
--- Hằng số Capacity cho tính toán Level of Service
--- Đơn vị: vehicles/5minutes (dựa trên đặc điểm giao thông đô thị Việt Nam)
--- 
--- ROAD_CAPACITY = 100 vehicles/5min (trung bình)
+-- CAPACITY ĐỘNG (Dynamic Capacity Calculation):
+-- - Realtime (status.current): MAX(total_objects) trong 7 ngày (peak value)
+-- - Prediction (status.forecast): MAX(AVG 5p) trong 7 ngày (sustainable level)
+-- - Fallback: DEFAULT_CAPACITY = 100 vehicles/5min nếu không có dữ liệu
 --
--- Level of Service (LOS) Classification:
--- +-------------+------------------+------------------+
--- | LOS Level   | V/C Ratio        | Status           |
--- +-------------+------------------+------------------+
--- | A (Ưu tú)   | < 0.60           | free_flow        |
--- | B-C (Tốt)   | 0.60 - 0.75      | smooth           |
--- | D (Ổn)      | 0.75 - 0.85      | moderate         |
--- | E (Kém)     | 0.85 - 1.00      | heavy            |
--- | F (Tắc)     | >= 1.00          | congested        |
--- +-------------+------------------+------------------+
+-- Đơn vị: vehicles/5minutes (đặc điểm giao thông đô thị VN)
 --
--- Trend Classification (threshold = 5 vehicles):
--- - "stable": |predicted - current| < 5
--- - "increasing": predicted - current >= 5
--- - "decreasing": predicted - current <= -5
+-- Level of Service (LOS) Classification (V/C Ratio):
+-- +-------+------------+--------------+
+-- | LOS   | V/C Ratio  | Status       |
+-- +-------+------------+--------------+
+-- | A     | < 0.60     | free_flow    |
+-- | B-C   | 0.60-0.75  | smooth       |
+-- | D     | 0.75-0.85  | moderate     |
+-- | E     | 0.85-1.00  | heavy        |
+-- | F     | >= 1.00    | congested    |
+-- +-------+------------+--------------+
+--
+-- Trend (% change threshold = 10%):
+-- - "stable": |%change| < 10%
+-- - "increasing": %change >= 10%
+-- - "decreasing": %change <= -10%
 
 
 CREATE TABLE camera_data (

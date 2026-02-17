@@ -43,23 +43,12 @@ Python ML service sử dụng **Random Forest Regressor** để dự đoán lưu
 - **Model Persistence**: joblib
 - **Profiling**: Custom decorator `@monitor_performance`
 
-### Cấu trúc thư mục:
-```
-image-predict/
-├── train.py                    # Model training script
-├── predict_realtime.py         # Real-time prediction service
-├── predict_total.py            # Batch prediction & evaluation
-├── query.py                    # SQL query utilities
-├── monitor_performance.py      # Performance profiling decorator
-├── test_posgres_conn.py        # Database connection test
-├── requirements.txt            # Python dependencies
-├── .env.example               # Environment template
-├── Dockerfile                 # Container configuration
-├── camera_rf_model.joblib     # Trained model (generated)
-├── camera_label_encoder.joblib # Label encoder (generated)
-└── commands/
-    └── PROJECT_CONTEXT.md     # This file
-```
+### Files:
+- `train.py`: Model training
+- `predict_realtime.py`: Real-time predictions (CronJob)
+- `predict_total.py`: Batch evaluation
+- `query.py`: SQL utilities
+- `*.joblib`: Model artifacts
 
 ### Chức năng chính:
 
@@ -138,14 +127,9 @@ WHERE actual_value IS NULL;
 ```
 
 ### Environment Variables:
-```bash
-POSTGRES_HOST=localhost
-POSTGRES_DBS=traffic_db
-POSTGRES_USERNAME=postgres
-POSTGRES_PASSWORD=password
-POSTGRES_PORT=5432
-FIWARE_ORION_BASE=orion:1026
-```
+**Reference**: `.env.example`
+
+**Key vars**: `POSTGRES_*`, `FIWARE_ORION_BASE`
 
 ### ML Model Details:
 

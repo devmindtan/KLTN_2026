@@ -62,54 +62,18 @@
      - /user/search → Tìm Kiếm
 4. Layout Structure: SidebarProvider → AppSidebar + SidebarInset (với SiteHeader và main content)
 
-**Cấu trúc Pages:**
-- src/pages/dashboard.tsx - Trang chủ hiển thị tổng quan lưu lượng giao thông với biểu đồ và bảng dữ liệu
-- src/pages/lifecycle.tsx - **Giám Sát** - Theo dõi lưu lượng giao thông thời gian thực tại các điểm quan trọng
-  - Search & Filter: Tìm kiếm camera, lọc theo trạng thái (Bình thường/Cảnh báo/Ùn tắc), xu hướng (Tăng/Giảm/Ổn định)
-  - Sort: Tên A-Z, Nhiều xe nhất, Ít xe nhất, Mới cập nhật
-  - Grid responsive: 1 card (mobile) → 2 cards (tablet) → 4 cards (desktop)
-  - Camera detail dialog với forecast chart và thông tin chi tiết
-- src/pages/analytics.tsx - **Phân Tích** - Dự đoán lưu lượng giao thông dựa trên mô hình Machine Learning
-- src/pages/projects.tsx - **Mô Hình ML** - Quản lý và theo dõi các mô hình dự đoán (LSTM, Random Forest, XGBoost, CNN)
-- src/pages/team.tsx - **Đội Ngũ** - Quản lý thành viên tham gia dự án (ML Engineer, Data Scientist, Developers)
-- src/pages/data-library.tsx - **Dữ Liệu** - Thư viện dữ liệu giao thông (streaming, historical, weather, training data)
-- src/pages/reports.tsx - **Báo Cáo** - Báo cáo và phân tích lưu lượng theo tháng, tuần, và đặc biệt
-- src/pages/word-assistant.tsx - **Hỗ Trợ** - Khuyến nghị tự động dựa trên AI (điều chỉnh đèn, cảnh báo ùn tắc)
-- src/pages/setting.tsx - Cài đặt hệ thống
-- src/pages/help.tsx - Trung tâm hỗ trợ với tài liệu hướng dẫn và FAQ
-- src/pages/search.tsx - Tìm kiếm dữ liệu, báo cáo và thông tin giao thông
+**Pages**: (Chi tiết routes & functions xem `reports/FUNCTION_LIST.md`)
+- `/user/dashboard`: Tổng quan hệ thống (metrics, charts)
+- `/user/lifecycle`: **Giám Sát** real-time (search, filter, grid cards)
+- `/user/analytics`, `/user/projects`: Phân tích ML (🚧 TODO)
+- `/user/{team,data-library,reports,word-assistant}`: Quản lý dự án
+- `/user/{settings,help,search}`: Tiện ích
 
-**Sidebar Navigation Structure:**
-- **Main Navigation** (NavMain):
-  - Bảng điều khiển - Tổng quan hệ thống
-  - Giám sát - Theo dõi real-time traffic
-  - Phân tích - ML predictions & analytics
-  - Mô hình ML - Quản lý ML models
-  - Đội ngũ - Team management
-- **Documents** (NavDocuments):
-  - Dữ liệu - Traffic data library
-  - Báo cáo - Traffic reports
-  - Hỗ trợ - AI-powered decision support
-- **Secondary Navigation** (NavSecondary):
-  - Cài đặt - Settings
-  - Liên hệ - Help & documentation
-  - Tìm Kiếm - Global search
-- **User Section** (NavUser):
-  - User profile và settings
-
-**Key Components:**
-- src/components/app-sidebar.tsx - Sidebar navigation chính
-- src/components/site-header.tsx - Header của ứng dụng
-- src/components/nav-main.tsx - Main navigation items
-- src/components/nav-documents.tsx - Documents navigation
-- src/components/data-table.tsx - Live camera feed table với drag-drop, search/filter (status, trend), pagination
-- src/components/chart-area-interactive.tsx - Interactive forecast chart với camera selector (có search trong dropdown)
-- src/components/nav-secondary.tsx - Secondary navigation
-- src/components/nav-user.tsx - User menu
-- src/components/data-table.tsx - Reusable data table component (with drag-drop, pagination)
-- src/components/chart-area-interactive.tsx - Interactive chart component
-- src/components/section-cards.tsx - Section cards component
-- src/components/ui/* - Shadcn UI components (40+ components)
+**Key Components**: (Chi tiết xem `reports/FUNCTION_LIST.md`)
+- Navigation: `app-sidebar`, `nav-main`, `nav-documents`, `nav-secondary`, `nav-user`
+- Data: `data-table` (TanStack Table + drag-drop), `chart-area-interactive` (Recharts)
+- Layout: `site-header`, `section-cards`
+- UI primitives: Shadcn UI (40+ components trong `components/ui/*`)
 
 **Context & Services:**
 - src/contexts/SocketContext.tsx - WebSocket connection & camera data management

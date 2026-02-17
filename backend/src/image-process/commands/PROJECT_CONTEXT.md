@@ -56,22 +56,10 @@ Python service sử dụng **YOLOv11** (Ultralytics) để phát hiện và đ�
 - **FIWARE Integration**: aiohttp (async HTTP client)
 - **Concurrency**: asyncio
 
-### Cấu trúc thư mục:
-```
-image-process/
-├── src/
-│   ├── main.py                # Entry point, async processing logic
-│   ├── best.pt                # YOLOv11 trained model
-│   ├── test_posgres_conn.py   # Database connection test
-│   ├── .env.example           # Environment template
-│   ├── Dockerfile             # Container configuration
-│   └── requirements.txt       # Python dependencies
-├── tests/
-│   ├── conftest.py           # Pytest configuration
-│   └── test_service_1.py     # Unit tests
-└── commands/
-    └── PROJECT_CONTEXT.md    # This file
-```
+### Files:
+- `main.py`: Entry point, YOLO detection loop
+- `best.pt`: YOLOv11 model
+- `Dockerfile`, `requirements.txt`: Container config
 
 ### Chức năng chính:
 
@@ -131,23 +119,9 @@ image-process/
   - `fiware-servicepath: /`
 
 ### Environment Variables:
-```bash
-# MinIO Configuration
-MINIO_ENDPOINT_URL=http://minio:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-MINIO_BUCKET_NAME=traffic-images
+**Reference**: `.env.example` trong thư mục service
 
-# FIWARE Orion
-FIWARE_ORION_BASE=orion:1026
-
-# PostgreSQL
-POSTGRES_HOST=postgres
-POSTGRES_DBS=traffic_db
-POSTGRES_USERNAME=postgres
-POSTGRES_PASSWORD=password
-POSTGRES_PORT=5432
-```
+**Key vars**: `MINIO_ENDPOINT_URL`, `MINIO_BUCKET_NAME`, `FIWARE_ORION_BASE`, `POSTGRES_HOST`, `POSTGRES_DBS`, `POSTGRES_USERNAME`, `POSTGRES_PASSWORD`
 
 ### Camera List (20 cameras):
 ```python

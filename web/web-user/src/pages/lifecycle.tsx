@@ -89,8 +89,8 @@ export default function TrafficMonitoring() {
         camera.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         camera.shortId.toLowerCase().includes(searchQuery.toLowerCase());
 
-      // Status filter - dùng status từ backend (LOS)
-      const matchesStatus = statusFilter === "all" || camera.status === statusFilter;
+      // Status filter - dùng status.current từ backend (LOS)
+      const matchesStatus = statusFilter === "all" || camera.status.current === statusFilter;
 
       // Trend filter
       const matchesTrend = trendFilter === "all" || camera.trend === trendFilter;
@@ -252,7 +252,9 @@ export default function TrafficMonitoring() {
                       <IconMapPin className="w-5 h-5 text-primary" />
                       <CardTitle className="text-base">{camera.name}</CardTitle>
                     </div>
-                    {getStatusBadge(camera.status)}
+                    <div className="flex flex-col gap-1 items-end">
+                      {getStatusBadge(camera.status.current)}
+                    </div>
                   </div>
                   <CardDescription>Camera {camera.shortId}</CardDescription>
                 </CardHeader>
@@ -361,10 +363,21 @@ function CameraDetailDialog({ camera }: { camera: CameraData }) {
               <Label className="text-xs text-muted-foreground">Tổng phương tiện</Label>
               <div className="text-2xl font-bold tabular-nums">{camera.totalObjects}</div>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
               <Label className="text-xs text-muted-foreground">Trạng thái</Label>
-              {getStatusBadge(camera.status)}
-              {}
+              <div className="flex flex-col gap-1.5">
+                {getStatusBadge(camera.status.current)}
+                <div className="text-[10px] text-muted-foreground border-t pt-1">Dự báo 5p:</div>
+                {getStatusBadge(camera.status.forecast)}
+                {camera.calculation && (
+                  <div className="text-[10px] text-muted-foreground bg-muted/50 rounded px-2 py-1 mt-1">
+                    <div className="font-mono">
+                      {Math.round(camera.calculation.predicted_volume)} / {Math.round(camera.calculation.capacity)} xe
+                      <span className="ml-1">({Math.round(camera.calculation.vc_ratio * 100)}%)</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -440,16 +453,25 @@ function CameraDetailDialog({ camera }: { camera: CameraData }) {
 
           {/* Additional Info */}
           <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground">Xu hướng</Label>
-              <Badge variant="outline" className="flex gap-1">
-                {camera.trend === "increasing" ? (
-                  <TrendingUpIcon className="size-3 text-orange-500" />
-                ) : camera.trend === "decreasing" ? (
-                  <TrendingDownIcon className="size-3 text-green-500" />
-                ) : null}
-                {camera.trend === "increasing" ? "Tăng" : camera.trend === "decreasing" ? "Giảm" : "Ổn định"}
-              </Badge>
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground">Xu hướng</Label>
+                <Badge variant="outline" className="flex gap-1">
+                  {camera.trend === "increasing" ? (
+                    <TrendingUpIcon className="size-3 text-orange-500" />
+                  ) : camera.trend === "decreasing" ? (
+                    <TrendingDownIcon className="size-3 text-green-500" />
+                  ) : null}
+                  {camera.trend === "increasing" ? "Tăng" : camera.trend === "decreasing" ? "Giảm" : "Ổn định"}
+                </Badge>
+              </div>
+              <div className="text-[10px] text-muted-foreground bg-blue-50 dark:bg-blue-950/20 rounded px-2 py-1.5 border border-blue-200 dark:border-blue-800">
+                💡 {camera.trend === "increasing" 
+                  ? "Lưu lượng dự báo tăng >10% so với hiện tại"
+                  : camera.trend === "decreasing"
+                  ? "Lưu lượng dự báo giảm >10% so với hiện tại"
+                  : "Lưu lượng dự báo thay đổi <10% (ổn định)"}
+              </div>
             </div>
             <div className="flex items-center justify-between">
               <Label className="text-xs text-muted-foreground">Cập nhật lần cuối</Label>

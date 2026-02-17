@@ -1,6 +1,6 @@
 # Workspace Awareness
 
-- **Root Detection**: Luôn xác định thư mục gốc của dự án hiện tại bằng cách kiểm tra file `package.json` hoặc thư mục `.git` và ƯU TIÊN đọc file `AGENT_LOG.md` để biết được task trước đã làm những gì, cùng với liên tục tham chiếu đến file `FUNCTION_LIST.md` để bổ sung hoặc cập nhật chức năng.
+- **Root Detection**: Luôn xác định thư mục gốc của dự án hiện tại bằng cách kiểm tra file `package.json` hoặc thư mục `.git` và ƯU TIÊN đọc file `reports/AGENT_LOG.md` để biết được task trước đã làm những gì, cùng với liên tục tham chiếu đến file `reports/FUNCTION_LIST.md` để bổ sung hoặc cập nhật chức năng.
 - **Dynamic Path**: Các đường dẫn đến `commands/` phải luôn được tính từ Root của Workspace đang mở.
 - **Project Isolation**: Không áp dụng logic của dự án này sang dự án khác nếu Workspace thay đổi.
 - **Exceptions (DO NOT TOUCH)**: Tuyệt đối không tự ý thay đổi nội dung trong các thư mục: `k8s-configs/`, `assets/`.
@@ -57,7 +57,7 @@
 
 Sau khi hoàn thành nhiệm vụ:
 
-- AI phải truy cập file `AGENT_LOG.md`.
+- AI phải truy cập file `reports/AGENT_LOG.md`.
 - Sử dụng đúng cấu trúc bảng trong phần `Template` ở đầu file.
 - Thời gian: Sử dụng định dạng DD/MM/YY.
 - Số dòng thay đổi: Ước tính tương đối (ví dụ: ~20, +50, -10).
@@ -65,11 +65,11 @@ Sau khi hoàn thành nhiệm vụ:
 - **Function List Maintenance**:
   - Khi cập nhật `FUNCTION_LIST.md`, ở cột "Hạn chế & Lý do", nếu là lỗi logic phải bắt đầu bằng tag `[BUG]`, nếu là tính năng chưa có phải dùng tag `[TODO]`.
   - Cột "Vị trí" phải cung cấp đường dẫn file chính xác từ Root.
-  # ID Naming Convention (FUNCTION_LIST.md)
+  # ID Naming Convention (reports/FUNCTION_LIST.md)
   - **Format**: [FILE_EXTENSION_UPPERCASE]-[UNIQUE_3_CHAR]
   - **Rule**: Lấy phần mở rộng của file chứa hàm đó, viết hoa, và kết hợp với 3 ký tự ngẫu nhiên duy nhất.
   - **Example**:
     - File .py -> `PY-XXX`
     - File .tsx -> `TSX-XXX`
     - File .js -> `JS-XXX`
-  - **Requirement**: AI phải tự động sinh ID này khi cập nhật FUNCTION_LIST.md.
+  - **Requirement**: AI phải tự động sinh ID này khi cập nhật reports/FUNCTION_LIST.md.

@@ -8,11 +8,14 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy file requirements và cài đặt thư viện Python
-COPY requirements.txt .
+COPY image-predict/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy shared utilities
+COPY shared /app/shared
+
 # Copy toàn bộ mã nguồn vào container
-COPY . .
+COPY image-predict/ .
 
 
 CMD ["python", "predict_realtime.py"]

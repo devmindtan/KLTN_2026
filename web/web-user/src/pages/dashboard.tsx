@@ -40,15 +40,15 @@ export default function Dashboard() {
     const avgVehiclesPerCamera =
       activeCameras > 0 ? Math.round(totalVehicles / activeCameras) : 0;
 
-    // Level of Service (LOS) status grouping
+    // Level of Service (LOS) status grouping - Dựa trên HIỆN TẠI (current)
     const goodStatus = processedCameras.filter(
-      (cam) => cam.status === "free_flow" || cam.status === "smooth"
+      (cam) => cam.status.current === "free_flow" || cam.status.current === "smooth"
     ).length;
     const moderateStatus = processedCameras.filter(
-      (cam) => cam.status === "moderate"
+      (cam) => cam.status.current === "moderate"
     ).length;
     const badStatus = processedCameras.filter(
-      (cam) => cam.status === "heavy" || cam.status === "congested"
+      (cam) => cam.status.current === "heavy" || cam.status.current === "congested"
     ).length;
 
     const trendingUp = processedCameras.filter(

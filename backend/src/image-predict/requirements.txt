@@ -6,3 +6,8 @@ psycopg2_binary==2.9.11
 python-dotenv==1.2.1
 scikit_learn==1.8.0
 SQLAlchemy==2.0.46
+pandas==3.0.0
+python-dotenv==1.2.1
+query==0.1.4
+shared==0.0.32
+SQLAlchemy==2.0.46

@@ -247,68 +247,23 @@ def forecast_and_save_to_db(y_preds, df_input):
 
 
 @monitor_performance
-def get_camera_capacity_map(lookback_days: int = 30, percentile: float = 95):
+def get_camera_capacity_map(lookback_days: int = 7):
     """
-    Tính toán capacity động cho từng camera dựa trên dữ liệu lịch sử
-    Sử dụng percentile cao (default 95th) để tránh outliers
+    [DEPRECATED - Sử dụng shared.los_utils.get_camera_capacity_map() thay thế]
+    Wrapper function để backward compatibility
+    Tính toán capacity động cho từng camera dựa trên giá trị MAX trong dữ liệu lịch sử
+    Lấy giá trị trung bình 5 phút LỚN NHẤT làm capacity
     Args:
-        lookback_days: Số ngày lịch sử để tính capacity (default: 30 ngày)
-        percentile: Percentile để tính capacity (default: 95)
+        lookback_days: Số ngày lịch sử để tính capacity (default: 7 ngày)
     Returns:
         Dict[camera_id, capacity] hoặc empty dict nếu lỗi
     """
-    try:
-        query = text("""
-            WITH base_data AS (
-                SELECT
-                    camera_id,
-                    total_objects,
-                    to_timestamp(floor(extract(epoch from created_at) / 300) * 300) AS time_bucket
-                FROM camera_detections
-                WHERE created_at >= NOW() - INTERVAL :days
-                  AND total_objects > 5
-            ),
-            aggregated_stats AS (
-                SELECT
-                    camera_id,
-                    time_bucket,
-                    AVG(total_objects) AS avg_objects
-                FROM base_data
-                GROUP BY camera_id, time_bucket
-            )
-            SELECT
-                camera_id,
-                PERCENTILE_CONT(:pct) WITHIN GROUP (ORDER BY avg_objects) AS capacity
-            FROM aggregated_stats
-            GROUP BY camera_id
-            ORDER BY camera_id;
-        """)
+    # Import shared function để đồng bộ logic
+    from shared.los_utils import get_camera_capacity_map as shared_get_capacity
 
-        df = pd.read_sql(
-            query,
-            engine,
-            params={"days": f"{lookback_days} days", "pct": percentile / 100.0}
-        )
-
-        if df.empty:
-            logger.warning(
-                "⚠️ Không có dữ liệu lịch sử để tính capacity. Sử dụng default = 100.")
-            return {}
-
-        capacity_map = dict(zip(df['camera_id'], df['capacity']))
-        logger.info(
-            f"✅ Đã tính capacity cho {len(capacity_map)} cameras (lookback={lookback_days} days, p{percentile})")
-
-        # Log min/max/avg capacity để kiểm tra
-        capacities = list(capacity_map.values())
-        logger.info(
-            f"   📊 Capacity range: min={min(capacities):.1f}, max={max(capacities):.1f}, avg={sum(capacities)/len(capacities):.1f}")
-
-        return capacity_map
-
-    except Exception as e:
-        logger.error(f"Lỗi khi tính capacity: {e}")
-        return {}
+    logger.warning(
+        "⚠️ Sử dụng deprecated function. Recommend: import từ shared.los_utils")
+    return shared_get_capacity(lookback_days=lookback_days)
 
 
 @monitor_performance

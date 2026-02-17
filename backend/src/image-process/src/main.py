@@ -1,9 +1,11 @@
+from shared.los_utils import calculate_los_status, DEFAULT_CAPACITY, get_camera_max_realtime_capacity
 import asyncio
 import io
 import logging
 import os
+import sys
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import aiohttp
 import boto3
@@ -13,6 +15,10 @@ from dotenv import load_dotenv
 from psycopg2.extras import Json
 from psycopg2.pool import ThreadedConnectionPool
 from ultralytics import YOLO
+
+# Import shared utilities
+sys.path.append(os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "../..")))
 
 load_dotenv()
 # ENV
@@ -88,10 +94,31 @@ s3_client = boto3.client(
     aws_secret_access_key=MINIO_CONFIG["secret_key"],
 )
 
+# 2. Global Capacity Map Cache (refresh mỗi 6 giờ)
+capacity_map = {}
+last_capacity_refresh = None
+CAPACITY_REFRESH_INTERVAL = timedelta(hours=6)
+
+
+def refresh_capacity_map_if_needed():
+    """
+    Refresh capacity map nếu đã quá 6 giờ hoặc chưa load lần đầu
+    Sử dụng get_camera_max_realtime_capacity() - Lấy MAX dòng lớn nhất (không qua trung bình)
+    """
+    global capacity_map, last_capacity_refresh
+
+    now = datetime.now()
+    if last_capacity_refresh is None or (now - last_capacity_refresh) > CAPACITY_REFRESH_INTERVAL:
+        logger.info("🔄 Refreshing realtime capacity map...")
+        capacity_map = get_camera_max_realtime_capacity(
+            lookback_days=7, camera_list=CAMERA_LIST)
+        last_capacity_refresh = now
+
 
 async def update_fiware(camera_id, detections, total_objects, minio_key):
     """
     Cập nhật dữ liệu realtime sang FIWARE Orion Context Broker
+    Tính status_current dựa trên LOS calculation với thông tin chi tiết
     Args:
         camera_id: ID của camera
         detections: Dict chứa kết quả phát hiện (e.g., {"car": 30, "motorcycle": 15})
@@ -100,6 +127,11 @@ async def update_fiware(camera_id, detections, total_objects, minio_key):
     """
     entity_id = f"urn:ngsi-ld:Camera:{camera_id}"
 
+    # Tính status_current dựa trên total_objects và capacity
+    capacity = capacity_map.get(camera_id, DEFAULT_CAPACITY)
+    status_current = calculate_los_status(total_objects, capacity)
+    vc_ratio = round(total_objects / capacity, 4) if capacity > 0 else 0
+
     # Payload theo chuẩn NGSI-v2
     payload = {
         "id": entity_id,
@@ -107,6 +139,19 @@ async def update_fiware(camera_id, detections, total_objects, minio_key):
         "total_objects": {"type": "Integer", "value": total_objects},
         "detections": {"type": "StructuredValue", "value": detections},
         "minio_key": {"type": "Text", "value": minio_key},
+        "status": {
+            "type": "StructuredValue",
+            "value": {
+                "current": status_current,  # Trạng thái hiện tại từ image-process
+                "realtime": {  # Thông tin chi tiết real-time (giống calculation trong prediction)
+                    "current_volume": total_objects,  # Số phương tiện thực tế phát hiện
+                    "detections": detections,  # Chi tiết theo loại xe
+                    "capacity": capacity,  # Capacity camera (MAX 7 ngày)
+                    "vc_ratio": vc_ratio,  # Tỷ lệ volume/capacity
+                    "timestamp": datetime.now().timestamp()  # Timestamp detection
+                }
+            }
+        },
         "last_updated": {"type": "DateTime", "value": datetime.now().isoformat()},
     }
 
@@ -293,6 +338,10 @@ async def main():
     Vòng lặp chính xử lý tất cả cameras
     Khởi tạo cookie và chạy async fetch cho tất cả 20 cameras
     """
+    # Load capacity map lần đầu
+    logger.info("📊 Loading capacity map...")
+    refresh_capacity_map_if_needed()
+
     # Khởi tạo cookie lần đầu
     async with aiohttp.ClientSession() as session:
         logger.info("Đang khởi tạo Cookie...")
@@ -302,6 +351,9 @@ async def main():
         )
 
         while True:
+            # Refresh capacity map nếu cần (mỗi 6 giờ)
+            refresh_capacity_map_if_needed()
+
             start_time = time.time()
 
             # Tạo danh sách các task chạy song song

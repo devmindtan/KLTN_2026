@@ -118,7 +118,10 @@ export const schema = z.object({
   motorbikeCount: z.number(),
   imageUrl: z.string(),
   lastUpdated: z.string(),
-  status: z.string(),
+  status: z.object({
+    current: z.string(),
+    forecast: z.string(),
+  }),
   trend: z.string(),
   forecasts: z.object({
     "5m": z.number(),
@@ -128,7 +131,26 @@ export const schema = z.object({
     "60m": z.number(),
   }),
   lastPredicted: z.string(),
+  calculation: z.object({
+    predicted_volume: z.number(),
+    capacity: z.number(),
+    vc_ratio: z.number(),
+  }).optional(),
 })
+
+// Helper function to get trend explanation
+const getTrendExplanation = (trend: string) => {
+  switch (trend) {
+    case "increasing":
+      return "Lưu lượng dự báo tăng >10% so với hiện tại";
+    case "decreasing":
+      return "Lưu lượng dự báo giảm >10% so với hiện tại";
+    case "stable":
+      return "Lưu lượng dự báo thay đổi <10% (ổn định)";
+    default:
+      return "Không có dữ liệu xu hướng";
+  }
+};
 
 // Create a separate component for the drag handle
 function DragHandle({ id }: { id: string }) {
@@ -221,47 +243,61 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     accessorKey: "status",
     header: "Trạng Thái",
     cell: ({ row }) => {
-      const status = row.original.status;
-      let badgeClass = "bg-gray-500/10 text-gray-600";
-      let statusText = "Không rõ";
-      let icon = <LoaderIcon className="size-3" />;
+      const statusObj = row.original.status;
+      
+      // Helper function để render badge
+      const renderStatusBadge = (status: string, label: string) => {
+        let badgeClass = "bg-gray-500/10 text-gray-600";
+        let statusText = "Không rõ";
+        let icon = <LoaderIcon className="size-3" />;
 
-      switch (status) {
-        case "free_flow":
-          badgeClass = "bg-green-500/10 text-green-600";
-          statusText = "Thông thoáng";
-          icon = <CheckCircle2Icon className="size-3" />;
-          break;
-        case "smooth":
-          badgeClass = "bg-blue-500/10 text-blue-600";
-          statusText = "Ổn định";
-          icon = <CheckCircle2Icon className="size-3" />;
-          break;
-        case "moderate":
-          badgeClass = "bg-yellow-500/10 text-yellow-600";
-          statusText = "Trung bình";
-          icon = <LoaderIcon className="size-3" />;
-          break;
-        case "heavy":
-          badgeClass = "bg-orange-500/10 text-orange-600";
-          statusText = "Nặng";
-          icon = <LoaderIcon className="size-3" />;
-          break;
-        case "congested":
-          badgeClass = "bg-red-500/10 text-red-600";
-          statusText = "Ùn tắc";
-          icon = <LoaderIcon className="size-3" />;
-          break;
-      }
+        switch (status) {
+          case "free_flow":
+            badgeClass = "bg-green-500/10 text-green-600";
+            statusText = "Thông thoáng";
+            icon = <CheckCircle2Icon className="size-3" />;
+            break;
+          case "smooth":
+            badgeClass = "bg-blue-500/10 text-blue-600";
+            statusText = "Ổn định";
+            icon = <CheckCircle2Icon className="size-3" />;
+            break;
+          case "moderate":
+            badgeClass = "bg-yellow-500/10 text-yellow-600";
+            statusText = "Trung bình";
+            icon = <LoaderIcon className="size-3" />;
+            break;
+          case "heavy":
+            badgeClass = "bg-orange-500/10 text-orange-600";
+            statusText = "Nặng";
+            icon = <LoaderIcon className="size-3" />;
+            break;
+          case "congested":
+            badgeClass = "bg-red-500/10 text-red-600";
+            statusText = "Ùn tắc";
+            icon = <LoaderIcon className="size-3" />;
+            break;
+        }
+
+        return (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] text-muted-foreground">{label}</span>
+            <Badge
+              variant="outline"
+              className={`flex gap-1 px-2 py-1 ${badgeClass}`}
+            >
+              {icon}
+              {statusText}
+            </Badge>
+          </div>
+        );
+      };
 
       return (
-        <Badge
-          variant="outline"
-          className={`flex gap-1 px-2 py-1 ${badgeClass}`}
-        >
-          {icon}
-          {statusText}
-        </Badge>
+        <div className="flex flex-col gap-2">
+          {renderStatusBadge(statusObj.current, "Hiện tại")}
+          {renderStatusBadge(statusObj.forecast, "Dự báo 5p")}
+        </div>
       );
     },
   },
@@ -791,27 +827,57 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
               <Label className="text-xs text-muted-foreground">Tổng Phương Tiện</Label>
               <div className="text-2xl font-bold tabular-nums">{item.totalObjects}</div>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
               <Label className="text-xs text-muted-foreground">Trạng Thái</Label>
-              <Badge
-                variant="outline"
-                className={`w-fit ${
-                  item.status === "free_flow" ? "bg-green-500/10 text-green-600" :
-                  item.status === "smooth" ? "bg-blue-500/10 text-blue-600" :
-                  item.status === "moderate" ? "bg-yellow-500/10 text-yellow-600" :
-                  item.status === "heavy" ? "bg-orange-500/10 text-orange-600" :
-                  item.status === "congested" ? "bg-red-500/10 text-red-600" :
-                  "bg-gray-500/10 text-gray-600"
-                }`}
-              >
-                {
-                  item.status === "free_flow" ? "Thông thoáng" :
-                  item.status === "smooth" ? "Ổn định" :
-                  item.status === "moderate" ? "Trung bình" :
-                  item.status === "heavy" ? "Nặng" :
-                  item.status === "congested" ? "Ùn tắc" : item.status
-                }
-              </Badge>
+              <div className="flex flex-col gap-1.5">
+                <Badge
+                  variant="outline"
+                  className={`w-fit ${
+                    item.status.current === "free_flow" ? "bg-green-500/10 text-green-600" :
+                    item.status.current === "smooth" ? "bg-blue-500/10 text-blue-600" :
+                    item.status.current === "moderate" ? "bg-yellow-500/10 text-yellow-600" :
+                    item.status.current === "heavy" ? "bg-orange-500/10 text-orange-600" :
+                    item.status.current === "congested" ? "bg-red-500/10 text-red-600" :
+                    "bg-gray-500/10 text-gray-600"
+                  }`}
+                >
+                  {
+                    item.status.current === "free_flow" ? "Thông thoáng" :
+                    item.status.current === "smooth" ? "Ổn định" :
+                    item.status.current === "moderate" ? "Trung bình" :
+                    item.status.current === "heavy" ? "Nặng" :
+                    item.status.current === "congested" ? "Ùn tắc" : item.status.current
+                  }
+                </Badge>
+                <div className="text-[10px] text-muted-foreground border-t pt-1">Dự báo 5p:</div>
+                <Badge
+                  variant="outline"
+                  className={`w-fit ${
+                    item.status.forecast === "free_flow" ? "bg-green-500/10 text-green-600" :
+                    item.status.forecast === "smooth" ? "bg-blue-500/10 text-blue-600" :
+                    item.status.forecast === "moderate" ? "bg-yellow-500/10 text-yellow-600" :
+                    item.status.forecast === "heavy" ? "bg-orange-500/10 text-orange-600" :
+                    item.status.forecast === "congested" ? "bg-red-500/10 text-red-600" :
+                    "bg-gray-500/10 text-gray-600"
+                  }`}
+                >
+                  {
+                    item.status.forecast === "free_flow" ? "Thông thoáng" :
+                    item.status.forecast === "smooth" ? "Ổn định" :
+                    item.status.forecast === "moderate" ? "Trung bình" :
+                    item.status.forecast === "heavy" ? "Nặng" :
+                    item.status.forecast === "congested" ? "Ùn tắc" : item.status.forecast
+                  }
+                </Badge>
+                {item.calculation && (
+                  <div className="text-[10px] text-muted-foreground bg-muted/50 rounded px-2 py-1 mt-1">
+                    <div className="font-mono">
+                      {Math.round(item.calculation.predicted_volume)} / {Math.round(item.calculation.capacity)} xe
+                      <span className="ml-1">({Math.round(item.calculation.vc_ratio * 100)}%)</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -887,16 +953,21 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
 
           {/* Additional Info */}
           <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground">Xu hướng</Label>
-              <Badge variant="outline" className="flex gap-1">
-                {item.trend === "increasing" ? (
-                  <TrendingUpIcon className="size-3 text-orange-500" />
-                ) : item.trend === "decreasing" ? (
-                  <TrendingDownIcon className="size-3 text-green-500" />
-                ) : null}
-                {item.trend === "increasing" ? "Tăng" : item.trend === "decreasing" ? "Giảm" : "Ổn định"}
-              </Badge>
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground">Xu hướng</Label>
+                <Badge variant="outline" className="flex gap-1">
+                  {item.trend === "increasing" ? (
+                    <TrendingUpIcon className="size-3 text-orange-500" />
+                  ) : item.trend === "decreasing" ? (
+                    <TrendingDownIcon className="size-3 text-green-500" />
+                  ) : null}
+                  {item.trend === "increasing" ? "Tăng" : item.trend === "decreasing" ? "Giảm" : "Ổn định"}
+                </Badge>
+              </div>
+              <div className="text-[10px] text-muted-foreground bg-blue-50 dark:bg-blue-950/20 rounded px-2 py-1.5 border border-blue-200 dark:border-blue-800">
+                💡 {getTrendExplanation(item.trend)}
+              </div>
             </div>
             <div className="flex items-center justify-between">
               <Label className="text-xs text-muted-foreground">Cập nhật cuối</Label>
@@ -981,27 +1052,57 @@ function TableCellViewerModal({ item, open, onOpenChange }: { item: z.infer<type
               <Label className="text-xs text-muted-foreground">Tổng Phương Tiện</Label>
               <div className="text-2xl font-bold tabular-nums">{item.totalObjects}</div>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
               <Label className="text-xs text-muted-foreground">Trạng Thái</Label>
-              <Badge
-                variant="outline"
-                className={`w-fit ${
-                  item.status === "free_flow" ? "bg-green-500/10 text-green-600" :
-                  item.status === "smooth" ? "bg-blue-500/10 text-blue-600" :
-                  item.status === "moderate" ? "bg-yellow-500/10 text-yellow-600" :
-                  item.status === "heavy" ? "bg-orange-500/10 text-orange-600" :
-                  item.status === "congested" ? "bg-red-500/10 text-red-600" :
-                  "bg-gray-500/10 text-gray-600"
-                }`}
-              >
-                {
-                  item.status === "free_flow" ? "Thông thoáng" :
-                  item.status === "smooth" ? "Ổn định" :
-                  item.status === "moderate" ? "Trung bình" :
-                  item.status === "heavy" ? "Nặng" :
-                  item.status === "congested" ? "Ùn tắc" : item.status
-                }
-              </Badge>
+              <div className="flex flex-col gap-1.5">
+                <Badge
+                  variant="outline"
+                  className={`w-fit ${
+                    item.status.current === "free_flow" ? "bg-green-500/10 text-green-600" :
+                    item.status.current === "smooth" ? "bg-blue-500/10 text-blue-600" :
+                    item.status.current === "moderate" ? "bg-yellow-500/10 text-yellow-600" :
+                    item.status.current === "heavy" ? "bg-orange-500/10 text-orange-600" :
+                    item.status.current === "congested" ? "bg-red-500/10 text-red-600" :
+                    "bg-gray-500/10 text-gray-600"
+                  }`}
+                >
+                  {
+                    item.status.current === "free_flow" ? "Thông thoáng" :
+                    item.status.current === "smooth" ? "Ổn định" :
+                    item.status.current === "moderate" ? "Trung bình" :
+                    item.status.current === "heavy" ? "Nặng" :
+                    item.status.current === "congested" ? "Ùn tắc" : item.status.current
+                  }
+                </Badge>
+                <div className="text-[10px] text-muted-foreground border-t pt-1">Dự báo 5p:</div>
+                <Badge
+                  variant="outline"
+                  className={`w-fit ${
+                    item.status.forecast === "free_flow" ? "bg-green-500/10 text-green-600" :
+                    item.status.forecast === "smooth" ? "bg-blue-500/10 text-blue-600" :
+                    item.status.forecast === "moderate" ? "bg-yellow-500/10 text-yellow-600" :
+                    item.status.forecast === "heavy" ? "bg-orange-500/10 text-orange-600" :
+                    item.status.forecast === "congested" ? "bg-red-500/10 text-red-600" :
+                    "bg-gray-500/10 text-gray-600"
+                  }`}
+                >
+                  {
+                    item.status.forecast === "free_flow" ? "Thông thoáng" :
+                    item.status.forecast === "smooth" ? "Ổn định" :
+                    item.status.forecast === "moderate" ? "Trung bình" :
+                    item.status.forecast === "heavy" ? "Nặng" :
+                    item.status.forecast === "congested" ? "Ùn tắc" : item.status.forecast
+                  }
+                </Badge>
+                {item.calculation && (
+                  <div className="text-[10px] text-muted-foreground bg-muted/50 rounded px-2 py-1 mt-1">
+                    <div className="font-mono">
+                      {Math.round(item.calculation.predicted_volume)} / {Math.round(item.calculation.capacity)} xe
+                      <span className="ml-1">({Math.round(item.calculation.vc_ratio * 100)}%)</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -1077,16 +1178,21 @@ function TableCellViewerModal({ item, open, onOpenChange }: { item: z.infer<type
 
           {/* Additional Info */}
           <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground">Xu hướng</Label>
-              <Badge variant="outline" className="flex gap-1">
-                {item.trend === "increasing" ? (
-                  <TrendingUpIcon className="size-3 text-orange-500" />
-                ) : item.trend === "decreasing" ? (
-                  <TrendingDownIcon className="size-3 text-green-500" />
-                ) : null}
-                {item.trend === "increasing" ? "Tăng" : item.trend === "decreasing" ? "Giảm" : "Ổn định"}
-              </Badge>
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground">Xu hướng</Label>
+                <Badge variant="outline" className="flex gap-1">
+                  {item.trend === "increasing" ? (
+                    <TrendingUpIcon className="size-3 text-orange-500" />
+                  ) : item.trend === "decreasing" ? (
+                    <TrendingDownIcon className="size-3 text-green-500" />
+                  ) : null}
+                  {item.trend === "increasing" ? "Tăng" : item.trend === "decreasing" ? "Giảm" : "Ổn định"}
+                </Badge>
+              </div>
+              <div className="text-[10px] text-muted-foreground bg-blue-50 dark:bg-blue-950/20 rounded px-2 py-1.5 border border-blue-200 dark:border-blue-800">
+                💡 {getTrendExplanation(item.trend)}
+              </div>
             </div>
             <div className="flex items-center justify-between">
               <Label className="text-xs text-muted-foreground">Cập nhật cuối</Label>

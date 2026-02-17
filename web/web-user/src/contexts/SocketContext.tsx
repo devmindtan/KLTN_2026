@@ -46,6 +46,23 @@ interface NGSILDCamera {
       type: string;
       modDate: number;
     };
+    status?: {
+      value: {
+        current: string;  // Trạng thái hiện tại từ image-process (real-time)
+        realtime?: {  // Thông tin chi tiết real-time detection
+          current_volume: number;  // Số phương tiện thực tế phát hiện
+          detections: {  // Chi tiết theo loại xe
+            car: number;
+            motorbike: number;
+          };
+          capacity: number;  // Capacity camera (MAX 7 ngày)
+          vc_ratio: number;  // Tỉ lệ volume/capacity
+          timestamp: number;  // Unix timestamp của detection
+        };
+      };
+      type: string;
+      modDate: number;
+    };
     prediction?: {
       value: {
         forecasts: {
@@ -55,7 +72,14 @@ interface NGSILDCamera {
           "30m": number;
           "60m": number;
         };
-        status: string;
+        status: {
+          forecast: string; // Trạng thái dự báo 5p sau từ predict_realtime (cronjob 5 phút)
+          calculation?: {   // Thông tin tính toán để hiển thị công thức
+            predicted_volume: number;  // Giá trị dự đoán 5p (vehicles/5min)
+            capacity: number;          // Capacity camera (MAX 7 ngày)
+            vc_ratio: number;          // Tỉ lệ V/C (0.00-1.00+)
+          };
+        };
         trend: string;
       };
       type: string;
@@ -80,7 +104,10 @@ export interface CameraData {
   motorbikeCount: number;
   imageUrl: string;
   lastUpdated: string;
-  status: string;
+  status: {
+    current: string;  // Trạng thái hiện tại
+    forecast: string; // Trạng thái dự báo 5 phút sau
+  };
   trend: string;
   forecasts: {
     "5m": number;
@@ -90,6 +117,21 @@ export interface CameraData {
     "60m": number;
   };
   lastPredicted: string;
+  calculation?: {   // Thông tin tính toán prediction (dự báo 5p)
+    predicted_volume: number;  // Giá trị dự đoán 5p (vehicles/5min)
+    capacity: number;          // Capacity camera (MAX 7 ngày)
+    vc_ratio: number;          // Tỉ lệ V/C (0.00-1.00+)
+  };
+  realtimeData?: {  // Thông tin chi tiết real-time detection
+    current_volume: number;  // Số phương tiện thực tế phát hiện
+    detections: {  // Chi tiết theo loại xe
+      car: number;
+      motorbike: number;
+    };
+    capacity: number;  // Capacity camera (MAX 7 ngày)
+    vc_ratio: number;  // Tỉ lệ volume/capacity
+    timestamp: number;  // Unix timestamp của detection
+  };
 }
 
 interface SocketContextType {
@@ -119,7 +161,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       const now = Date.now() / 1000;
       
       cameraList.forEach((cam) => {
-        infoMap[cam.cam_id] = cam;
+        // Normalize cam_id key để đảm bảo matching (trim + lowercase)
+        const normalizedKey = cam.cam_id.trim().toLowerCase();
+        infoMap[normalizedKey] = cam;
+        // Giữ cả key gốc để backward compatibility
+        if (normalizedKey !== cam.cam_id) {
+          infoMap[cam.cam_id] = cam;
+        }
         
         // Tạo initial camera data với format NGSI-LD
         const fullId = `urn:ngsi-ld:Camera:${cam.cam_id}`;
@@ -153,6 +201,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
               type: "DateTime",
               modDate: now,
             },
+            status: {
+              value: {
+                current: "unknown"
+              },
+              type: "StructuredValue",
+              modDate: now,
+            },
             prediction: {
               value: {
                 forecasts: {
@@ -162,7 +217,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
                   "30m": 0,
                   "60m": 0,
                 },
-                status: "unknown",
+                status: {
+                  forecast: "unknown"
+                },
                 trend: "stable",
               },
               type: "StructuredValue",
@@ -182,6 +239,15 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setCameras(initialCameras); // Set initial cameras với dữ liệu mặc định
       console.log(`📍 Loaded ${cameraList.length} cameras from database`);
       console.log(`✅ Initialized ${Object.keys(initialCameras).length} cameras with default data`);
+      // console.log(`🗺️ CameraInfoMap keys:`, Object.keys(infoMap));
+      
+      // Debug: Show first 3 entries với full detail
+      // console.log(`\n📋 First 3 camera entries from DB:`);
+      // cameraList.slice(0, 3).forEach((cam, idx) => {
+      //   console.log(`  ${idx + 1}. cam_id: "${cam.cam_id}"`);
+      //   console.log(`     display_name: "${cam.display_name}"`);
+      //   console.log(`     normalized: "${cam.cam_id.trim().toLowerCase()}"`);
+      // });
     }
     
     fetchCameraInfo();
@@ -211,7 +277,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setIsConnected(false);
     });
 
-    socketInstance.on("CAMERA_UPDATED", (data: any) => {
+    socketInstance.on("CAMERA_UPDATED", (data: NGSILDCamera | Record<string, unknown>) => {
       // console.log("📡 Raw CAMERA_UPDATED event received:", data);
 
       // Xử lý cả 2 trường hợp: data._id.id và data.id
@@ -219,23 +285,25 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       let cameraData: NGSILDCamera | null = null;
 
       // Case 1: Data đã có cấu trúc NGSI-LD đầy đủ (data._id.id)
-      if (data && data._id && data._id.id) {
+      if (data && typeof data === 'object' && '_id' in data && 
+          data._id && typeof data._id === 'object' && 'id' in data._id && 
+          typeof data._id.id === 'string') {
         cameraId = data._id.id;
         cameraData = data as NGSILDCamera;
         // console.log("✅ [Format 1] Camera ID:", cameraId);
       }
       // Case 2: Data có id ở top level (data.id) - format cũ
-      else if (data && data.id) {
+      else if (data && typeof data === 'object' && 'id' in data && typeof data.id === 'string') {
         cameraId = data.id;
         // Transform to NGSI-LD format
         cameraData = {
           _id: {
             id: data.id,
-            type: data.type || "Camera",
-            servicePath: data.servicePath || "/",
+            type: ('type' in data && typeof data.type === 'string') ? data.type : "Camera",
+            servicePath: ('servicePath' in data && typeof data.servicePath === 'string') ? data.servicePath : "/",
           },
-          attrs: data.attrs || data,
-          modDate: data.modDate || Date.now() / 1000,
+          attrs: ('attrs' in data ? data.attrs : data) as NGSILDCamera['attrs'],
+          modDate: ('modDate' in data && typeof data.modDate === 'number') ? data.modDate : Date.now() / 1000,
         } as NGSILDCamera;
         // console.log("✅ [Format 2] Camera ID:", cameraId);
       }
@@ -246,6 +314,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
       if (cameraId && cameraData) {
         // console.log("💾 Storing camera data:", cameraId);
+        // console.log(`🔍 [${cameraId.split(':').pop()}] Status Debug:`, {
+        //   hasStatusAttr: !!cameraData.attrs.status,
+        //   statusCurrent: cameraData.attrs.status?.value?.current,
+        //   hasPredictionAttr: !!cameraData.attrs.prediction,
+        //   predictionForecast: cameraData.attrs.prediction?.value?.status?.forecast
+        // });
         setCameras((prev) => {
           const updated = {
             ...prev,
@@ -303,6 +377,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   // Transform NGSI-LD data to processed camera data với Optional Chaining
   // Merge với camera info từ database
   const processedCameras: CameraData[] = React.useMemo(() => {
+    // Debug: Log cameraInfoMap status
+    // console.log(`🔍 [ProcessedCameras] cameraInfoMap has ${Object.keys(cameraInfoMap).length} entries`);
+    // console.log(`🔍 [ProcessedCameras] cameras object has ${Object.keys(cameras).length} entries`);
+    
     const processed = Object.values(cameras).map((cam) => {
       // Ép kiểu an toàn: nếu là số thì giữ nguyên, nếu không có thì trả về chuỗi rỗng
       const rawLastUpdated = cam.attrs.last_updated?.value;
@@ -314,8 +392,18 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       const shortId = fullId.split(":").pop() || fullId;
       
       // Lấy camera info từ database (name, location)
-      const cameraInfo = cameraInfoMap[shortId];
-      const displayName = cameraInfo?.display_name || shortId;
+      // Normalize shortId để tránh mismatch (trim, lowercase)
+      const normalizedShortId = shortId.trim().toLowerCase();
+      const cameraInfo = cameraInfoMap[normalizedShortId] || cameraInfoMap[shortId];
+      const displayName = cameraInfo?.display_name?.trim() || shortId;
+      
+      // Debug: Cảnh báo khi fallback về shortId (ID thay vì tên) - Uncomment if needed
+      // if (!cameraInfo) {
+      //   console.warn(`⚠️ Camera info not found for shortId: "${shortId}" (normalized: "${normalizedShortId}")`);
+      //   console.log(`Available keys in cameraInfoMap:`, Object.keys(cameraInfoMap).slice(0, 5));
+      // } else if (!cameraInfo.display_name || !cameraInfo.display_name.trim()) {
+      //   console.warn(`⚠️ display_name is empty for camera: ${shortId}`);
+      // }
 
       return {
         id: fullId,
@@ -329,7 +417,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
           : "",
         // Ép kiểu về string để khớp với Interface CameraData
         lastUpdated: rawLastUpdated ? String(rawLastUpdated) : "",
-        status: cam.attrs.prediction?.value?.status ?? "unknown",
+        status: {
+          current: cam.attrs.status?.value?.current ?? "unknown",  // Từ image-process (real-time)
+          forecast: cam.attrs.prediction?.value?.status?.forecast ?? "unknown"  // Từ predict_realtime (cronjob 5p)
+        },
         trend: cam.attrs.prediction?.value?.trend ?? "stable",
         forecasts: predictionAttr?.forecasts ?? {
           "5m": 0,
@@ -339,19 +430,22 @@ export function SocketProvider({ children }: { children: ReactNode }) {
           "60m": 0,
         },
         lastPredicted: rawLastPredicted ? String(rawLastPredicted) : "",
+        calculation: cam.attrs.prediction?.value?.status?.calculation,  // Thông tin tính toán prediction (dự báo 5p)
+        realtimeData: cam.attrs.status?.value?.realtime,  // Thông tin chi tiết real-time detection
       };
     });
-
+    
     return processed;
   }, [cameras, cameraInfoMap]);
 
   // useEffect(() => {
   //   if (processedCameras.length > 0) {
-  //     console.group("🔍 Kiểm tra dữ liệu Dự báo (Forecasts)");
-  //     processedCameras.forEach((cam) => {
-  //       console.log(`Camera: ${cam.shortId}`);
-  //       console.log("- Forecasts:", cam.forecasts);
-  //       console.log("- Last Predicted:", cam.lastPredicted === "" ? "❌ Trống" : cam.lastPredicted);
+  //     console.group("🔍 Debug Status (Current + Forecast)");
+  //     processedCameras.slice(0, 3).forEach((cam) => {
+  //       console.log(`Camera: ${cam.shortId} (${cam.name})`);
+  //       console.log("- Status Current:", cam.status.current);
+  //       console.log("- Status Forecast:", cam.status.forecast);
+  //       console.log("- Trend:", cam.trend);
   //       console.log("-----------------------------------");
   //     });
   //     console.groupEnd();
@@ -374,6 +468,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 }
 
 // Custom hook để sử dụng Socket Context
+// eslint-disable-next-line react-refresh/only-export-components
 export function useSocket() {
   const context = useContext(SocketContext);
   if (context === undefined) {
@@ -383,4 +478,5 @@ export function useSocket() {
 }
 
 // Export MINIO_URL để các component khác có thể sử dụng
+// eslint-disable-next-line react-refresh/only-export-components
 export { MINIO_URL };

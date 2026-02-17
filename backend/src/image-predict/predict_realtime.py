@@ -1,6 +1,12 @@
+from shared.los_utils import (
+    calculate_los_status,
+    DEFAULT_CAPACITY,
+    get_camera_capacity_map,
+)
 import asyncio
 import logging
 import os
+import sys
 from datetime import datetime
 
 import aiohttp
@@ -13,26 +19,15 @@ from query import (
     forecast_and_save_to_db,
     query_from_db_realtime,
     sync_actual_values,
-    get_camera_capacity_map,
 )
+
+# Import shared utilities
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 load_dotenv()
 
 FIWARE_ORION_BASE = os.getenv("FIWARE_ORION_BASE")
 FIWARE_ORION_URL = f"http://{FIWARE_ORION_BASE}/v2/entities"
-
-# Hằng số Capacity mặc định (fallback nếu không có dữ liệu lịch sử)
-# Đơn vị: vehicles/5minutes
-DEFAULT_CAPACITY = 100  # Capacity mặc định cho đường giao thông đô thị
-
-# Ngưỡng Level of Service (LOS) theo tỉ lệ Volume/Capacity
-LOS_THRESHOLDS = {
-    "free_flow": 0.60,    # LOS A: < 60% capacity
-    "smooth": 0.75,       # LOS B-C: 60-75% capacity
-    "moderate": 0.85,     # LOS D: 75-85% capacity
-    "heavy": 1.0,         # LOS E: 85-100% capacity
-    # "congested": >= 1.0 # LOS F: >= 100% capacity
-}
 
 logging.basicConfig(
     level=logging.INFO,
@@ -42,47 +37,30 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def calculate_los_status(volume: float, capacity: float) -> str:
+def calculate_trend(current_val: float, predicted_val: float, threshold_percent: float = 10.0) -> str:
     """
-    Tính toán Level of Service (LOS) dựa trên tỉ lệ Volume/Capacity
-    Args:
-        volume: Số lượng phương tiện (vehicles/5min)
-        capacity: Năng lực đường đặc thù cho camera (vehicles/5min)
-    Returns:
-        Status string: "free_flow", "smooth", "moderate", "heavy", "congested"
-    """
-    if volume <= 0 or capacity <= 0:
-        return "unknown"
-
-    vc_ratio = volume / capacity
-
-    if vc_ratio < LOS_THRESHOLDS["free_flow"]:
-        return "free_flow"      # LOS A
-    elif vc_ratio < LOS_THRESHOLDS["smooth"]:
-        return "smooth"         # LOS B-C
-    elif vc_ratio < LOS_THRESHOLDS["moderate"]:
-        return "moderate"       # LOS D
-    elif vc_ratio < LOS_THRESHOLDS["heavy"]:
-        return "heavy"          # LOS E
-    else:
-        return "congested"      # LOS F
-
-
-def calculate_trend(current_val: float, predicted_val: float, threshold: float = 5.0) -> str:
-    """
-    Tính toán xu hướng giao thông dựa trên chênh lệch giữa hiện tại và dự đoán
+    Tính toán xu hướng giao thông dựa trên % thay đổi giữa hiện tại và dự đoán
     Args:
         current_val: Giá trị hiện tại
         predicted_val: Giá trị dự đoán
-        threshold: Ngưỡng để xác định thay đổi đáng kể (vehicles)
+        threshold_percent: Ngưỡng % để xác định thay đổi đáng kể (default 10%)
     Returns:
         Trend string: "increasing", "decreasing", "stable"
     """
-    diff = predicted_val - current_val
+    # Tránh chia cho 0, nếu current_val = 0 thì dùng giá trị tuyệt đối
+    if current_val == 0:
+        return "increasing" if predicted_val > 0 else "stable"
 
-    if abs(diff) < threshold:
+    # Tính % thay đổi
+    percent_change = ((predicted_val - current_val) / current_val) * 100
+
+    # Log để debug (comment sau khi xác minh)
+    logger.debug(
+        f"Trend calc: current={current_val:.1f}, pred={predicted_val:.1f}, change={percent_change:.1f}%")
+
+    if abs(percent_change) < threshold_percent:
         return "stable"
-    elif diff > 0:
+    elif percent_change > 0:
         return "increasing"
     else:
         return "decreasing"
@@ -92,6 +70,7 @@ def calculate_trend(current_val: float, predicted_val: float, threshold: float =
 async def update_fiware(session, camera_id, total_objects, forecasts, capacity):
     """
     Cập nhật dự đoán lên FIWARE Orion Context Broker
+    Tính status_forecast dựa trên dự đoán 5 phút sau (thể hiện xu hướng tương lai)
     Args:
         session: aiohttp ClientSession instance
         camera_id: ID của camera
@@ -105,8 +84,12 @@ async def update_fiware(session, camera_id, total_objects, forecasts, capacity):
     current_val = total_objects
     next_val = forecasts.get("5m", 0)
 
-    status = calculate_los_status(next_val, capacity)
+    # Dùng giá trị DỰ ĐOÁN 5 phút sau để tính status_forecast (thể hiện xu hướng tương lai)
+    status_forecast = calculate_los_status(next_val, capacity)
     trend = calculate_trend(current_val, next_val)
+
+    # Tính tỉ lệ Volume/Capacity
+    vc_ratio = round(next_val / capacity, 2) if capacity > 0 else 0
 
     # Payload linh hoạt theo dữ liệu truyền vào
     payload = {
@@ -122,7 +105,16 @@ async def update_fiware(session, camera_id, total_objects, forecasts, capacity):
                     "30m": forecasts.get("30m"),
                     "60m": forecasts.get("60m"),
                 },
-                "status": status,
+                "status": {
+                    "forecast": status_forecast,  # Trạng thái dự báo 5 phút sau
+                    "calculation": {
+                        # Giá trị dự đoán 5p
+                        "predicted_volume": round(next_val, 1),
+                        # Capacity của camera (MAX 7 ngày)
+                        "capacity": round(capacity, 1),
+                        "vc_ratio": vc_ratio,  # Tỉ lệ Volume/Capacity
+                    }
+                },
                 "trend": trend,
             },
         },
@@ -217,8 +209,9 @@ def predict_realtime(current_data_from_db):
 
 @monitor_performance
 async def run_cycle():
-    # Load camera capacity map động từ database (30 ngày, 95th percentile)
-    capacity_map = get_camera_capacity_map(lookback_days=30, percentile=95)
+    # Load camera capacity map động từ database (7 ngày, giá trị MAX)
+    # Lấy giá trị trung bình 5p LỚN NHẤT trong 7 ngày qua làm capacity
+    capacity_map = get_camera_capacity_map(lookback_days=7)
 
     data = query_from_db_realtime()
 

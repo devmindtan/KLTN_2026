@@ -3,7 +3,7 @@
 - **Root Detection**: Luôn xác định thư mục gốc của dự án hiện tại bằng cách kiểm tra file `package.json` hoặc thư mục `.git` và ƯU TIÊN đọc file `reports/AGENT_LOG.md` để biết được task trước đã làm những gì, cùng với liên tục tham chiếu đến file `reports/FUNCTION_LIST.md` để bổ sung hoặc cập nhật chức năng.
 - **Dynamic Path**: Các đường dẫn đến `commands/` phải luôn được tính từ Root của Workspace đang mở.
 - **Project Isolation**: Không áp dụng logic của dự án này sang dự án khác nếu Workspace thay đổi.
-- **Exceptions (DO NOT TOUCH)**: Tuyệt đối không tự ý thay đổi nội dung trong các thư mục: `k8s-configs/`, `assets/`.
+- **Exceptions (DO NOT TOUCH)**: Tuyệt đối không tự ý thay đổi nội dung trong các thư mục: `k8s-configs/`, `assets/` đến khi tôi cho phép.
 
 # Role & Project Context
 
@@ -89,6 +89,8 @@
 - Thay đổi LOGIC quan trọng của function hiện có (ghi tag `[UPDATED DD/MM/YY]`)
 - Fix bug trong function (thêm `[BUG]` vào cột "Hạn chế")
 - Thêm TODO cho tính năng chưa làm (tag `[TODO]`)
+
+### Xoá những file được tạo ra nhằm mục đích test
 
 ### KHÔNG cần update khi:
 

@@ -20,6 +20,8 @@ Template:
 | TS-C01 | **GET /api/cameras** - Lấy tất cả camera | **Input:** None<br>**Output:** `{success, count, data: CameraInfo[]}` | ✅ | None | Query tất cả camera từ bảng `camera_data`, trả về `cam_id`, `location`, `display_name` | `backend/src/server/src/controllers/camera.controller.ts::getAllCameras()` |
 | TS-C02 | **GET /api/cameras/:cam_id** - Chi tiết camera | **Input:** `cam_id` (string)<br>**Output:** `{success, data: CameraInfo}` | ✅ | None | Validation `cam_id`, query theo `cam_id`, trả về 404 nếu không tìm thấy | `backend/src/server/src/controllers/camera.controller.ts::getCameraById()` |
 | TS-C03 | **GET /api/cameras/nearby** - Tìm camera gần | **Input:** `lat, lng, radius` (query)<br>**Output:** `{success, data: CameraInfo[]}` | ⚠️ | [TODO] Chưa implement logic tìm kiếm theo GPS thực sự, hiện tại chỉ return tất cả | Cần nâng cấp với PostGIS hoặc thuật toán Haversine để tính khoảng cách thực | `backend/src/server/src/controllers/camera.controller.ts::getNearbyCamera()` |
+| TS-M01 | **GET /api/model-metrics/latest** - Lấy snapshot model metrics mới nhất | **Input:** None<br>**Output:** `{success, data: ModelMetricsHistoryRow}` | ✅ | None | Query bản ghi mới nhất từ `model_metrics_history` theo `generated_at DESC`, trả 404 nếu chưa có dữ liệu | `backend/src/server/src/controllers/model-metrics.controller.ts::getLatestModelMetrics()` |
+| TS-M02 | **GET /api/model-metrics/history** - Lấy lịch sử model metrics | **Input:** `limit, offset, period_days, from, to` (query)<br>**Output:** `{success, pagination, data: ModelMetricsHistoryRow[]}` | ✅ | [UPDATED 22/02/26] Có validation bằng Zod cho toàn bộ query params | Hỗ trợ filter theo thời gian và `period_days`, phân trang chuẩn để frontend dựng biểu đồ quá khứ | `backend/src/server/src/controllers/model-metrics.controller.ts::getModelMetricsHistory()` |
 | TS-T01 | **GET /** - Health check | **Input:** None<br>**Output:** "Hello from testController!" | ✅ | None | Endpoint kiểm tra server đang hoạt động | `backend/src/server/src/controllers/test.controller.ts::testController()` |
 
 ---
@@ -60,6 +62,20 @@ Template:
 | PY-016 | **get_ip()** - Lấy IP hiện tại | **Input:** None<br>**Output:** IP address string | ✅ | None | Utility function để lấy IP của server (dùng cho FIWARE subscription) | `backend/src/app-route/src/main.py::get_ip()` |
 | PY-017 | **show_all_ips()** - Hiển thị server info | **Input:** `port`<br>**Output:** Print all available IPs | ✅ | None | In ra console tất cả IP addresses với port để debug/config FIWARE subscriptions | `backend/src/app-route/src/main.py::show_all_ips()` |
 
+#### **📌 Model Performance Service** (`model-performance`)
+
+| ID | Chức năng / Route | Inputs / Outputs | Trạng thái | Hạn chế & Lý do | Logic & Giải pháp | Vị trí |
+|:---:|:---|:---|:---:|:---|:---|:---|
+| PY-018 | **calculate_overall_metrics()** - Tính chỉ số tổng quan model | **Input:** `period_days`<br>**Output:** `{mae, rmse, mape, accuracy_*}` | ✅ | [UPDATED 22/02/26] MAPE đã lọc `actual_value >= 5` để tránh méo số do mẫu gần 0 | Tổng hợp accuracy model theo cửa sổ thời gian, chuẩn hóa query PostgreSQL bằng cast `::numeric` cho ROUND | `backend/src/model-performance/analyze_metrics.py::calculate_overall_metrics()` |
+| PY-019 | **analyze_by_horizon()** - Phân tích theo horizon dự báo | **Input:** `period_days`<br>**Output:** `[{horizon_minutes, avg_error, accuracy_5xe...}]` | ✅ | None | So sánh chất lượng dự báo theo từng mốc 5/10/15/30/60 phút, gán recommendation theo ngưỡng lỗi | `backend/src/model-performance/analyze_metrics.py::analyze_by_horizon()` |
+| PY-020 | **rank_cameras()** - Xếp hạng camera theo sai số | **Input:** `period_days, top_n, horizon_filter`<br>**Output:** `{best: [], worst: []}` | ✅ | [UPDATED 22/02/26] Bỏ `display_name` khỏi payload gửi FIWARE để tránh lỗi ký tự attribute value | Ranking theo `avg_error`, trả top tốt nhất và tệ nhất để phục vụ dashboard model quality | `backend/src/model-performance/analyze_metrics.py::rank_cameras()` |
+| PY-021 | **calculate_data_coverage()** - Độ phủ và độ mới dữ liệu | **Input:** `period_days`<br>**Output:** `{verified, pending, verification_rate...}` | ✅ | None | Tính tỷ lệ bản ghi đã có ground-truth và freshness để đánh giá độ tin cậy bộ metrics | `backend/src/model-performance/analyze_metrics.py::calculate_data_coverage()` |
+| PY-022 | **calculate_trend_accuracy()** - Độ chính xác dự đoán xu hướng | **Input:** `period_days`<br>**Output:** `{trend_accuracy, correct_predictions...}` | ✅ | None | So khớp chiều biến thiên dự báo/actual (tăng, giảm, ổn định) để đo chất lượng trend prediction | `backend/src/model-performance/analyze_metrics.py::calculate_trend_accuracy()` |
+| PY-023 | **get_full_report()** - Tổng hợp full metrics report | **Input:** `period_days`<br>**Output:** `Dict` báo cáo hoàn chỉnh | ✅ | None | Orchestrate toàn bộ pipeline metrics trong 1 lần chạy và trả về cấu trúc chuẩn để publish | `backend/src/model-performance/analyze_metrics.py::get_full_report()` |
+| PY-024 | **update_metrics_to_fiware()** - Upsert metrics lên Orion | **Input:** `metrics`<br>**Output:** `bool` success/fail | ✅ | [BUG FIX 22/02/26] Đã xử lý serialize `Decimal/datetime/NaN/Infinity` và chuẩn hóa payload để FIWARE nhận ổn định | Build entity `urn:ngsi-ld:ModelMetrics:performance`, gửi lên `/v2/entities?options=upsert` với `fiware-service` headers | `backend/src/model-performance/update_fiware.py::update_metrics_to_fiware()` |
+| PY-025 | **ensure_metrics_history_table()** - Khởi tạo bảng lịch sử metrics | **Input:** None<br>**Output:** None | ✅ | None | Tạo bảng `model_metrics_history` và index `generated_at` nếu chưa tồn tại để đảm bảo service chạy độc lập không phụ thuộc migrate thủ công | `backend/src/model-performance/update_fiware.py::ensure_metrics_history_table()` |
+| PY-026 | **save_metrics_history()** - Lưu snapshot metrics vào PostgreSQL | **Input:** `metrics`<br>**Output:** `bool` success/fail | ✅ | [UPDATED 22/02/26] Được gọi ở cả single-run và cycle-run trước khi đẩy FIWARE | Chuẩn hóa dữ liệu metrics và insert JSONB (`overall`, `by_horizon`, `camera_ranking`, `data_coverage`, `trend_accuracy`) để frontend truy vấn quá khứ theo thời gian | `backend/src/model-performance/update_fiware.py::save_metrics_history()` |
+
 ---
 
 ### 🔷 Frontend React Services
@@ -71,6 +87,8 @@ Template:
 | TS-S01 | **getAllCameras()** - Lấy danh sách camera | **Input:** None<br>**Output:** `CameraInfo[]` | ✅ | None | Fetch `GET /api/cameras` từ Backend API, parse response, return array of cameras | `web/web-user/src/services/camera.service.ts::getAllCameras()` |
 | TS-S02 | **getCameraById()** - Chi tiết camera | **Input:** `camId` (string)<br>**Output:** `CameraInfo \| null` | ✅ | None | Validation `camId`, fetch `GET /api/cameras/:camId`, return single camera hoặc null nếu không tìm thấy | `web/web-user/src/services/camera.service.ts::getCameraById()` |
 | TS-S03 | **getNearbyCameras()** - Tìm camera gần | **Input:** `lat, lng, radius`<br>**Output:** `CameraInfo[]` | ⚠️ | [TODO] Backend chưa implement logic GPS thực | Fetch `GET /api/cameras/nearby`, hiện tại chỉ return tất cả cameras | `web/web-user/src/services/camera.service.ts::getNearbyCameras()` |
+| TS-S04 | **getLatestModelMetrics()** - Lấy snapshot metrics mới nhất | **Input:** None<br>**Output:** `ModelMetricsHistoryRow \| null` | ✅ | None | Fetch `GET /api/model-metrics/latest`, chuẩn hóa response và fallback `null` khi chưa có dữ liệu | `web/web-user/src/services/model-metrics.service.ts::getLatestModelMetrics()` |
+| TS-S05 | **getModelMetricsHistory()** - Lấy lịch sử metrics model | **Input:** `limit`<br>**Output:** `ModelMetricsHistoryRow[]` | ✅ | None | Fetch `GET /api/model-metrics/history` phục vụ bảng lịch sử trên trang analytics | `web/web-user/src/services/model-metrics.service.ts::getModelMetricsHistory()` |
 
 #### **📌 Socket Context** (`web-user/contexts`)
 
@@ -107,7 +125,7 @@ Template:
 |:---:|:---|:---|:---:|:---|:---|:---|
 | TSX-P01 | **Dashboard** - Trang tổng quan | **Input:** Real-time socket data<br>**Output:** Cards, charts, metrics | ✅ | None | Hiển thị tổng quan giao thông: total cameras, avg vehicles, status distribution (dùng status.current), trending cameras. Metrics tính từ processedCameras với LOS grouping (goodStatus: free_flow+smooth, moderateStatus: moderate, badStatus: heavy+congested) | `web/web-user/src/pages/dashboard.tsx` |
 | TSX-P02 | **Lifecycle** - Trang lifecycle camera | **Input:** Socket data<br>**Output:** Camera list with DataTable | ✅ | [UPDATED 17/02/26] Thêm hiển thị calculation (predicted_volume / capacity + vc_ratio%) trong Dialog detail | Bảng chi tiết tất cả camera với dual status (current+forecast), trend, forecasts, search/filter (theo status.current), detail dialog với calculation info "11/120 xe (9%)" giúp user hiểu công thức tính LOS | `web/web-user/src/pages/lifecycle.tsx` |
-| TSX-P03 | **Analytics** - Trang phân tích | **Input:** TBD<br>**Output:** Analytics dashboard | 🚧 | [TODO] Chưa implement logic phân tích nâng cao | Sẽ có charts, trends, historical comparisons | `web/web-user/src/pages/analytics.tsx` |
+| TSX-P03 | **Analytics** - Trang phân tích hiệu suất model | **Input:** API model-metrics (`latest`, `history`)<br>**Output:** Cards + bảng horizon + ranking + history table | ✅ | [UPDATED 22/02/26] Đã chuyển từ mock sang dữ liệu thật từ backend | Hiển thị MAE/MAPE/Accuracy/Trend Accuracy, so sánh theo horizon, top/bottom camera và snapshot lịch sử để theo dõi quá khứ | `web/web-user/src/pages/analytics.tsx` |
 | TSX-P04 | **Settings** - Trang cài đặt | **Input:** User preferences<br>**Output:** Settings form | 🚧 | [TODO] Chưa có UI settings | User preferences, notifications, display options | `web/web-user/src/pages/setting.tsx` |
 
 ---
@@ -117,24 +135,27 @@ Template:
 ### 🔴 Known Issues & TODOs
 - **[TODO] TS-C03**: Nearby camera search chưa có logic GPS thực sự → Cần implement PostGIS hoặc Haversine
 - **[TODO] TS-S03**: Frontend nearby search phụ thuộc vào TS-C03
-- **[TODO] TSX-P03**: Analytics page chưa implement logic
 - **[TODO] TSX-P04**: Settings page chưa có UI
 
 ### ✅ Recent Updates (Từ AGENT_LOG.md)
-- **LOS Calculation**: Đã chuyển sang dynamic capacity per camera (95th percentile/30 days)
-- **Trend Logic**: Refactored để dùng threshold = 5 vehicles
+- **LOS Calculation**: Đã chuyển sang dynamic capacity với 2 nhánh realtime/prediction theo MAX 7 ngày
+- **Trend Logic**: Refactored sang ngưỡng % thay đổi (10%)
 - **Frontend**: Đã Việt hóa toàn bộ UI, responsive mobile, dark mode
 - **Theme System**: LocalStorage + system preference detection
 - **UI Components**: Bổ sung đầy đủ 10 components (Sidebar, Cards, Charts, Navigation)
+- **Model Performance**: Bổ sung service đo chất lượng ML và đẩy entity `ModelMetrics` lên FIWARE thành công
+- **Model Performance History**: Bổ sung lưu snapshot metrics vào PostgreSQL (`model_metrics_history`) phục vụ màn hình dữ liệu quá khứ
+- **Model Metrics API**: Bổ sung endpoint backend cho frontend query lịch sử và snapshot mới nhất
+- **Analytics Page**: Đã hiển thị dữ liệu model metrics thật từ backend thay cho mock
 
 ### 📊 Thống kê Functions
-- **Backend API**: 4 endpoints
-- **Python ML**: 14 functions (Image Process, Prediction, Query)
+- **Backend API**: 6 endpoints
+- **Python ML**: 23 functions (Image Process, Prediction, Query, Model Performance)
 - **Python App Route**: 3 functions
-- **Frontend Services**: 3 API services + 2 Contexts
+- **Frontend Services**: 5 API services + 2 Contexts
 - **UI Components**: 10 components (Navigation, Dashboard, Table, Charts)
 - **Pages**: 4 pages (Dashboard, Lifecycle, Analytics, Settings)
-- **Tổng cộng**: **41 functions** được document
+- **Tổng cộng**: **54 functions** được document
 
 ### 🎯 Luồng dữ liệu chính
 ```

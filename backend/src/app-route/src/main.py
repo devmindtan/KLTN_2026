@@ -62,6 +62,7 @@ def show_all_ips(port):
 def fiware_webhook():
     """
     Xử lý FIWARE Orion webhook và broadcast data qua Socket.IO
+    Support: Camera entities và ModelMetrics entities
     POST /webhook
     """
     payload = request.json
@@ -74,8 +75,18 @@ def fiware_webhook():
     logger.info("--- Nhận từ Orion ---")
     if payload and 'data' in payload:
         for entity in payload['data']:
-            socketio.emit('CAMERA_UPDATED', entity)
-            logger.info(f"Đã emit dữ liệu của: {entity['id']}")
+            entity_type = entity.get('type')
+            entity_id = entity.get('id')
+
+            if entity_type == 'Camera':
+                socketio.emit('CAMERA_UPDATED', entity)
+                logger.info(f"📷 Emit CAMERA_UPDATED: {entity_id}")
+            elif entity_type == 'ModelMetrics':
+                socketio.emit('METRICS_UPDATED', entity)
+                logger.info(f"📊 Emit METRICS_UPDATED: {entity_id}")
+            else:
+                logger.warning(f"⚠️ Unknown entity type: {entity_type}")
+
     return "", 204
 
 

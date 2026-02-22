@@ -4,3 +4,4 @@
 *.pem
 k8s-configs
 *.joblib
+/.venv

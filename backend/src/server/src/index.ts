@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import pool from "./config/database";
 import testControllerApi from "./routes/test.api";
 import cameraApi from "./routes/camera.api";
+import modelMetricsApi from "./routes/model-metrics.api";
 
 dotenv.config();
 const app = express();
@@ -14,6 +15,7 @@ app.use(express.json());
 // Routes
 app.use("/", testControllerApi);
 app.use("/api/cameras", cameraApi);
+app.use("/api/model-metrics", modelMetricsApi);
 
 // PostgreSQL connection test
 pool

@@ -39,6 +39,23 @@ CREATE INDEX idx_sync_null_values ON camera_forecasts (camera_id, forecast_for_t
 WHERE actual_value IS NULL;
 
 
+-- Bảng lưu lịch sử metrics đánh giá model để hiển thị biểu đồ quá khứ
+CREATE TABLE IF NOT EXISTS model_metrics_history (
+    id BIGSERIAL PRIMARY KEY,
+    generated_at TIMESTAMPTZ NOT NULL,
+    period_days INTEGER NOT NULL,
+    overall JSONB NOT NULL,
+    by_horizon JSONB NOT NULL,
+    camera_ranking JSONB NOT NULL,
+    data_coverage JSONB NOT NULL,
+    trend_accuracy JSONB NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_model_metrics_history_generated_at
+ON model_metrics_history (generated_at DESC);
+
+
 -- ============================================
 -- TRAFFIC CAPACITY & LEVEL OF SERVICE (LOS)
 -- ============================================

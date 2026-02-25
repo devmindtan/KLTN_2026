@@ -26,6 +26,12 @@ CREATE TABLE camera_forecasts (
     actual_value        DOUBLE PRECISION DEFAULT NULL,
     error_value         DOUBLE PRECISION DEFAULT NULL,
     
+    -- Data Quality Metadata (Số lượng hình ảnh dùng để tính)
+    input_value         DOUBLE PRECISION DEFAULT NULL, -- Giá trị thực tế tại thời điểm predict (avg_objects)
+    input_sample_count  INTEGER DEFAULT NULL,          -- Số hình ảnh trong current time bucket
+    lag_sample_count    INTEGER DEFAULT NULL,          -- Số hình ảnh trong LAG window (tùy horizon)
+    sync_sample_count   INTEGER DEFAULT NULL,          -- Số hình ảnh khi sync actual value
+    
     -- Log thời gian
     created_at          TIMESTAMPTZ DEFAULT NOW(),
 
@@ -37,6 +43,42 @@ CREATE TABLE camera_forecasts (
 CREATE INDEX idx_forecast_time_desc ON camera_forecasts (forecast_for_time DESC);
 CREATE INDEX idx_sync_null_values ON camera_forecasts (camera_id, forecast_for_time) 
 WHERE actual_value IS NULL;
+
+-- ============================================
+-- DATA QUALITY VERIFICATION NOTES
+-- ============================================
+-- BUCKET SELECTION LOGIC (query_from_db_realtime):
+-- - CHỈ lấy bucket ĐÃ HOÀN THÀNH: time_bucket <= NOW() - 5 minutes
+-- - VD: Predict chạy lúc 10:01 (có delay) → Lấy bucket 9:55-10:00 làm input
+-- - KHÔNG lấy bucket 10:00-10:05 (chưa đủ 5 phút data do service delay)
+-- - Đảm bảo input_sample_count và lag_sample_count đều từ FULL 5-minute buckets
+--
+-- Value Snapshots:
+-- - input_value: Giá trị thực tế (avg_objects) từ bucket ĐÃ HOÀN THÀNH
+--   VD: Predict lúc 10:01 từ bucket 9:55-10:00 có avg=10.5 xe → input_value=10.5
+--   Purpose: Phân tích trend (input → predicted → actual) mà không cần query lại
+--
+-- Sample Count Tracking:
+-- - input_sample_count: Số hình ảnh trong bucket ĐÃ HOÀN THÀNH (5 phút đầy đủ)
+--   VD: Bucket 9:55-10:00 có 29 hình ảnh → input_sample_count=29
+-- 
+-- - lag_sample_count: Số hình ảnh trong bucket LAG tương ứng horizon
+--   VD: Horizon 5m → bucket 9:50-9:55 (lag_5m_count)
+--   VD: Horizon 60m → bucket 9:00-9:05 (lag_60m_count)
+-- 
+-- - sync_sample_count: Số hình ảnh khi sync actual_value
+--   Lý tưởng: sync_sample_count ≈ input_sample_count (cùng 5-minute window)
+-- 
+-- Data Quality Rules:
+-- 1. input_sample_count và lag_sample_count đều từ FULL buckets → có thể so sánh công bằng
+-- 2. Nếu sample_count < 10 → Low confidence (cảnh báo trong analytics)
+-- 3. Nếu |sync_sample_count - input_sample_count| > 5 → Data mismatch
+-- 4. Best practice: sample_count >= 30 cho 5-min window (6 FPS × 5 min)
+--
+-- Value Analysis Examples:
+-- - Trend check: predicted_value - input_value (model dự đoán tăng/giảm bao nhiêu)
+-- - Error check: predicted_value - actual_value (độ chính xác dự đoán)
+-- - Full flow: input_value=10.5 → predicted=15.2 (+4.7) → actual=16.1 (error=-0.9)
 
 
 -- Bảng lưu lịch sử metrics đánh giá model để hiển thị biểu đồ quá khứ

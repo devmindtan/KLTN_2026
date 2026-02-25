@@ -1,0 +1,39 @@
+# STAGE 1: Builder
+FROM python:3.11-slim AS builder
+
+WORKDIR /app
+
+# Cài công cụ biên dịch (gevent cần gcc)
+RUN apt-get update && apt-get install -y \
+    gcc \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Build wheels để cache dependencies
+COPY app-route/requirements.txt .
+RUN pip wheel --no-cache-dir --wheel-dir /app/wheels -r requirements.txt
+
+
+# STAGE 2: Runner (Final Image)
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Chỉ cài runtime libraries
+RUN apt-get update && apt-get install -y \
+    tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy wheels từ builder và install
+COPY --from=builder /app/wheels /wheels
+RUN pip install --no-cache-dir /wheels/* && rm -rf /wheels
+
+# Copy code (Đặt cuối để tận dụng cache)
+COPY app-route/app/ /app/
+
+ENV PYTHONUNBUFFERED=1
+ENV TZ="Asia/Ho_Chi_Minh"
+
+EXPOSE 5000
+
+CMD ["python", "main.py"]

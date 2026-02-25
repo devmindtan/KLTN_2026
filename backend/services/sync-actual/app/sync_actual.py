@@ -54,7 +54,7 @@ def sync_actual_values():
 
     Lưu thêm sync_sample_count để verify data quality
     """
-    current_time_utc = datetime.now()
+    current_time_utc = datetime.utcnow()
 
     sync_query = text("""
         UPDATE camera_forecasts f

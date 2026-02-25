@@ -7,7 +7,7 @@ import asyncio
 import logging
 import sys
 
-from app.update_fiware import run_metrics_update_cycle, run_single_update
+from update_fiware import run_metrics_update_cycle, run_single_update
 
 logging.basicConfig(
     level=logging.INFO,

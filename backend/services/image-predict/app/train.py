@@ -1,5 +1,5 @@
 from shared.monitor_performance import monitor_performance
-from app.query import query_from_db_total
+from query import query_from_db_total
 import logging
 import os
 import sys

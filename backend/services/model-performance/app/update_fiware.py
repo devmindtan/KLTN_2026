@@ -4,7 +4,7 @@ Frontend sẽ nhận metrics qua WebSocket để hiển thị dashboard
 """
 
 from shared.monitor_performance import monitor_performance
-from app.analyze_metrics import ModelPerformanceAnalyzer, engine
+from analyze_metrics import ModelPerformanceAnalyzer, engine
 import asyncio
 import json
 import logging

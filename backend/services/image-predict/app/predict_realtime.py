@@ -1,4 +1,4 @@
-from app.query import (
+from query import (
     forecast_and_save_to_db,
     query_from_db_realtime,
 )

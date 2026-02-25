@@ -233,7 +233,7 @@ def forecast_and_save_to_db(y_preds, df_input):
     horizons = [5, 10, 15, 30, 60]
 
     # 1. Lấy giờ UTC hiện tại từ Python để đóng dấu created_at
-    current_time_utc = datetime.now()
+    current_time_utc = datetime.utcnow()
 
     with engine.begin() as conn:
         for i, horizon in enumerate(horizons):
@@ -309,7 +309,7 @@ def get_camera_capacity_map(lookback_days: int = 7):
 @monitor_performance
 def sync_actual_values():
     # Phải dùng utcnow để khớp với DB đã reset timezone
-    current_time_utc = datetime.now()
+    current_time_utc = datetime.utcnow()
 
     sync_query = text("""
         UPDATE camera_forecasts f

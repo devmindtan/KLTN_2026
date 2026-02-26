@@ -64,7 +64,7 @@ export default function TrafficReports() {
     <div className="flex flex-1 flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Báo Cáo Giao Thông</h1>
+          <h1 className="text-2xl font-bold">Báo cáo giao thông</h1>
           <p className="text-sm text-muted-foreground mt-1">Báo cáo và phân tích lưu lượng giao thông đô thị</p>
         </div>
         <Button>Tạo báo cáo mới</Button>

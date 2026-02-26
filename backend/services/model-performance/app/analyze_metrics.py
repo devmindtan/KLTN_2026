@@ -41,6 +41,105 @@ engine = create_engine(
 )
 
 
+def calculate_prediction_confidence(input_count: int, lag_count: int) -> Dict:
+    """
+    Tính độ tin cậy của dự đoán dựa trên input_sample_count vs lag_sample_count
+    Args:
+        input_count: Số hình ảnh trong bucket hiện tại (input)
+        lag_count: Số hình ảnh trong LAG window tương ứng horizon
+    Returns:
+        Dict {score: 0-1, level: High/Medium/Low, reason: str}
+    """
+    # Handle None values
+    if input_count is None or lag_count is None:
+        return {"score": 0.0, "level": "Low", "reason": "Missing sample count data"}
+
+    # Nếu 1 trong 2 có sample count quá thấp (<10) → Low confidence
+    if input_count < 10 or lag_count < 10:
+        return {
+            "score": 0.3,
+            "level": "Low",
+            "reason": f"Insufficient samples (input:{input_count}, lag:{lag_count})"
+        }
+
+    # Tính % chênh lệch
+    max_count = max(input_count, lag_count)
+    diff_percent = abs(input_count - lag_count) / max_count * 100
+
+    # Tính confidence score (0-1)
+    # Công thức: 1 - (diff_percent / 100), bounded [0, 1]
+    score = max(0.0, min(1.0, 1 - (diff_percent / 100)))
+
+    # Phân loại level
+    if input_count >= 30 and lag_count >= 30 and diff_percent < 20:
+        level = "High"
+        reason = f"Both buckets have sufficient samples (input:{input_count}, lag:{lag_count})"
+    elif diff_percent < 40:
+        level = "Medium"
+        reason = f"Moderate difference ({diff_percent:.1f}%) between input and lag samples"
+    else:
+        level = "Low"
+        reason = f"Large difference ({diff_percent:.1f}%) between input:{input_count} and lag:{lag_count}"
+
+    return {"score": round(score, 3), "level": level, "reason": reason}
+
+
+def calculate_error_confidence(input_count: int, sync_count: int) -> Dict:
+    """
+    Tính độ tin cậy của error value dựa trên input_sample_count vs sync_sample_count
+    Args:
+        input_count: Số hình ảnh khi predict
+        sync_count: Số hình ảnh khi sync actual value
+    Returns:
+        Dict {score: 0-1, level: High/Medium/Low, reason: str}
+    """
+    # Handle None values
+    if input_count is None or sync_count is None:
+        return {"score": 0.0, "level": "Low", "reason": "Missing sample count data"}
+
+    # Tính absolute difference
+    abs_diff = abs(input_count - sync_count)
+
+    # Nếu 1 trong 2 có sample count quá thấp (<10) → Low confidence
+    if input_count < 10 or sync_count < 10:
+        return {
+            "score": 0.3,
+            "level": "Low",
+            "reason": f"Insufficient samples (input:{input_count}, sync:{sync_count})"
+        }
+
+    # Data mismatch (chênh lệch >5 samples) → Low-Medium confidence
+    if abs_diff > 5:
+        # Tính % mismatch
+        max_count = max(input_count, sync_count)
+        mismatch_percent = abs_diff / max_count * 100
+
+        if mismatch_percent > 30:
+            return {
+                "score": 0.4,
+                "level": "Low",
+                "reason": f"Data mismatch ({abs_diff} samples diff, {mismatch_percent:.1f}%)"
+            }
+        else:
+            return {
+                "score": 0.6,
+                "level": "Medium",
+                "reason": f"Slight data mismatch ({abs_diff} samples diff)"
+            }
+
+    # Xấp xỉ nhau (|diff| <= 5) và cả 2 >= 30 → High confidence
+    if input_count >= 30 and sync_count >= 30:
+        score = 0.95
+        level = "High"
+        reason = f"Consistent data windows (input:{input_count}, sync:{sync_count})"
+    else:
+        score = 0.75
+        level = "Medium"
+        reason = f"Acceptable samples but below optimal (input:{input_count}, sync:{sync_count})"
+
+    return {"score": score, "level": level, "reason": reason}
+
+
 class ModelPerformanceAnalyzer:
     """
     Analyzer cho ML model performance metrics
@@ -54,11 +153,11 @@ class ModelPerformanceAnalyzer:
     @monitor_performance
     def calculate_overall_metrics(self, period_days: int = 7) -> Dict:
         """
-        Tính toán overall metrics: MAE, RMSE, MAPE, Accuracy rates
+        Tính toán overall metrics: MAE, RMSE, MAPE, Accuracy rates + Confidence scores
         Args:
             period_days: Số ngày lịch sử để phân tích (default: 7)
         Returns:
-            Dict chứa các metrics tổng quan
+            Dict chứa các metrics tổng quan bao gồm prediction & error confidence
         """
         query = text("""
             SELECT 
@@ -69,7 +168,14 @@ class ModelPerformanceAnalyzer:
                 ROUND(AVG((error_value / NULLIF(actual_value, 0) * 100)) FILTER (WHERE actual_value >= 5)::numeric, 2) as mape,
                 ROUND(COUNT(*) FILTER (WHERE error_value <= 5)::numeric / COUNT(*) FILTER (WHERE error_value IS NOT NULL) * 100, 1) as accuracy_5xe,
                 ROUND(COUNT(*) FILTER (WHERE error_value <= 10)::numeric / COUNT(*) FILTER (WHERE error_value IS NOT NULL) * 100, 1) as accuracy_10xe,
-                ROUND(COUNT(*) FILTER (WHERE error_value <= 15)::numeric / COUNT(*) FILTER (WHERE error_value IS NOT NULL) * 100, 1) as accuracy_15xe
+                ROUND(COUNT(*) FILTER (WHERE error_value <= 15)::numeric / COUNT(*) FILTER (WHERE error_value IS NOT NULL) * 100, 1) as accuracy_15xe,
+                
+                -- Sample count statistics for confidence calculation
+                ROUND(AVG(input_sample_count)::numeric, 1) as avg_input_samples,
+                ROUND(AVG(lag_sample_count)::numeric, 1) as avg_lag_samples,
+                ROUND(AVG(sync_sample_count) FILTER (WHERE sync_sample_count IS NOT NULL)::numeric, 1) as avg_sync_samples,
+                COUNT(*) FILTER (WHERE input_sample_count < 10 OR lag_sample_count < 10) as low_sample_forecasts,
+                COUNT(*) FILTER (WHERE ABS(input_sample_count - COALESCE(sync_sample_count, input_sample_count)) > 5) as mismatched_syncs
             FROM camera_forecasts
             WHERE forecast_for_time >= NOW() - INTERVAL ':days days'
         """)
@@ -88,9 +194,35 @@ class ModelPerformanceAnalyzer:
                 else:
                     metrics["verification_rate"] = 0.0
 
+                # Calculate average confidence scores
+                avg_input = metrics.get("avg_input_samples", 0) or 0
+                avg_lag = metrics.get("avg_lag_samples", 0) or 0
+                avg_sync = metrics.get("avg_sync_samples", 0) or 0
+
+                pred_confidence = calculate_prediction_confidence(
+                    int(avg_input), int(avg_lag))
+                error_confidence = calculate_error_confidence(
+                    int(avg_input), int(avg_sync))
+
+                metrics["prediction_confidence"] = {
+                    "score": pred_confidence["score"],
+                    "level": pred_confidence["level"],
+                    "avg_input_samples": avg_input,
+                    "avg_lag_samples": avg_lag,
+                    "low_sample_count": metrics.get("low_sample_forecasts", 0)
+                }
+
+                metrics["error_confidence"] = {
+                    "score": error_confidence["score"],
+                    "level": error_confidence["level"],
+                    "avg_sync_samples": avg_sync,
+                    "mismatched_count": metrics.get("mismatched_syncs", 0)
+                }
+
                 logger.info(
                     f"Overall metrics: MAE={metrics['mae']}, MAPE={metrics['mape']}%, "
-                    f"Accuracy≤5xe={metrics['accuracy_5xe']}%"
+                    f"Accuracy≤5xe={metrics['accuracy_5xe']}%, "
+                    f"Pred Confidence={pred_confidence['level']}, Error Confidence={error_confidence['level']}"
                 )
                 return metrics
 
@@ -101,11 +233,11 @@ class ModelPerformanceAnalyzer:
     @monitor_performance
     def analyze_by_horizon(self, period_days: int = 7) -> List[Dict]:
         """
-        Phân tích performance theo từng horizon (5m, 10m, 15m, 30m, 60m)
+        Phân tích performance theo từng horizon (5m, 10m, 15m, 30m, 60m) + confidence scores
         Args:
             period_days: Số ngày lịch sử để phân tích
         Returns:
-            List[Dict] metrics cho mỗi horizon
+            List[Dict] metrics cho mỗi horizon bao gồm prediction & error confidence
         """
         query = text("""
             SELECT 
@@ -117,7 +249,14 @@ class ModelPerformanceAnalyzer:
                 ROUND(MIN(error_value)::numeric, 2) as min_error,
                 ROUND(MAX(error_value)::numeric, 2) as max_error,
                 ROUND(COUNT(*) FILTER (WHERE error_value <= 5)::numeric / COUNT(*) * 100, 1) as accuracy_5xe,
-                ROUND(COUNT(*) FILTER (WHERE error_value <= 10)::numeric / COUNT(*) * 100, 1) as accuracy_10xe
+                ROUND(COUNT(*) FILTER (WHERE error_value <= 10)::numeric / COUNT(*) * 100, 1) as accuracy_10xe,
+                
+                -- Sample count statistics per horizon
+                ROUND(AVG(input_sample_count)::numeric, 1) as avg_input_samples,
+                ROUND(AVG(lag_sample_count)::numeric, 1) as avg_lag_samples,
+                ROUND(AVG(sync_sample_count) FILTER (WHERE sync_sample_count IS NOT NULL)::numeric, 1) as avg_sync_samples,
+                COUNT(*) FILTER (WHERE input_sample_count < 10 OR lag_sample_count < 10) as low_sample_count,
+                COUNT(*) FILTER (WHERE ABS(input_sample_count - COALESCE(sync_sample_count, input_sample_count)) > 5) as mismatch_count
             FROM camera_forecasts
             WHERE error_value IS NOT NULL
               AND forecast_for_time >= NOW() - INTERVAL ':days days'
@@ -130,8 +269,9 @@ class ModelPerformanceAnalyzer:
                 results = conn.execute(query, {"days": period_days}).fetchall()
                 horizons = [dict(row._mapping) for row in results]
 
-                # Add recommendations
+                # Add recommendations and confidence scores
                 for h in horizons:
+                    # Original recommendation logic
                     if h["avg_error"] < 4:
                         h["recommendation"] = "KEEP"
                         h["status"] = "good"
@@ -142,7 +282,30 @@ class ModelPerformanceAnalyzer:
                         h["recommendation"] = "DROP"
                         h["status"] = "poor"
 
-                logger.info(f"Analyzed {len(horizons)} horizons")
+                    # Calculate confidence scores
+                    avg_input = int(h.get("avg_input_samples", 0) or 0)
+                    avg_lag = int(h.get("avg_lag_samples", 0) or 0)
+                    avg_sync = int(h.get("avg_sync_samples", 0) or 0)
+
+                    pred_conf = calculate_prediction_confidence(
+                        avg_input, avg_lag)
+                    error_conf = calculate_error_confidence(
+                        avg_input, avg_sync)
+
+                    h["prediction_confidence"] = {
+                        "score": pred_conf["score"],
+                        "level": pred_conf["level"],
+                        "low_sample_count": h.get("low_sample_count", 0)
+                    }
+
+                    h["error_confidence"] = {
+                        "score": error_conf["score"],
+                        "level": error_conf["level"],
+                        "mismatch_count": h.get("mismatch_count", 0)
+                    }
+
+                logger.info(
+                    f"Analyzed {len(horizons)} horizons with confidence scores")
                 return horizons
 
         except Exception as e:
@@ -327,13 +490,90 @@ class ModelPerformanceAnalyzer:
             return {}
 
     @monitor_performance
-    def get_full_report(self, period_days: int = 7) -> Dict:
+    def analyze_confidence_distribution(self, period_days: int = 7) -> Dict:
         """
-        Tổng hợp toàn bộ metrics vào 1 report
+        Phân tích phân phối confidence scores - giúp đánh giá data quality tổng thể
         Args:
             period_days: Số ngày lịch sử để phân tích
         Returns:
-            Dict chứa toàn bộ metrics
+            Dict chứa confidence distribution statistics
+        """
+        query = text("""
+            SELECT 
+                -- Overall sample statistics
+                COUNT(*) as total_records,
+                COUNT(*) FILTER (WHERE error_value IS NOT NULL) as verified_records,
+                
+                -- Prediction confidence factors (input vs lag)
+                ROUND(AVG(input_sample_count)::numeric, 1) as avg_input_samples,
+                ROUND(AVG(lag_sample_count)::numeric, 1) as avg_lag_samples,
+                ROUND(STDDEV(input_sample_count)::numeric, 1) as stddev_input_samples,
+                
+                -- Distribution by sample count thresholds
+                COUNT(*) FILTER (WHERE input_sample_count >= 30 AND lag_sample_count >= 30) as high_quality_predictions,
+                COUNT(*) FILTER (WHERE input_sample_count < 10 OR lag_sample_count < 10) as low_quality_predictions,
+                
+                -- Error confidence factors (input vs sync)
+                ROUND(AVG(sync_sample_count) FILTER (WHERE sync_sample_count IS NOT NULL)::numeric, 1) as avg_sync_samples,
+                COUNT(*) FILTER (WHERE ABS(input_sample_count - COALESCE(sync_sample_count, input_sample_count)) <= 5) as consistent_syncs,
+                COUNT(*) FILTER (WHERE ABS(input_sample_count - COALESCE(sync_sample_count, input_sample_count)) > 5) as inconsistent_syncs,
+                
+                -- Sample count ranges
+                MIN(input_sample_count) as min_input_samples,
+                MAX(input_sample_count) as max_input_samples,
+                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY input_sample_count) as median_input_samples
+                
+            FROM camera_forecasts
+            WHERE forecast_for_time >= NOW() - INTERVAL ':days days'
+        """)
+
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(query, {"days": period_days}).fetchone()
+                stats = dict(result._mapping)
+
+                # Calculate percentages
+                total = stats.get("total_records", 0)
+                if total > 0:
+                    stats["high_quality_percent"] = round(
+                        stats.get("high_quality_predictions", 0) /
+                        total * 100, 1
+                    )
+                    stats["low_quality_percent"] = round(
+                        stats.get("low_quality_predictions", 0) /
+                        total * 100, 1
+                    )
+
+                    verified = stats.get("verified_records", 0)
+                    if verified > 0:
+                        stats["consistent_sync_percent"] = round(
+                            stats.get("consistent_syncs", 0) /
+                            verified * 100, 1
+                        )
+                        stats["inconsistent_sync_percent"] = round(
+                            stats.get("inconsistent_syncs", 0) /
+                            verified * 100, 1
+                        )
+
+                logger.info(
+                    f"Confidence distribution: {stats.get('high_quality_percent', 0)}% high quality, "
+                    f"{stats.get('low_quality_percent', 0)}% low quality predictions"
+                )
+
+                return stats
+
+        except Exception as e:
+            logger.error(f"Error analyzing confidence distribution: {e}")
+            return {}
+
+    @monitor_performance
+    def get_full_report(self, period_days: int = 7) -> Dict:
+        """
+        Tổng hợp toàn bộ metrics vào 1 report bao gồm confidence analysis
+        Args:
+            period_days: Số ngày lịch sử để phân tích
+        Returns:
+            Dict chứa toàn bộ metrics + confidence scores
         """
         logger.info(
             f"Generating full performance report for last {period_days} days...")
@@ -346,9 +586,11 @@ class ModelPerformanceAnalyzer:
             "camera_ranking": self.rank_cameras(period_days, top_n=5),
             "data_coverage": self.calculate_data_coverage(period_days),
             "trend_accuracy": self.calculate_trend_accuracy(period_days),
+            "confidence_distribution": self.analyze_confidence_distribution(period_days),
         }
 
-        logger.info("✅ Full report generated successfully")
+        logger.info(
+            "✅ Full report generated successfully with confidence metrics")
         return report
 
 

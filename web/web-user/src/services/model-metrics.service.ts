@@ -20,6 +20,16 @@ export interface HorizonMetric {
   accuracy_10xe: number;
   recommendation?: string;
   status?: string;
+  prediction_confidence?: {
+    score: number;
+    level: string;
+    low_sample_count: number;
+  };
+  error_confidence?: {
+    score: number;
+    level: string;
+    mismatch_count: number;
+  };
 }
 
 export interface CameraRankingItem {
@@ -45,6 +55,19 @@ export interface ModelMetricsHistoryRow {
     accuracy_10xe: number;
     accuracy_15xe: number;
     verification_rate: number;
+    prediction_confidence?: {
+      score: number;
+      level: string;
+      avg_input_samples: number;
+      avg_lag_samples: number;
+      low_sample_count: number;
+    };
+    error_confidence?: {
+      score: number;
+      level: string;
+      avg_sync_samples: number;
+      mismatched_count: number;
+    };
   };
   by_horizon: HorizonMetric[];
   camera_ranking: {
@@ -66,6 +89,21 @@ export interface ModelMetricsHistoryRow {
     correct_increasing: number;
     correct_decreasing: number;
     correct_stable: number;
+  };
+  confidence_distribution?: {
+    total_records: number;
+    verified_records: number;
+    avg_input_samples: number;
+    avg_lag_samples: number;
+    avg_sync_samples: number;
+    high_quality_predictions: number;
+    low_quality_predictions: number;
+    high_quality_percent: number;
+    low_quality_percent: number;
+    consistent_syncs: number;
+    inconsistent_syncs: number;
+    consistent_sync_percent: number;
+    inconsistent_sync_percent: number;
   };
   created_at: string;
 }

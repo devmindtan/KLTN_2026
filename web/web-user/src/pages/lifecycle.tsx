@@ -130,7 +130,7 @@ export default function TrafficMonitoring() {
     <div className="flex flex-1 flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Giám Sát Lưu Lượng Thời Gian Thực</h1>
+          <h1 className="text-2xl font-bold">Giám sát lưu lượng thời gian thực</h1>
           <p className="text-sm text-muted-foreground mt-1">Theo dõi lưu lượng giao thông tại các điểm quan trọng trong thành phố</p>
         </div>
         <div className="flex items-center gap-2">

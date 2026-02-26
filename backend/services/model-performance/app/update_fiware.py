@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 def ensure_metrics_history_table() -> None:
     """
-    Tạo bảng lưu lịch sử metrics nếu chưa tồn tại
+    Tạo bảng lưu lịch sử metrics nếu chưa tồn tại (với confidence_distribution)
     """
     create_table_query = text("""
         CREATE TABLE IF NOT EXISTS model_metrics_history (
@@ -49,6 +49,7 @@ def ensure_metrics_history_table() -> None:
             camera_ranking JSONB NOT NULL,
             data_coverage JSONB NOT NULL,
             trend_accuracy JSONB NOT NULL,
+            confidence_distribution JSONB DEFAULT NULL,
             created_at TIMESTAMPTZ DEFAULT NOW()
         )
     """)
@@ -66,7 +67,7 @@ def ensure_metrics_history_table() -> None:
 @monitor_performance
 def save_metrics_history(metrics: Dict) -> bool:
     """
-    Lưu snapshot metrics vào PostgreSQL để phục vụ màn hình lịch sử
+    Lưu snapshot metrics vào PostgreSQL để phục vụ màn hình lịch sử (bao gồm confidence_distribution)
     """
     try:
         metrics_clean = convert_decimal_to_float(metrics)
@@ -83,7 +84,8 @@ def save_metrics_history(metrics: Dict) -> bool:
                 by_horizon,
                 camera_ranking,
                 data_coverage,
-                trend_accuracy
+                trend_accuracy,
+                confidence_distribution
             )
             VALUES (
                 :generated_at,
@@ -92,7 +94,8 @@ def save_metrics_history(metrics: Dict) -> bool:
                 CAST(:by_horizon AS JSONB),
                 CAST(:camera_ranking AS JSONB),
                 CAST(:data_coverage AS JSONB),
-                CAST(:trend_accuracy AS JSONB)
+                CAST(:trend_accuracy AS JSONB),
+                CAST(:confidence_distribution AS JSONB)
             )
         """)
 
@@ -110,10 +113,12 @@ def save_metrics_history(metrics: Dict) -> bool:
                     ),
                     "data_coverage": json.dumps(metrics_clean.get("data_coverage", {})),
                     "trend_accuracy": json.dumps(metrics_clean.get("trend_accuracy", {})),
+                    "confidence_distribution": json.dumps(metrics_clean.get("confidence_distribution", {})),
                 },
             )
 
-        logger.info("✅ Metrics history saved to PostgreSQL")
+        logger.info(
+            "✅ Metrics history saved to PostgreSQL (with confidence data)")
         return True
     except Exception as e:
         logger.error(f"❌ Error saving metrics history: {e}")
@@ -153,7 +158,7 @@ def convert_decimal_to_float(obj: Any) -> Any:
 @monitor_performance
 async def update_metrics_to_fiware(metrics: Dict):
     """
-    Gửi performance metrics lên FIWARE Orion
+    Gửi performance metrics lên FIWARE Orion (bao gồm confidence scores)
     Entity ID: urn:ngsi-ld:ModelMetrics:performance
 
     Args:
@@ -183,6 +188,10 @@ async def update_metrics_to_fiware(metrics: Dict):
         "trend_accuracy": {
             "type": "StructuredValue",
             "value": metrics_clean.get("trend_accuracy", {}),
+        },
+        "confidence_distribution": {
+            "type": "StructuredValue",
+            "value": metrics_clean.get("confidence_distribution", {}),
         },
         "period_days": {"type": "Number", "value": metrics_clean.get("period_days", 7)},
         "last_updated": {

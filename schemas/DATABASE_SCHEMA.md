@@ -86,16 +86,40 @@ CREATE TABLE IF NOT EXISTS model_metrics_history (
     id BIGSERIAL PRIMARY KEY,
     generated_at TIMESTAMPTZ NOT NULL,
     period_days INTEGER NOT NULL,
-    overall JSONB NOT NULL,
-    by_horizon JSONB NOT NULL,
+    overall JSONB NOT NULL,                -- Overall metrics bao gồm prediction_confidence & error_confidence
+    by_horizon JSONB NOT NULL,             -- Metrics per horizon bao gồm confidence scores
     camera_ranking JSONB NOT NULL,
     data_coverage JSONB NOT NULL,
     trend_accuracy JSONB NOT NULL,
+    confidence_distribution JSONB DEFAULT NULL,  -- Data quality metrics: sample count distribution, mismatch stats
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX idx_model_metrics_history_generated_at
 ON model_metrics_history (generated_at DESC);
+
+-- ============================================
+-- CONFIDENCE METRICS EXPLANATION
+-- ============================================
+-- PREDICTION CONFIDENCE (input_sample_count vs lag_sample_count):
+-- - Score: 0-1 (1 = highest confidence)
+-- - Level: High/Medium/Low
+-- - High: Cả 2 buckets có >=30 samples và chênh lệch <20%
+-- - Medium: Chênh lệch 20-40%
+-- - Low: 1 trong 2 có <10 samples hoặc chênh lệch >40%
+--
+-- ERROR CONFIDENCE (input_sample_count vs sync_sample_count):
+-- - Score: 0-1 (1 = highest confidence)
+-- - Level: High/Medium/Low
+-- - High: Cả 2 >=30 samples và |diff| <=5
+-- - Medium: |diff| <=5 nhưng <30 samples, hoặc mismatch 5-30%
+-- - Low: 1 trong 2 có <10 samples hoặc mismatch >30%
+--
+-- CONFIDENCE DISTRIBUTION:
+-- - high_quality_predictions: Forecasts với input & lag >=30 samples
+-- - low_quality_predictions: Forecasts với input hoặc lag <10 samples
+-- - consistent_syncs: Actual syncs với |input - sync| <=5 samples
+-- - inconsistent_syncs: Actual syncs với |input - sync| >5 samples
 
 
 -- ============================================

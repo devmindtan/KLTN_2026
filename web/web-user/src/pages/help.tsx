@@ -32,7 +32,7 @@ export default function Help() {
     <div className="flex flex-1 flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Trung Tâm Hỗ Trợ</h1>
+          <h1 className="text-2xl font-bold">Trung tâm hỗ trợ</h1>
           <p className="text-sm text-muted-foreground mt-1">Tài liệu, hướng dẫn và hỗ trợ kỹ thuật</p>
         </div>
       </div>
@@ -71,7 +71,7 @@ export default function Help() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Liên Hệ Hỗ Trợ</CardTitle>
+          <CardTitle>Liên hệ hỗ trợ</CardTitle>
           <CardDescription>Nếu bạn cần hỗ trợ trực tiếp, hãy liên hệ với chúng tôi</CardDescription>
         </CardHeader>
         <CardContent>

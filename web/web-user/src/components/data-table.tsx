@@ -496,7 +496,7 @@ export function DataTable({
     >
       <div className="flex items-center justify-between px-4 lg:px-6">
         <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold">Nguồn Camera Trực Tiếp</h2>
+          <h2 className="text-lg font-semibold">Nguồn camera trực tiếp</h2>
           <Badge variant="secondary" className="flex h-5 items-center justify-center rounded-full px-2">
             {table.getFilteredRowModel().rows.length} camera
           </Badge>
@@ -506,7 +506,7 @@ export function DataTable({
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
                 <ColumnsIcon />
-                <span className="hidden lg:inline">Tùy Chỉnh Cột</span>
+                <span className="hidden lg:inline">Tùy chỉnh cột</span>
                 <span className="lg:hidden">Cột</span>
                 <ChevronDownIcon />
               </Button>

@@ -1,58 +1,35 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import avatarImage from "@/assets/avatar.jpg";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconMail, IconPhone } from "@tabler/icons-react";
 
 export default function Team() {
+  const getInitials = (name: string) => {
+    const words = name.split(' ');
+    if (words.length >= 2) {
+      return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+
   const teamMembers = [
     {
-      name: "Nguyễn Văn A",
-      role: "ML Engineer",
-      email: "nguyenvana@example.com",
-      phone: "+84 901 234 567",
-      specialty: "Deep Learning",
-      avatar: "NA"
+      name: "Nguyễn Khắc Minh Tân",
+      role: "Fullstack",
+      email: "devmind.tan@gmail.com",
+      phone: "+84 942 510 317",
+      specialty: "Fullstack",
+      avatarUrl: avatarImage
     },
     {
-      name: "Trần Thị B",
-      role: "Data Scientist",
+      name: "Võ Anh Tiến",
+      role: "",
       email: "tranthib@example.com",
       phone: "+84 902 345 678",
       specialty: "Traffic Analysis",
-      avatar: "TB"
-    },
-    {
-      name: "Lê Văn C",
-      role: "Backend Developer",
-      email: "levanc@example.com",
-      phone: "+84 903 456 789",
-      specialty: "API Development",
-      avatar: "LC"
-    },
-    {
-      name: "Phạm Thị D",
-      role: "Frontend Developer",
-      email: "phamthid@example.com",
-      phone: "+84 904 567 890",
-      specialty: "UI/UX Design",
-      avatar: "PD"
-    },
-    {
-      name: "Hoàng Văn E",
-      role: "DevOps Engineer",
-      email: "hoangvane@example.com",
-      phone: "+84 905 678 901",
-      specialty: "Infrastructure",
-      avatar: "HE"
-    },
-    {
-      name: "Vũ Thị F",
-      role: "Project Manager",
-      email: "vuthif@example.com",
-      phone: "+84 906 789 012",
-      specialty: "Agile Management",
-      avatar: "VF"
+      avatarUrl: undefined
     },
   ];
 
@@ -60,7 +37,7 @@ export default function Team() {
     <div className="flex flex-1 flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Đội Ngũ Phát Triển</h1>
+          <h1 className="text-2xl font-bold">Đội ngũ phát triển</h1>
           <p className="text-sm text-muted-foreground mt-1">Thành viên tham gia dự án dự đoán lưu lượng giao thông</p>
         </div>
         <Button>Thêm thành viên</Button>
@@ -72,8 +49,9 @@ export default function Team() {
             <CardHeader>
               <div className="flex items-center gap-3">
                 <Avatar className="h-12 w-12">
+                  <AvatarImage src={member.avatarUrl} alt={member.name} />
                   <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                    {member.avatar}
+                    {getInitials(member.name)}
                   </AvatarFallback>
                 </Avatar>
                 <div>

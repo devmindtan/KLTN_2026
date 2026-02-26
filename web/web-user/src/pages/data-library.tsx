@@ -84,7 +84,7 @@ export default function TrafficDataLibrary() {
     <div className="flex flex-1 flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Thư Viện Dữ Liệu Giao Thông</h1>
+          <h1 className="text-2xl font-bold">Thư viện dữ liệu giao thông</h1>
           <p className="text-sm text-muted-foreground mt-1">Quản lý và truy cập dữ liệu giao thông đô thị</p>
         </div>
         <Button>Import dữ liệu mới</Button>

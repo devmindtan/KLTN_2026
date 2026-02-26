@@ -1,2 +1,2 @@
 # KLTN_2026
-Ứng dụng Học máy trong Dự đoán Lưu lượng và Phát triển Giao diện Ra quyết định Hỗ trợ Giao thông Đô thị
+Thiết kế và xây dựng hệ thống hỗ trợ dự đoán Lưu lượng giao thông và Ra quyết định.

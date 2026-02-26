@@ -99,6 +99,43 @@ ON model_metrics_history (generated_at DESC);
 
 
 -- ============================================
+-- BACKUP & DISASTER RECOVERY
+-- ============================================
+-- Bảng log backup database lên Google Drive
+-- Purpose: Track toàn bộ backup history (start time, duration, file size, status)
+-- Retention policy: Không auto-delete (dùng làm audit trail)
+CREATE TABLE IF NOT EXISTS backup_logs (
+    id BIGSERIAL PRIMARY KEY,
+    backup_type VARCHAR(50) NOT NULL,         -- 'full', 'schema-only'
+    started_at TIMESTAMPTZ NOT NULL,
+    completed_at TIMESTAMPTZ,
+    duration_seconds INTEGER,                 -- Auto-calculated: EXTRACT(EPOCH FROM completed_at - started_at)
+    status VARCHAR(20) NOT NULL,              -- 'success', 'failed', 'running'
+    storage_location VARCHAR(500),            -- Google Drive web link or file ID
+    file_size_mb DECIMAL(10,2),               -- Compressed file size in MB
+    compressed BOOLEAN DEFAULT TRUE,          -- Luôn TRUE (gzip compression)
+    error_message TEXT,                       -- Error details if failed
+    metadata JSONB,                           -- {total_tables, schemas, top_tables, gdrive_file_id, original_filename}
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_backup_logs_started ON backup_logs(started_at DESC);
+CREATE INDEX idx_backup_logs_status ON backup_logs(status) WHERE status != 'success';
+
+-- Example metadata structure:
+-- {
+--   "total_tables": 5,
+--   "schemas": [{"name": "public", "table_count": 5}],
+--   "top_tables": [
+--     {"name": "camera_detections", "rows": 458231},
+--     {"name": "camera_forecasts", "rows": 125443}
+--   ],
+--   "gdrive_file_id": "1xYz...",
+--   "original_filename": "postgres_backup_20260226_020000.sql.gz"
+-- }
+
+
+-- ============================================
 -- TRAFFIC CAPACITY & LEVEL OF SERVICE (LOS)
 -- ============================================
 -- CAPACITY ĐỘNG (Dynamic Capacity Calculation):

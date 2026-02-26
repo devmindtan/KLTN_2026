@@ -76,6 +76,18 @@ Template:
 | PY-025 | **ensure_metrics_history_table()** - Khởi tạo bảng lịch sử metrics | **Input:** None<br>**Output:** None | ✅ | None | Tạo bảng `model_metrics_history` và index `generated_at` nếu chưa tồn tại để đảm bảo service chạy độc lập không phụ thuộc migrate thủ công | `backend/src/model-performance/update_fiware.py::ensure_metrics_history_table()` |
 | PY-026 | **save_metrics_history()** - Lưu snapshot metrics vào PostgreSQL | **Input:** `metrics`<br>**Output:** `bool` success/fail | ✅ | [UPDATED 22/02/26] Được gọi ở cả single-run và cycle-run trước khi đẩy FIWARE | Chuẩn hóa dữ liệu metrics và insert JSONB (`overall`, `by_horizon`, `camera_ranking`, `data_coverage`, `trend_accuracy`) để frontend truy vấn quá khứ theo thời gian | `backend/src/model-performance/update_fiware.py::save_metrics_history()` |
 
+#### **📌 Backup Service** (`backup-postgres`)
+
+| ID | Chức năng / Route | Inputs / Outputs | Trạng thái | Hạn chế & Lý do | Logic & Giải pháp | Vị trí |
+|:---:|:---|:---|:---:|:---|:---|:---|
+| PY-027 | **main()** - Orchestrate backup workflow | **Input:** Env vars (DB credentials, GDrive config)<br>**Output:** None (side effects: backup file + DB log) | ✅ | [NEW 26/02/26] Service mới cho disaster recovery backup | Orchestrator chính: log start → get DB stats → pg_dump → compress → upload GDrive → log completion. Error handling với DB log update khi fail | `backend/services/backup-postgres/app/backup.py::main()` |
+| PY-028 | **run_pg_dump()** - Backup database với pg_dump | **Input:** None (env vars)<br>**Output:** Path to dump file | ✅ | None | Execute `pg_dump` command với options: `--format=plain`, support BACKUP_TYPE (full/schema-only). PGPASSWORD env var để authentication | `backend/services/backup-postgres/app/backup.py::run_pg_dump()` |
+| PY-029 | **compress_file()** - Compress backup với gzip | **Input:** `source_file` path<br>**Output:** `(compressed_file_path, file_size_mb)` | ✅ | None | Gzip compression để giảm dung lượng ~70-80%, xóa file gốc sau compress, return path và size (MB) | `backend/services/backup-postgres/app/backup.py::compress_file()` |
+| PY-030 | **upload_to_gdrive()** - Upload file lên Google Drive | **Input:** `file_path`<br>**Output:** `(web_link, file_id)` | ✅ | None | Authenticate với Service Account JSON, dùng Google Drive API v3 upload file vào folder ID, return web link và file ID để lưu vào DB | `backend/services/backup-postgres/app/backup.py::upload_to_gdrive()` |
+| PY-031 | **log_backup_start()** - Log thời gian bắt đầu backup | **Input:** `cursor` (DB connection)<br>**Output:** `backup_id` (int) | ✅ | None | Insert record vào table `backup_logs` với status='running', return ID để update sau | `backend/services/backup-postgres/app/backup.py::log_backup_start()` |
+| PY-032 | **log_backup_complete()** - Log thời gian hoàn thành | **Input:** `cursor, backup_id, storage_location, file_size_mb, metadata, error_message`<br>**Output:** None | ✅ | None | Update record trong `backup_logs` với completed_at, duration_seconds (auto-calculated), status (success/failed), file info và metadata JSONB | `backend/services/backup-postgres/app/backup.py::log_backup_complete()` |
+| PY-033 | **get_database_stats()** - Lấy thống kê database | **Input:** `cursor`<br>**Output:** Dict `{total_tables, schemas, top_tables}` | ✅ | None | Query pg_tables và pg_stat_user_tables để lấy số lượng tables, schema breakdown, top 10 tables theo row count → lưu vào metadata JSONB | `backend/services/backup-postgres/app/backup.py::get_database_stats()` |
+
 ---
 
 ### 🔷 Frontend React Services
@@ -151,11 +163,12 @@ Template:
 ### 📊 Thống kê Functions
 - **Backend API**: 6 endpoints
 - **Python ML**: 23 functions (Image Process, Prediction, Query, Model Performance)
+- **Python Backup**: 7 functions (Disaster Recovery)
 - **Python App Route**: 3 functions
 - **Frontend Services**: 5 API services + 2 Contexts
 - **UI Components**: 10 components (Navigation, Dashboard, Table, Charts)
 - **Pages**: 4 pages (Dashboard, Lifecycle, Analytics, Settings)
-- **Tổng cộng**: **54 functions** được document
+- **Tổng cộng**: **61 functions** được document
 
 ### 🎯 Luồng dữ liệu chính
 ```

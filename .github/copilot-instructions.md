@@ -3,6 +3,7 @@
 - **Root Detection**: Luôn xác định thư mục gốc của dự án hiện tại bằng cách kiểm tra file `package.json` hoặc thư mục `.git` và ƯU TIÊN đọc file `reports/AGENT_LOG.md` để biết được task trước đã làm những gì, cùng với liên tục tham chiếu đến file `reports/FUNCTION_LIST.md` để bổ sung hoặc cập nhật chức năng.
 - **Dynamic Path**: Các đường dẫn đến `commands/` phải luôn được tính từ Root của Workspace đang mở.
 - **Project Isolation**: Không áp dụng logic của dự án này sang dự án khác nếu Workspace thay đổi.
+- **Backend Structure (Updated 25/02/26)**: Backend services đã restructure từ `backend/src/` → `backend/services/` với structure mới: `services/{service-name}/app/` (thay vì `src/{service-name}/src/`). Shared utilities nằm tại `backend/services/shared/`. Container structure: `/app/` (flat, không nested `/app/app/`).
 - **Exceptions (DO NOT TOUCH)**: Tuyệt đối không tự ý thay đổi nội dung trong các thư mục: `k8s-configs/`, `assets/` đến khi tôi cho phép.
 
 # Role & Project Context
@@ -37,13 +38,22 @@
   - Icon ưu tiên Lucide React hoặc bộ icon thống nhất của dự án.
   - Hiển thị giao diện hãy sử dụng từ Tiếng Việt.
 - **Documentation (Function Headers)**:
-  - Mọi hàm (Function/Method) và API Route PHẢI có JSDoc ngắn gọn ngay phía trên.
+  - Mọi hàm (Function/Method) và API Route PHẢI có JSDoc/docstring ngắn gọn ngay phía trên.
   - Định dạng:
     /\*\*
     - [Mô tả chức năng bằng tiếng Việt]
     - [Phương thức HTTP + Path - nếu là API]
       \*/
   - Yêu cầu: Ngôn ngữ súc tích, đi thẳng vào mục đích của hàm.
+- **Docker Best Practices**:
+  - Sử dụng multi-stage build (builder + runner) cho Python services
+  - COPY paths: Chỉ copy `app/`, `models/`, `shared/` (không copy toàn bộ service folder)
+  - Container structure: Flat `/app/` (không nested `/app/app/`)
+  - Imports: Direct imports (`from query import ...` thay vì `from app.query import ...`)
+- **Timezone Handling**:
+  - LUÔN dùng `datetime.utcnow()` (KHÔNG bao giờ dùng `datetime.now()`)
+  - Database TIMESTAMPTZ columns nhận UTC input
+  - Frontend convert UTC → local time khi display
 
 # Context Reference Strategy
 
@@ -100,7 +110,7 @@
 
 ## Cấu trúc AGENT_LOG.md:
 
-- **Thời gian**: DD/MM/YY
+- **Thời gian**: DD/MM/YYervices/shared/los_utils.py::function_name()`) - **Chú ý: dùng /services/ thay vì /src/**
 - **Số dòng**: Ước tính tương đối (~20, +50, -10)
 - **File**: List dưới dạng inline code `file.name`
 - **Ghi chú**: Ngắn gọn, highlight impact chính

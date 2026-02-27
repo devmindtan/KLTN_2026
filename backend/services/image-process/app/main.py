@@ -87,7 +87,24 @@ db_pool = ThreadedConnectionPool(
 )
 
 # 1. Khởi tạo Model và S3 Client
-model = YOLO("models/best.pt")
+# Check và download YOLO model từ MinIO nếu chưa có local
+model_dir = "models"
+os.makedirs(model_dir, exist_ok=True)
+
+model_path = os.path.join(model_dir, "best.pt")
+if not os.path.exists(model_path):
+    logger.warning(f"⚠️ YOLO model không tồn tại tại {model_path}")
+    logger.info("📥 Đang tải model từ MinIO...")
+    
+    from download_model import download_yolo_model
+    
+    if not download_yolo_model(output_dir=model_dir):
+        logger.error("❌ Không thể tải model từ MinIO. Service không thể hoạt động.")
+        sys.exit(1)
+    
+    logger.info("✅ Đã tải thành công YOLO model từ MinIO")
+
+model = YOLO(model_path)
 s3_client = boto3.client(
     "s3",
     endpoint_url=MINIO_CONFIG["endpoint_url"],
@@ -376,4 +393,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logger.error("Đã dừng chương trình.")
+        logger.error("Đã dừng chương trình")

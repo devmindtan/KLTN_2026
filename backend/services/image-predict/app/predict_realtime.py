@@ -151,6 +151,34 @@ def predict_realtime(current_data_from_db):
     Returns:
         DataFrame chứa kết quả dự đoán hoặc empty DataFrame nếu lỗi
     """
+    # Check và download models từ MinIO nếu chưa có local
+    model_dir = "models"
+    os.makedirs(model_dir, exist_ok=True)
+    
+    required_models = [
+        "camera_rf_model_5m.joblib",
+        "camera_rf_model_10m.joblib",
+        "camera_rf_model_15m.joblib",
+        "camera_rf_model_30m.joblib",
+        "camera_rf_model_60m.joblib",
+        "camera_label_encoder.joblib"
+    ]
+    
+    # Check nếu thiếu bất kỳ model nào
+    missing_models = [m for m in required_models if not os.path.exists(os.path.join(model_dir, m))]
+    
+    if missing_models:
+        logger.warning(f"⚠️ Models chưa tồn tại local: {missing_models}")
+        logger.info("📥 Đang tải models từ MinIO...")
+        
+        from download_model import download_random_forest_models
+        
+        if not download_random_forest_models(output_dir=model_dir):
+            logger.error("❌ Không thể tải models từ MinIO. Service không thể hoạt động.")
+            return pd.DataFrame()
+        
+        logger.info("✅ Đã tải thành công models từ MinIO")
+    
     try:
         # Load 5 models riêng biệt
         models = {
@@ -294,4 +322,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(run_cycle())
     except Exception as e:
-        logger.error(f"Lỗi thực thi chu kỳ: {e}")
+        logger.error(f"Lỗi thực thi chu kỳ: {e}.")

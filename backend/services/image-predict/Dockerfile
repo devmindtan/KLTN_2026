@@ -50,7 +50,5 @@ ENV MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
 ENV MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME}
 ENV PYTHONUNBUFFERED=1
 
-# Chạy script download Random Forest models từ MinIO
-RUN python download_model.py --output-dir models
 
 CMD ["python", "predict_realtime.py"]

@@ -1,5 +1,0 @@
-pandas==3.0.0
-python-dotenv==1.2.1
-query==0.1.4
-shared==0.0.32
-SQLAlchemy==2.0.46

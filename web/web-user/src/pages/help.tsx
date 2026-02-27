@@ -12,7 +12,7 @@ export default function Help() {
         "Hướng dẫn sử dụng dashboard",
         "Cách đọc báo cáo dự đoán",
         "Quản lý mô hình ML",
-        "Truy cập dữ liệu giao thông"
+        "Truy cập dữ liệu giao thông."
       ]
     },
     {

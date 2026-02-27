@@ -22,21 +22,48 @@ jobs:
       - name: Get and bump version
         id: version
         run: |
-          # Determine version file and repo based on branch
+          # Determine repo based on branch
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            VERSION_FILE="backend/server/VERSION.prod"
             REPO_NAME="pro-repo"
           else
-            VERSION_FILE="backend/server/VERSION.dev"
             REPO_NAME="dev-repo"
           fi
 
-          CURRENT_VERSION=$(cat $VERSION_FILE)
-          chmod +x .github/scripts/version-bump.sh
-          NEW_VERSION=$(.github/scripts/version-bump.sh $VERSION_FILE)
-          echo "new=v$NEW_VERSION" >> $GITHUB_OUTPUT
+          SERVICE_NAME="backend-server"
+
+          # Get latest version from Docker Hub
+          LATEST_VERSION=$(curl -s "https://registry.hub.docker.com/v2/repositories/${{ secrets.DOCKER_USERNAME }}/${REPO_NAME}/tags/?page_size=100" | \
+            jq -r '.results[].name' | \
+            grep "^${SERVICE_NAME}-v" | \
+            sed 's/^'"${SERVICE_NAME}"'-v//' | \
+            sort -V | \
+            tail -1)
+
+          if [ -z "$LATEST_VERSION" ]; then
+            NEW_VERSION="v1.0.0"
+          else
+            IFS='.' read -r -a parts <<< "$LATEST_VERSION"
+            MAJOR="${parts[0]}"
+            MINOR="${parts[1]}"
+            PATCH="${parts[2]}"
+            
+            PATCH=$((PATCH + 1))
+            
+            if [ $PATCH -ge 10 ]; then
+              PATCH=0
+              MINOR=$((MINOR + 1))
+            fi
+            
+            if [ $MINOR -ge 10 ]; then
+              MINOR=0
+              MAJOR=$((MAJOR + 1))
+            fi
+            
+            NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          fi
+
+          echo "new=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "repo=$REPO_NAME" >> $GITHUB_OUTPUT
-          echo "version_file=$VERSION_FILE" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -58,12 +85,3 @@ jobs:
             ${{ secrets.DOCKER_USERNAME }}/${{ steps.version.outputs.repo }}:backend-server-latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Commit version bump
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add ${{ steps.version.outputs.version_file }}
-          git commit -m "chore: bump backend-server version to ${{ steps.version.outputs.new }}" || echo "No changes"
-          git push || echo "Push failed"

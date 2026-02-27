@@ -54,9 +54,6 @@ ENV MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
 ENV MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME}
 ENV PYTHONUNBUFFERED=1
 
-# Download model từ MinIO khi build image
-RUN python download_model.py --output-dir models
-
 # ID: DOCKER-7A2 - Tối ưu hóa build layer và kích thước image
 # ID: DOCKER-8F5 - Download YOLO model từ MinIO thay vì COPY local
 CMD ["python", "main.py"]

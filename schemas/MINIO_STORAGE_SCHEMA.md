@@ -3,28 +3,26 @@
 ## Bucket Structure
 
 ```
-{MINIO_BUCKET_NAME}/
-├── images/
-│   ├── {camera_id}/
-│   │   ├── {timestamp}.jpg
-│   │   └── YYYYMMDD_HHMMSS.jpg
-│   └── 662b86c41afb9c00172dd31c/
-│       └── 20260227_143022.jpg
+images/
+├── {camera_id}/
+│   ├── {timestamp}.jpg
+│   └── YYYYMMDD_HHMMSS.jpg
+└── 662b86c41afb9c00172dd31c/
+    └── 20260227_143022.jpg
+ml-models/
+├── yolo/
+│   └── v1/
+│       ├── yolo_20260227_best.pt
+│       └── yolo_20260301_retrain.pt
 │
-└── ml-models/
-    ├── yolo/
-    │   └── v1/
-    │       ├── yolo_20260227_best.pt
-    │       └── yolo_20260301_retrain.pt
-    │
-    └── random-forest/
-        └── v1/
-            ├── random-forest_20260227_5m.joblib
-            ├── random-forest_20260227_10m.joblib
-            ├── random-forest_20260227_15m.joblib
-            ├── random-forest_20260227_30m.joblib
-            ├── random-forest_20260227_60m.joblib
-            └── random-forest_20260227_encoder.joblib
+ └── random-forest/
+    └── v1/
+        ├── random-forest_20260227_5m.joblib
+        ├── random-forest_20260227_10m.joblib
+        ├── random-forest_20260227_15m.joblib
+        ├── random-forest_20260227_30m.joblib
+        ├── random-forest_20260227_60m.joblib
+        └── random-forest_20260227_encoder.joblib
 ```
 
 ## Path Patterns

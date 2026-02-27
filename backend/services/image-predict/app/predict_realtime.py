@@ -1,4 +1,4 @@
-from query import (
+from db_queries import (
     forecast_and_save_to_db,
     query_from_db_realtime,
 )

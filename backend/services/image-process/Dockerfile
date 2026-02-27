@@ -37,14 +37,16 @@ RUN pip install --no-cache-dir /wheels/* && rm -rf /wheels
 # Copy code (Đặt ở cuối để tránh làm hỏng cache của các layer trên)
 COPY shared /app/shared
 COPY image-process/app/ /app/
-COPY image-process/download_model.py /app/
+
+# Tạo thư mục models
+RUN mkdir -p /app/models
 
 # Download YOLO model từ MinIO (thay vì COPY local file)
 # Yêu cầu MinIO credentials được pass qua ENV khi build
 ARG MINIO_ENDPOINT_URL
 ARG MINIO_ACCESS_KEY
 ARG MINIO_SECRET_KEY
-ARG MINIO_BUCKET_NAME=traffic-images
+ARG MINIO_BUCKET_NAME=ml-models
 
 ENV MINIO_ENDPOINT_URL=${MINIO_ENDPOINT_URL}
 ENV MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}

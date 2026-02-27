@@ -207,7 +207,7 @@ def upload_models_to_minio(models_info, training_start_time, total_samples):
 
         info = models_info[horizon]
         local_path = f"models/camera_rf_model_{horizon}.joblib"
-        minio_key = f"ml-models/random-forest/v1/random-forest_{date_str}_{horizon}.joblib"
+        minio_key = f"random-forest/v1/random-forest_{date_str}_{horizon}.joblib"
 
         # Upload model
         logger.info(f"\n   Uploading {horizon} model...")
@@ -250,7 +250,7 @@ def upload_models_to_minio(models_info, training_start_time, total_samples):
     logger.info("\n   Uploading label encoder...")
     minio_client.upload_model(
         local_path="models/camera_label_encoder.joblib",
-        minio_key=f"ml-models/random-forest/v1/random-forest_{date_str}_encoder.joblib",
+        minio_key=f"random-forest/v1/random-forest_{date_str}_encoder.joblib",
         metadata={"version": version}
     )
 

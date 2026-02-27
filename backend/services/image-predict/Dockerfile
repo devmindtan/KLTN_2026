@@ -33,8 +33,24 @@ RUN pip install --no-cache-dir /wheels/* && rm -rf /wheels
 # Copy code (Đặt cuối để tận dụng cache)
 COPY shared /app/shared
 COPY image-predict/app/ /app/
-COPY image-predict/models /app/models
 
+# Tạo thư mục models
+RUN mkdir -p /app/models
+
+# Download Random Forest models từ MinIO
+# MinIO credentials được pass qua ENV variables khi build
+ARG MINIO_ENDPOINT_URL
+ARG MINIO_ACCESS_KEY
+ARG MINIO_SECRET_KEY
+ARG MINIO_BUCKET_NAME=ml-models
+
+ENV MINIO_ENDPOINT_URL=${MINIO_ENDPOINT_URL}
+ENV MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+ENV MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+ENV MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME}
 ENV PYTHONUNBUFFERED=1
+
+# Chạy script download Random Forest models từ MinIO
+RUN python download_model.py --output-dir models
 
 CMD ["python", "predict_realtime.py"]

@@ -1,19 +1,18 @@
-from shared.monitor_performance import monitor_performance
-from sqlalchemy.pool import QueuePool
-from sqlalchemy import create_engine, text
-from dotenv import load_dotenv
-import pandas as pd
 import logging
 import os
 import sys
 from datetime import datetime, timedelta, timezone
 
-# PHẢI append path TRƯỚC KHI import shared modules
+import pandas as pd
+from dotenv import load_dotenv
+from sqlalchemy import create_engine, text
+from sqlalchemy.pool import QueuePool
+
 sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), "../..")))
 
-
 # Import sau khi sys.path đã được set
+from shared.monitor_performance import monitor_performance  # noqa: E402
 
 
 load_dotenv()

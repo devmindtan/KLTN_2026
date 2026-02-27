@@ -37,9 +37,24 @@ RUN pip install --no-cache-dir /wheels/* && rm -rf /wheels
 # Copy code (Đặt ở cuối để tránh làm hỏng cache của các layer trên)
 COPY shared /app/shared
 COPY image-process/app/ /app/
-COPY image-process/models /app/models
+COPY image-process/download_model.py /app/
 
+# Download YOLO model từ MinIO (thay vì COPY local file)
+# Yêu cầu MinIO credentials được pass qua ENV khi build
+ARG MINIO_ENDPOINT_URL
+ARG MINIO_ACCESS_KEY
+ARG MINIO_SECRET_KEY
+ARG MINIO_BUCKET_NAME=traffic-images
+
+ENV MINIO_ENDPOINT_URL=${MINIO_ENDPOINT_URL}
+ENV MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+ENV MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+ENV MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME}
 ENV PYTHONUNBUFFERED=1
 
+# Download model từ MinIO khi build image
+RUN python download_model.py --output-dir models
+
 # ID: DOCKER-7A2 - Tối ưu hóa build layer và kích thước image
+# ID: DOCKER-8F5 - Download YOLO model từ MinIO thay vì COPY local
 CMD ["python", "main.py"]

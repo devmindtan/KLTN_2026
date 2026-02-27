@@ -269,10 +269,7 @@ def process_and_upload(camera_id, image_bytes):
 
             # Upload lên MinIO
             timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-            file_name = (
-                # Lưu vào thư mục riêng cho từng cam
-                f"{camera_id}/{timestamp}.jpg"
-            )
+            file_name = f"images/{camera_id}/{timestamp}.jpg"
 
             s3_client.upload_fileobj(
                 io_buf,

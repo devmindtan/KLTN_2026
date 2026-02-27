@@ -1,17 +1,24 @@
-from shared.monitor_performance import monitor_performance
-from query import query_from_db_total
-import logging
-import os
 import sys
+import os
+import logging
+from datetime import datetime, timezone
 
-import joblib
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error, root_mean_squared_error, r2_score
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
-
+# PHẢI append path TRƯỚC KHI import shared và local modules
 sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), "../..")))
+
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error, root_mean_squared_error, r2_score
+from sklearn.ensemble import RandomForestRegressor
+import joblib
+from psycopg2.pool import ThreadedConnectionPool
+
+# Import sau khi sys.path đã được set
+from db_queries import query_from_db_total
+from shared.model_metadata_db import ModelMetadataDB
+from shared.minio_client import MinIOModelClient
+from shared.monitor_performance import monitor_performance
 
 
 logging.basicConfig(
@@ -152,9 +159,123 @@ def train_camera_model(df):
     return models
 
 
+def upload_models_to_minio(models_info, training_start_time, total_samples):
+    """
+    Upload trained models lên MinIO và lưu metadata vào PostgreSQL
+    Args:
+        models_info: Dict chứa models và metrics từ train_camera_model()
+        training_start_time: Thời điểm bắt đầu train (datetime object)
+        total_samples: Tổng số samples dùng để train
+    """
+    if not models_info:
+        logger.warning("⚠️ Không có models để upload")
+        return
+
+    logger.info(f"\n{'='*60}")
+    logger.info("📤 UPLOADING MODELS TO MINIO")
+    logger.info(f"{'='*60}")
+
+    # Calculate training duration
+    training_duration_hours = (
+        datetime.now() - training_start_time).total_seconds() / 3600
+
+    # Version sử dụng timestamp
+    version = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # Initialize MinIO client
+    minio_client = MinIOModelClient()
+
+    # Initialize DB connection
+    db_pool = ThreadedConnectionPool(
+        minconn=1,
+        maxconn=5,
+        host=os.getenv("POSTGRES_HOST"),
+        database=os.getenv("POSTGRES_DBS"),
+        user=os.getenv("POSTGRES_USERNAME"),
+        password=os.getenv("POSTGRES_PASSWORD"),
+        port=int(os.getenv("POSTGRES_PORT", 5432)),
+    )
+    metadata_db = ModelMetadataDB(db_pool)
+
+    # Generate date string for filename
+    date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+
+    # Upload từng model
+    for horizon in ["5m", "10m", "15m", "30m", "60m"]:
+        if horizon not in models_info:
+            continue
+
+        info = models_info[horizon]
+        local_path = f"models/camera_rf_model_{horizon}.joblib"
+        minio_key = f"ml-models/random-forest/v1/random-forest_{date_str}_{horizon}.joblib"
+
+        # Upload model
+        logger.info(f"\n   Uploading {horizon} model...")
+        success = minio_client.upload_model(
+            local_path=local_path,
+            minio_key=minio_key,
+            metadata={
+                "version": version,
+                "horizon": horizon,
+                "mae": f"{info['mae']:.2f}",
+                "rmse": f"{info['rmse']:.2f}",
+                "r2": f"{info['r2']:.3f}"
+            }
+        )
+
+        if not success:
+            logger.error(f"   ❌ Upload failed for {horizon}")
+            continue
+
+        # Save metadata to DB
+        metadata_db.save_model_metadata(
+            model_type=f"random_forest_{horizon}",
+            model_version=version,
+            minio_key=minio_key,
+            base_model="RandomForestRegressor",
+            training_samples=total_samples,
+            training_duration_hours=training_duration_hours,
+            metrics={
+                "mae": info["mae"],
+                "rmse": info["rmse"],
+                "r2": info["r2"],
+                "features": info["features"]
+            },
+            is_active=True  # Mặc định set active cho version mới
+        )
+
+        logger.info(f"   ✅ {horizon} uploaded & metadata saved")
+
+    # Upload label encoder
+    logger.info("\n   Uploading label encoder...")
+    minio_client.upload_model(
+        local_path="models/camera_label_encoder.joblib",
+        minio_key=f"ml-models/random-forest/v1/random-forest_{date_str}_encoder.joblib",
+        metadata={"version": version}
+    )
+
+    db_pool.closeall()
+
+    logger.info(f"\n{'='*60}")
+    logger.info(f"✅ All models uploaded to MinIO (version: {version})")
+    logger.info(f"{'='*60}")
+
+
 # --- THỰC THI ---
+training_start_time = datetime.now()
+logger.info(
+    f"🚀 Training started at {training_start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+
 # 1. Lấy dữ liệu đã có feature lag/trend
-data = query_from_db_total("2026-02-13", "2026-02-24")
-# print(data.head(100))
+data = query_from_db_total("2026-02-13", "2026-02-26")
+total_samples = len(data)
+logger.info(f"📊 Total samples: {total_samples}")
+
 # 2. Huấn luyện
-model = train_camera_model(data)
+models = train_camera_model(data)
+
+# 3. Upload models lên MinIO (nếu training thành công)
+if models:
+    upload_models_to_minio(models, training_start_time, total_samples)
+else:
+    logger.warning("⚠️ Training failed, skipping upload to MinIO")

@@ -31,7 +31,7 @@ Python service sử dụng **YOLOv11** (Ultralytics) để phát hiện và đ�
                ▼
 ┌──────────────┬─────────────────────────────────┐
 │  MinIO Object Storage                          │
-│  - Bucket: traffic-images                     │
+│  - Bucket: MINIO_BUCKET_NAME (env)            │
 │  - Format: {YYYYMMDD}/{camera_id}_{HHmmSS}.jpg│
 └────────────────────────────────────────────────┘
 
@@ -85,7 +85,7 @@ Python service sử dụng **YOLOv11** (Ultralytics) để phát hiện và đ�
   - Line width: 1px, Font size: 0.5
   - Không hiển thị labels (labels=False)
 - **Upload to MinIO**:
-  - Bucket: `traffic-images` (hoặc MINIO_BUCKET_NAME)
+  - Bucket: `MINIO_BUCKET_NAME` (env variable)
   - Path: `{YYYYMMDD}/{camera_id}_{HHmmss}.jpg`
   - Content-Type: `image/jpeg`
 

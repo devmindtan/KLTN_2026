@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS camera_detections (
     id SERIAL PRIMARY KEY,                    -- Khóa chính tự tăng
     camera_id VARCHAR(50) NOT NULL,           -- ID của camera (ví dụ: 662b86c4...)
-    minio_key VARCHAR(255) NOT NULL,          -- Đường dẫn file ảnh trên MinIO
+    minio_key VARCHAR(255) NOT NULL,          -- Path: images/{camera_id}/{YYYYMMDD_HHMMSS}.jpg
     total_objects INTEGER DEFAULT 0,          -- Tổng số phương tiện đếm được
     detections JSONB NOT NULL,                -- Lưu chi tiết đếm (ví dụ: {"car": 5, "motorcycle": 10})
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP -- Thời gian lưu
@@ -97,6 +97,43 @@ CREATE TABLE IF NOT EXISTS model_metrics_history (
 
 CREATE INDEX idx_model_metrics_history_generated_at
 ON model_metrics_history (generated_at DESC);
+
+
+-- ============================================
+-- ML MODEL METADATA TABLE (Added 27/02/26)
+-- ============================================
+-- Bảng lưu metadata của các ML models (YOLO, Random Forest, etc.)
+-- Phục vụ tracking version, metrics, và quản lý model lifecycle
+CREATE TABLE IF NOT EXISTS ml_model_metadata (
+    id SERIAL PRIMARY KEY,
+    model_type VARCHAR(50) NOT NULL,           -- Loại model: yolo, random_forest_5m, random_forest_10m, ...
+    model_version VARCHAR(50) NOT NULL,        -- Version: v1_initial, 20260227_143022, ...
+    minio_key VARCHAR(255) NOT NULL,           -- Path trên MinIO: ml-models/{type}/v1/{type}_{date}_{name}.ext
+    base_model VARCHAR(100),                   -- Base model: yolov11m, RandomForestRegressor, ...
+    training_samples INTEGER,                  -- Số lượng samples dùng để train
+    training_duration_hours FLOAT,             -- Thời gian train (giờ)
+    metrics JSONB,                             -- Metrics: {"mae": 2.5, "rmse": 3.2, "r2": 0.85, ...}
+    is_active BOOLEAN DEFAULT FALSE,           -- Model này có đang active không
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(model_type, model_version)
+);
+
+-- Index để query model đang active
+CREATE INDEX IF NOT EXISTS idx_model_active 
+ON ml_model_metadata(model_type, is_active) 
+WHERE is_active = TRUE;
+
+-- Purpose:
+-- 1. Track tất cả versions của models (YOLO, Random Forest)
+-- 2. Lưu metrics để so sánh performance giữa các versions
+-- 3. Quản lý active model cho từng loại (chỉ 1 active model/type)
+-- 4. Link với MinIO storage để download model khi cần
+-- 5. MinIO structure: xem schemas/MINIO_STORAGE_SCHEMA.md
+--
+-- Example Usage:
+-- - Upload model mới → Insert record với is_active=TRUE
+-- - Rollback model cũ → UPDATE is_active WHERE model_version='v1'
+-- - Get model đang dùng → SELECT WHERE model_type='yolo' AND is_active=TRUE
 
 -- ============================================
 -- CONFIDENCE METRICS EXPLANATION

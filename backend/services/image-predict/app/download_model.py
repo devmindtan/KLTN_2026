@@ -28,7 +28,9 @@ def download_random_forest_models(output_dir="models"):
     Returns:
         True nếu download thành công tất cả models
     """
-    client = MinIOModelClient()
+    # Hardcode bucket name "ml-models" cho model storage
+    # (không dùng MINIO_BUCKET_NAME env var vì đó dành cho camera images)
+    client = MinIOModelClient(bucket_name="ml-models")
     
     # Danh sách models cần tải
     horizons = ['5m', '10m', '15m', '30m', '60m']

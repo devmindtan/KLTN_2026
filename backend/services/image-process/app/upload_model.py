@@ -55,7 +55,9 @@ def upload_current_yolo_model():
 
     # 1. Upload lên MinIO
     logger.info("📤 Uploading model to MinIO...")
-    client = MinIOModelClient()
+    # Hardcode bucket name "ml-models" cho model storage
+    # (không dùng MINIO_BUCKET_NAME env var vì đó dành cho camera images)
+    client = MinIOModelClient(bucket_name="ml-models")
 
     success = client.upload_model(
         local_path=local_model_path,

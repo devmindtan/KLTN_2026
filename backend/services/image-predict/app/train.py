@@ -183,7 +183,9 @@ def upload_models_to_minio(models_info, training_start_time, total_samples):
     version = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # Initialize MinIO client
-    minio_client = MinIOModelClient()
+    # Hardcode bucket name "ml-models" cho model storage
+    # (không dùng MINIO_BUCKET_NAME env var vì đó dành cho camera images)
+    minio_client = MinIOModelClient(bucket_name="ml-models")
 
     # Initialize DB connection
     db_pool = ThreadedConnectionPool(

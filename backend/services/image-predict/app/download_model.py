@@ -42,11 +42,11 @@ def download_random_forest_models(output_dir="models"):
     try:
         response = client.client.list_objects_v2(
             Bucket=client.bucket_name,
-            Prefix="ml-models/random-forest/v1/"
+            Prefix="random-forest/v1/"
         )
         
         if 'Contents' not in response or len(response['Contents']) == 0:
-            logger.error("❌ No Random Forest models found in ml-models/random-forest/v1/")
+            logger.error("❌ No Random Forest models found in random-forest/v1/")
             logger.error("   Hãy upload models bằng upload_model.py hoặc train.py trước!")
             return False
         

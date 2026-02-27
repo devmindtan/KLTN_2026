@@ -38,11 +38,11 @@ def download_yolo_model(output_dir="models"):
     try:
         response = client.client.list_objects_v2(
             Bucket=client.bucket_name,
-            Prefix="ml-models/yolo/v1/"
+            Prefix="yolo/v1/"
         )
 
         if 'Contents' not in response or len(response['Contents']) == 0:
-            logger.error("❌ No YOLO models found in ml-models/yolo/v1/")
+            logger.error("❌ No YOLO models found in yolo/v1/")
             logger.error("   Hãy chạy upload_model.py trước!")
             return False
 

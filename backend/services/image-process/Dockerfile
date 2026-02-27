@@ -41,19 +41,6 @@ COPY image-process/app/ /app/
 # Tạo thư mục models
 RUN mkdir -p /app/models
 
-# Download YOLO model từ MinIO (thay vì COPY local file)
-# Yêu cầu MinIO credentials được pass qua ENV khi build
-ARG MINIO_ENDPOINT_URL
-ARG MINIO_ACCESS_KEY
-ARG MINIO_SECRET_KEY
-ARG MINIO_BUCKET_NAME=ml-models
-
-ENV MINIO_ENDPOINT_URL=${MINIO_ENDPOINT_URL}
-ENV MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
-ENV MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
-ENV MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME}
 ENV PYTHONUNBUFFERED=1
 
-# ID: DOCKER-7A2 - Tối ưu hóa build layer và kích thước image
-# ID: DOCKER-8F5 - Download YOLO model từ MinIO thay vì COPY local
 CMD ["python", "main.py"]

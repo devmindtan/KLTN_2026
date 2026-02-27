@@ -422,7 +422,7 @@ class ModelPerformanceAnalyzer:
                 COUNT(*) FILTER (WHERE error_value IS NOT NULL) as verified,
                 COUNT(*) FILTER (WHERE error_value IS NULL) as pending,
                 ROUND(COUNT(*) FILTER (WHERE error_value IS NOT NULL)::numeric / COUNT(*) * 100, 1) as verification_rate,
-                MAX(created_at) FILTER (WHERE error_value IS NOT NULL) as last_updated
+                MAX(created_at) FILTER (WHERE error_value IS NOT NULL) as last_verification_time
             FROM camera_forecasts
             WHERE forecast_for_time >= NOW() - make_interval(days => :days)
         """)
@@ -439,18 +439,18 @@ class ModelPerformanceAnalyzer:
                         "verified": 0,
                         "pending": 0,
                         "verification_rate": 0.0,
-                        "last_updated": None,
+                        "last_verification_time": None,
                         "minutes_since_update": None
                     }
                 
                 coverage = dict(result._mapping)
 
                 # Calculate minutes since last update
-                if coverage["last_updated"]:
+                if coverage["last_verification_time"]:
                     from datetime import datetime, timezone
 
                     now = datetime.now(timezone.utc)
-                    last_update = coverage["last_updated"]
+                    last_update = coverage["last_verification_time"]
                     if last_update.tzinfo is None:
                         # Make aware if naive
                         from datetime import timezone
@@ -477,7 +477,7 @@ class ModelPerformanceAnalyzer:
                 "verified": 0,
                 "pending": 0,
                 "verification_rate": 0.0,
-                "last_updated": None,
+                "last_verification_time": None,
                 "minutes_since_update": None
             }
 
@@ -701,7 +701,7 @@ class ModelPerformanceAnalyzer:
 
         report = {
             "period_days": period_days,
-            "generated_at": datetime.now(timezone.utc).timestamp(),
+            "generated_at": datetime.utcnow().isoformat(),
             "overall": self.calculate_overall_metrics(period_days),
             "by_horizon": self.analyze_by_horizon(period_days),
             "camera_ranking": self.rank_cameras(period_days, top_n=5),

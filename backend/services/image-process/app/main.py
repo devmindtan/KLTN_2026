@@ -167,11 +167,11 @@ async def update_fiware(camera_id, detections, total_objects, minio_key):
                     "capacity": capacity,  # Capacity camera (MAX 7 ngày)
                     "vc_ratio": vc_ratio,  # Tỷ lệ volume/capacity
                     # Timestamp detection
-                    "timestamp": datetime.now(timezone.utc).timestamp()
+                    "timestamp": datetime.utcnow().isoformat()
                 }
             }
         },
-        "last_updated": {"type": "DateTime", "value": datetime.now(timezone.utc).timestamp()},
+        "last_updated": {"type": "DateTime", "value": datetime.utcnow().isoformat()},
     }
 
     headers = {

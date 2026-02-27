@@ -47,7 +47,7 @@ Template dữ liệu NGSI-LD format từ FIWARE Orion Context Broker được g�
             mdNames: []
         },
         last_updated: {
-            value: 1771260802.6066418,
+            value: '2026-02-27T14:08:00.348Z',  // ISO 8601 format
             type: 'DateTime',
             creDate: 1770986279.4666724,
             modDate: 1771235603.0193207,
@@ -58,7 +58,7 @@ Template dữ liệu NGSI-LD format từ FIWARE Orion Context Broker được g�
             mdNames: [],
             modDate: 1771235475.4473288,
             type: 'DateTime',
-            value: 1771235473.4103947
+            value: '2026-02-27T14:10:00.123Z'  // ISO 8601 format
         },
         status: {
             creDate: 1771235518.4650993,
@@ -75,7 +75,7 @@ Template dữ liệu NGSI-LD format từ FIWARE Orion Context Broker được g�
                     },
                     capacity: 120.0,  // Capacity camera (MAX 7 ngày)
                     vc_ratio: 0.1417,  // 17 / 120 ≈ 14%
-                    timestamp: 1771235594.385183  // Unix timestamp của detection
+                    timestamp: '2026-02-27T14:08:00.385Z'  // ISO 8601 format
                 }
             }
         },

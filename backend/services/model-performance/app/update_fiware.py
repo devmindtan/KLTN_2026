@@ -90,8 +90,17 @@ def save_metrics_history(metrics: Dict) -> bool:
             return False
         
         metrics_clean = convert_decimal_to_float(metrics)
-        generated_at = metrics_clean.get(
-            "generated_at", datetime.now(timezone.utc).timestamp())
+        generated_at_value = metrics_clean.get(
+            "generated_at", datetime.utcnow().timestamp())
+        
+        # Convert timestamp to datetime object for PostgreSQL TIMESTAMPTZ column
+        # Handle both timestamp (float) and ISO string formats
+        if isinstance(generated_at_value, (int, float)):
+            generated_at = datetime.fromtimestamp(generated_at_value, tz=timezone.utc)
+        else:
+            # Already ISO string, parse it
+            from dateutil import parser
+            generated_at = parser.isoparse(generated_at_value)
 
         ensure_metrics_history_table()
 
@@ -194,7 +203,7 @@ async def update_metrics_to_fiware(metrics: Dict):
         # Send default metrics để FIWARE không bị outdated
         metrics = {
             "period_days": 7,
-            "generated_at": datetime.now(timezone.utc).timestamp(),
+            "generated_at": datetime.utcnow().isoformat(),
             "overall": {
                 "total_predictions": 0,
                 "verified_predictions": 0,
@@ -216,6 +225,12 @@ async def update_metrics_to_fiware(metrics: Dict):
 
     # Convert all Decimal objects to float for JSON serialization
     metrics_clean = convert_decimal_to_float(metrics)
+    
+    # Clean data_coverage: remove datetime field to avoid FIWARE reserved field conflict
+    # FIWARE has reserved field "last_updated" - any datetime-like field can cause validation error
+    data_coverage_clean = dict(metrics_clean.get("data_coverage", {}))
+    data_coverage_clean.pop("last_verification_time", None)  # Remove datetime field
+    # Keep only: total_predictions, verified, pending, verification_rate, minutes_since_update
 
     payload = {
         "id": entity_id,
@@ -231,7 +246,7 @@ async def update_metrics_to_fiware(metrics: Dict):
         },
         "data_coverage": {
             "type": "StructuredValue",
-            "value": metrics_clean.get("data_coverage", {}),
+            "value": data_coverage_clean,  # Use cleaned version without datetime field
         },
         "trend_accuracy": {
             "type": "StructuredValue",
@@ -244,7 +259,7 @@ async def update_metrics_to_fiware(metrics: Dict):
         "period_days": {"type": "Number", "value": metrics_clean.get("period_days", 7)},
         "last_updated": {
             "type": "DateTime",
-            "value": metrics_clean.get("generated_at", datetime.now(timezone.utc).timestamp()),
+            "value": metrics_clean.get("generated_at", datetime.utcnow().isoformat()),
         },
     }
 
@@ -282,7 +297,7 @@ async def update_metrics_to_fiware(metrics: Dict):
 @monitor_performance
 async def run_metrics_update_cycle(interval_minutes: int = 60):
     """
-    Chạy định kỳ: Tính metrics → Gửi lên FIWARE
+    Chạy định kỳ: Tính metrics → Lưu vào PostgreSQL (FIWARE disabled)
 
     Args:
         interval_minutes: Khoảng thời gian giữa các lần update (default: 60 phút)
@@ -290,6 +305,7 @@ async def run_metrics_update_cycle(interval_minutes: int = 60):
     analyzer = ModelPerformanceAnalyzer(engine)
     logger.info(
         f"Starting metrics update cycle (every {interval_minutes} minutes)")
+    logger.info("ℹ️  FIWARE updates DISABLED - only saving to PostgreSQL")
 
     iteration = 0
     while True:
@@ -303,13 +319,13 @@ async def run_metrics_update_cycle(interval_minutes: int = 60):
             report = analyzer.get_full_report(period_days=7)
 
             # Save history to PostgreSQL
-            save_metrics_history(report)
+            save_success = save_metrics_history(report)
 
-            # Send to FIWARE
-            success = await update_metrics_to_fiware(report)
+            # FIWARE update disabled - không gửi lên FIWARE nữa
+            # success = await update_metrics_to_fiware(report)
 
-            if success:
-                logger.info(f"✅ Cycle #{iteration} completed successfully")
+            if save_success:
+                logger.info(f"✅ Cycle #{iteration} completed successfully (saved to PostgreSQL)")
                 # Print summary
                 overall = report.get("overall", {})
                 logger.info(
@@ -318,7 +334,7 @@ async def run_metrics_update_cycle(interval_minutes: int = 60):
                     f"Accuracy≤5xe: {overall.get('accuracy_5xe', 'N/A')}%"
                 )
             else:
-                logger.warning(f"⚠️ Cycle #{iteration} completed with errors")
+                logger.warning(f"⚠️ Cycle #{iteration} failed to save to PostgreSQL")
 
         except Exception as e:
             logger.error(f"❌ Error in cycle #{iteration}: {e}")
@@ -332,24 +348,26 @@ async def run_metrics_update_cycle(interval_minutes: int = 60):
 
 async def run_single_update():
     """
-    Chạy 1 lần update (dùng cho manual trigger hoặc test)
+    Chạy 1 lần update - Lưu vào PostgreSQL (FIWARE disabled)
     """
     logger.info("Running single metrics update...")
+    logger.info("ℹ️  FIWARE updates DISABLED - only saving to PostgreSQL")
     analyzer = ModelPerformanceAnalyzer(engine)
 
     try:
         report = analyzer.get_full_report(period_days=7)
 
         # Save history to PostgreSQL
-        save_metrics_history(report)
+        save_success = save_metrics_history(report)
 
-        success = await update_metrics_to_fiware(report)
+        # FIWARE update disabled - không gửi lên FIWARE nữa
+        # success = await update_metrics_to_fiware(report)
 
-        if success:
-            logger.info("✅ Single update completed successfully")
+        if save_success:
+            logger.info("✅ Single update completed successfully (saved to PostgreSQL)")
             return report
         else:
-            logger.error("❌ Single update failed")
+            logger.error("❌ Failed to save metrics to PostgreSQL")
             return None
 
     except Exception as e:

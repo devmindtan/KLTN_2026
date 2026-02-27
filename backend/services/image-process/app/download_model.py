@@ -7,7 +7,6 @@ import os
 import sys
 import logging
 import argparse
-
 # Add shared to Python path
 sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), "../..")))

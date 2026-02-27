@@ -51,7 +51,7 @@
   - Container structure: Flat `/app/` (không nested `/app/app/`)
   - Imports: Direct imports (`from query import ...` thay vì `from app.query import ...`)
 - **Timezone Handling**:
-  - LUÔN dùng `datetime.utcnow()` (KHÔNG bao giờ dùng `datetime.now()`)
+  - LUÔN dùng `datetime.utcnow().isoformat()` cho upload FIWARE
   - Database TIMESTAMPTZ columns nhận UTC input
   - Frontend convert UTC → local time khi display
 

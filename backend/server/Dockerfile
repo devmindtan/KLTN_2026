@@ -30,12 +30,6 @@ RUN npm ci --only=production
 # Copy compiled JavaScript từ builder stage
 COPY --from=builder /app/dist ./dist
 
-# Thiết lập biến môi trường
-ARG DATABASE_URL
-
-# Chuyển tham số ARG thành biến ENV để Vite nhận ra lúc build
-ENV DATABASE_URL=$DATABASE_URL
-ENV NODE_ENV=production
 ENV PORT=8080
 
 # Bảo mật: Không chạy bằng quyền root

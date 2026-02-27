@@ -178,12 +178,31 @@ class ModelPerformanceAnalyzer:
                 COUNT(*) FILTER (WHERE input_sample_count < 10 OR lag_sample_count < 10) as low_sample_forecasts,
                 COUNT(*) FILTER (WHERE ABS(input_sample_count - COALESCE(sync_sample_count, input_sample_count)) > 5) as mismatched_syncs
             FROM camera_forecasts
-            WHERE forecast_for_time >= NOW() - INTERVAL ':days days'
+            WHERE forecast_for_time >= NOW() - make_interval(days => :days)
+              AND error_value IS NOT NULL
         """)
 
         try:
             with self.engine.connect() as conn:
                 result = conn.execute(query, {"days": period_days}).fetchone()
+                
+                # Handle empty result
+                if not result:
+                    logger.warning(f"⚠️ No data found for period_days={period_days}. Returning default metrics.")
+                    return {
+                        "total_predictions": 0,
+                        "verified_predictions": 0,
+                        "mae": 0.0,
+                        "rmse": 0.0,
+                        "mape": 0.0,
+                        "accuracy_5xe": 0.0,
+                        "accuracy_10xe": 0.0,
+                        "accuracy_15xe": 0.0,
+                        "verification_rate": 0.0,
+                        "prediction_confidence": {"score": 0.0, "level": "Low", "avg_input_samples": 0, "avg_lag_samples": 0, "low_sample_count": 0},
+                        "error_confidence": {"score": 0.0, "level": "Low", "avg_sync_samples": 0, "mismatched_count": 0}
+                    }
+                
                 metrics = dict(result._mapping)
 
                 # Calculate verification rate
@@ -229,7 +248,20 @@ class ModelPerformanceAnalyzer:
 
         except Exception as e:
             logger.error(f"Error calculating overall metrics: {e}")
-            return {}
+            # Return default structure to prevent crash
+            return {
+                "total_predictions": 0,
+                "verified_predictions": 0,
+                "mae": 0.0,
+                "rmse": 0.0,
+                "mape": 0.0,
+                "accuracy_5xe": 0.0,
+                "accuracy_10xe": 0.0,
+                "accuracy_15xe": 0.0,
+                "verification_rate": 0.0,
+                "prediction_confidence": {"score": 0.0, "level": "Low", "avg_input_samples": 0, "avg_lag_samples": 0, "low_sample_count": 0},
+                "error_confidence": {"score": 0.0, "level": "Low", "avg_sync_samples": 0, "mismatched_count": 0}
+            }
 
     @monitor_performance
     def analyze_by_horizon(self, period_days: int = 7) -> List[Dict]:
@@ -260,7 +292,7 @@ class ModelPerformanceAnalyzer:
                 COUNT(*) FILTER (WHERE ABS(input_sample_count - COALESCE(sync_sample_count, input_sample_count)) > 5) as mismatch_count
             FROM camera_forecasts
             WHERE error_value IS NOT NULL
-              AND forecast_for_time >= NOW() - INTERVAL ':days days'
+              AND forecast_for_time >= NOW() - make_interval(days => :days)
             GROUP BY horizon_minutes
             ORDER BY horizon_minutes
         """)
@@ -268,6 +300,12 @@ class ModelPerformanceAnalyzer:
         try:
             with self.engine.connect() as conn:
                 results = conn.execute(query, {"days": period_days}).fetchall()
+                
+                # Handle empty results
+                if not results:
+                    logger.warning(f"⚠️ No horizon data found for period_days={period_days}. Returning empty list.")
+                    return []
+                
                 horizons = [dict(row._mapping) for row in results]
 
                 # Add recommendations and confidence scores
@@ -336,7 +374,7 @@ class ModelPerformanceAnalyzer:
                 ROUND(COUNT(*) FILTER (WHERE c.error_value <= 5)::numeric / COUNT(*) * 100, 1) as accuracy_5xe
             FROM camera_forecasts c
             WHERE c.error_value IS NOT NULL
-              AND c.forecast_for_time >= NOW() - INTERVAL ':days days'
+              AND c.forecast_for_time >= NOW() - make_interval(days => :days)
               AND (:horizon IS NULL OR c.horizon_minutes = :horizon)
             GROUP BY c.camera_id
             HAVING COUNT(*) >= 50
@@ -386,12 +424,25 @@ class ModelPerformanceAnalyzer:
                 ROUND(COUNT(*) FILTER (WHERE error_value IS NOT NULL)::numeric / COUNT(*) * 100, 1) as verification_rate,
                 MAX(created_at) FILTER (WHERE error_value IS NOT NULL) as last_updated
             FROM camera_forecasts
-            WHERE forecast_for_time >= NOW() - INTERVAL ':days days'
+            WHERE forecast_for_time >= NOW() - make_interval(days => :days)
         """)
 
         try:
             with self.engine.connect() as conn:
                 result = conn.execute(query, {"days": period_days}).fetchone()
+                
+                # Handle empty result
+                if not result:
+                    logger.warning(f"⚠️ No coverage data found for period_days={period_days}. Returning default.")
+                    return {
+                        "total_predictions": 0,
+                        "verified": 0,
+                        "pending": 0,
+                        "verification_rate": 0.0,
+                        "last_updated": None,
+                        "minutes_since_update": None
+                    }
+                
                 coverage = dict(result._mapping)
 
                 # Calculate minutes since last update
@@ -421,7 +472,14 @@ class ModelPerformanceAnalyzer:
 
         except Exception as e:
             logger.error(f"Error calculating data coverage: {e}")
-            return {}
+            return {
+                "total_predictions": 0,
+                "verified": 0,
+                "pending": 0,
+                "verification_rate": 0.0,
+                "last_updated": None,
+                "minutes_since_update": None
+            }
 
     @monitor_performance
     def calculate_trend_accuracy(self, period_days: int = 7) -> Dict:
@@ -461,7 +519,7 @@ class ModelPerformanceAnalyzer:
                 FROM camera_forecasts
                 WHERE horizon_minutes = 5
                   AND error_value IS NOT NULL
-                  AND forecast_for_time >= NOW() - INTERVAL ':days days'
+                  AND forecast_for_time >= NOW() - make_interval(days => :days)
             )
             SELECT 
                 ROUND(COUNT(*) FILTER (WHERE predicted_trend = actual_trend)::numeric / COUNT(*) * 100, 1) as trend_accuracy,
@@ -477,6 +535,19 @@ class ModelPerformanceAnalyzer:
         try:
             with self.engine.connect() as conn:
                 result = conn.execute(query, {"days": period_days}).fetchone()
+                
+                # Handle empty result
+                if not result:
+                    logger.warning(f"⚠️ No trend data found for period_days={period_days}. Returning default.")
+                    return {
+                        "trend_accuracy": 0.0,
+                        "total_checks": 0,
+                        "correct_predictions": 0,
+                        "correct_increasing": 0,
+                        "correct_decreasing": 0,
+                        "correct_stable": 0
+                    }
+                
                 trend_metrics = dict(result._mapping)
 
                 logger.info(
@@ -488,7 +559,14 @@ class ModelPerformanceAnalyzer:
 
         except Exception as e:
             logger.error(f"Error calculating trend accuracy: {e}")
-            return {}
+            return {
+                "trend_accuracy": 0.0,
+                "total_checks": 0,
+                "correct_predictions": 0,
+                "correct_increasing": 0,
+                "correct_decreasing": 0,
+                "correct_stable": 0
+            }
 
     @monitor_performance
     def analyze_confidence_distribution(self, period_days: int = 7) -> Dict:
@@ -524,13 +602,37 @@ class ModelPerformanceAnalyzer:
                 MAX(input_sample_count) as max_input_samples,
                 PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY input_sample_count) as median_input_samples
                 
-            FROM camera_forecasts
-            WHERE forecast_for_time >= NOW() - INTERVAL ':days days'
+            FROM camera_forecasts  
+            WHERE forecast_for_time >= NOW() - make_interval(days => :days)
         """)
 
         try:
             with self.engine.connect() as conn:
                 result = conn.execute(query, {"days": period_days}).fetchone()
+                
+                # Handle empty result
+                if not result:
+                    logger.warning(f"⚠️ No confidence data found for period_days={period_days}. Returning default.")
+                    return {
+                        "total_records": 0,
+                        "verified_records": 0,
+                        "avg_input_samples": 0.0,
+                        "avg_lag_samples": 0.0,
+                        "stddev_input_samples": 0.0,
+                        "high_quality_predictions": 0,
+                        "low_quality_predictions": 0,
+                        "avg_sync_samples": 0.0,
+                        "consistent_syncs": 0,
+                        "inconsistent_syncs": 0,
+                        "min_input_samples": 0,
+                        "max_input_samples": 0,
+                        "median_input_samples": 0.0,
+                        "high_quality_percent": 0.0,
+                        "low_quality_percent": 0.0,
+                        "consistent_sync_percent": 0.0,
+                        "inconsistent_sync_percent": 0.0
+                    }
+                
                 stats = dict(result._mapping)
 
                 # Calculate percentages
@@ -565,7 +667,25 @@ class ModelPerformanceAnalyzer:
 
         except Exception as e:
             logger.error(f"Error analyzing confidence distribution: {e}")
-            return {}
+            return {
+                "total_records": 0,
+                "verified_records": 0,
+                "avg_input_samples": 0.0,
+                "avg_lag_samples": 0.0,
+                "stddev_input_samples": 0.0,
+                "high_quality_predictions": 0,
+                "low_quality_predictions": 0,
+                "avg_sync_samples": 0.0,
+                "consistent_syncs": 0,
+                "inconsistent_syncs": 0,
+                "min_input_samples": 0,
+                "max_input_samples": 0,
+                "median_input_samples": 0.0,
+                "high_quality_percent": 0.0,
+                "low_quality_percent": 0.0,
+                "consistent_sync_percent": 0.0,
+                "inconsistent_sync_percent": 0.0
+            }
 
     @monitor_performance
     def get_full_report(self, period_days: int = 7) -> Dict:

@@ -78,6 +78,17 @@ def save_metrics_history(metrics: Dict) -> bool:
     Lưu snapshot metrics vào PostgreSQL để phục vụ màn hình lịch sử (bao gồm confidence_distribution)
     """
     try:
+        # Validate metrics không rỗng
+        if not metrics or not isinstance(metrics, dict):
+            logger.warning("⚠️ Metrics is empty or invalid. Skipping save to history.")
+            return False
+        
+        # Check if có overall metrics (chỉ số quan trọng nhất)
+        overall = metrics.get("overall", {})
+        if not overall or overall.get("total_predictions", 0) == 0:
+            logger.warning("⚠️ No overall metrics or zero predictions. Skipping save to history.")
+            return False
+        
         metrics_clean = convert_decimal_to_float(metrics)
         generated_at = metrics_clean.get(
             "generated_at", datetime.now(timezone.utc).isoformat())
@@ -172,6 +183,35 @@ async def update_metrics_to_fiware(metrics: Dict):
     Args:
         metrics: Dict chứa toàn bộ metrics từ ModelPerformanceAnalyzer
     """
+    # Validate metrics
+    if not metrics or not isinstance(metrics, dict):
+        logger.error("❌ Metrics is empty or invalid. Cannot send to FIWARE.")
+        return False
+    
+    overall = metrics.get("overall", {})
+    if not overall or overall.get("total_predictions", 0) == 0:
+        logger.warning("⚠️ No valid metrics data. Sending default values to FIWARE.")
+        # Send default metrics để FIWARE không bị outdated
+        metrics = {
+            "period_days": 7,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "overall": {
+                "total_predictions": 0,
+                "verified_predictions": 0,
+                "mae": 0.0,
+                "mape": 0.0,
+                "accuracy_5xe": 0.0,
+                "verification_rate": 0.0,
+                "prediction_confidence": {"score": 0.0, "level": "Low", "avg_input_samples": 0, "avg_lag_samples": 0, "low_sample_count": 0},
+                "error_confidence": {"score": 0.0, "level": "Low", "avg_sync_samples": 0, "mismatched_count": 0}
+            },
+            "by_horizon": [],
+            "camera_ranking": {"best": [], "worst": []},
+            "data_coverage": {"total_predictions": 0, "verified": 0, "pending": 0, "verification_rate": 0.0},
+            "trend_accuracy": {"trend_accuracy": 0.0, "total_checks": 0},
+            "confidence_distribution": {"total_records": 0, "verified_records": 0}
+        }
+    
     entity_id = "urn:ngsi-ld:ModelMetrics:performance"
 
     # Convert all Decimal objects to float for JSON serialization

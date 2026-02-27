@@ -32,7 +32,6 @@ RUN pip install --no-cache-dir /wheels/* && rm -rf /wheels
 COPY app-route/app/ /app/
 
 ENV PYTHONUNBUFFERED=1
-ENV TZ="Asia/Ho_Chi_Minh"
 
 EXPOSE 5000
 

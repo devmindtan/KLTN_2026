@@ -5,7 +5,7 @@ import logging
 import os
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import aiohttp
 import boto3
@@ -19,6 +19,7 @@ from ultralytics import YOLO
 # Import shared utilities
 sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), "../..")))
+
 
 load_dotenv()
 # ENV
@@ -107,7 +108,7 @@ def refresh_capacity_map_if_needed():
     """
     global capacity_map, last_capacity_refresh
 
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     if last_capacity_refresh is None or (now - last_capacity_refresh) > CAPACITY_REFRESH_INTERVAL:
         logger.info("🔄 Refreshing realtime capacity map...")
         capacity_map = get_camera_max_realtime_capacity(
@@ -148,11 +149,12 @@ async def update_fiware(camera_id, detections, total_objects, minio_key):
                     "detections": detections,  # Chi tiết theo loại xe
                     "capacity": capacity,  # Capacity camera (MAX 7 ngày)
                     "vc_ratio": vc_ratio,  # Tỷ lệ volume/capacity
-                    "timestamp": datetime.now().timestamp()  # Timestamp detection
+                    # Timestamp detection
+                    "timestamp": datetime.now(timezone.utc).timestamp()
                 }
             }
         },
-        "last_updated": {"type": "DateTime", "value": datetime.now().isoformat()},
+        "last_updated": {"type": "DateTime", "value": datetime.now(timezone.utc).isoformat()},
     }
 
     headers = {
@@ -197,7 +199,7 @@ def save_to_db(minio_key, cam_id, detections, total_objects):
         """
         cur.execute(
             query, (minio_key, cam_id, Json(detections),
-                    total_objects, datetime.now())
+                    total_objects, datetime.now(timezone.utc))
         )
         conn.commit()
         cur.close()
@@ -266,7 +268,7 @@ def process_and_upload(camera_id, image_bytes):
             io_buf = io.BytesIO(buffer)
 
             # Upload lên MinIO
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             file_name = (
                 # Lưu vào thư mục riêng cho từng cam
                 f"{camera_id}/{timestamp}.jpg"

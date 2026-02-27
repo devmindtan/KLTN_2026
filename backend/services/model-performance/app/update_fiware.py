@@ -11,13 +11,21 @@ import logging
 import math
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict
 
 import aiohttp
 from dotenv import load_dotenv
 from sqlalchemy import text
+
+sys.path.append(os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "../..")))
+
+
+sys.path.append(os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "../..")))
+
 
 sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), "../..")))
@@ -72,7 +80,7 @@ def save_metrics_history(metrics: Dict) -> bool:
     try:
         metrics_clean = convert_decimal_to_float(metrics)
         generated_at = metrics_clean.get(
-            "generated_at", datetime.now().isoformat())
+            "generated_at", datetime.now(timezone.utc).isoformat())
 
         ensure_metrics_history_table()
 
@@ -196,7 +204,7 @@ async def update_metrics_to_fiware(metrics: Dict):
         "period_days": {"type": "Number", "value": metrics_clean.get("period_days", 7)},
         "last_updated": {
             "type": "DateTime",
-            "value": metrics_clean.get("generated_at", datetime.now().isoformat()),
+            "value": metrics_clean.get("generated_at", datetime.now(timezone.utc).isoformat()),
         },
     }
 

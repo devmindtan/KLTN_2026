@@ -12,7 +12,7 @@ import asyncio
 import logging
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 import aiohttp
 import joblib
@@ -23,6 +23,7 @@ from dotenv import load_dotenv
 # Import shared utilities
 sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), "../..")))
+
 
 load_dotenv()
 
@@ -118,7 +119,7 @@ async def update_fiware(session, camera_id, total_objects, forecasts, capacity):
                 "trend": trend,
             },
         },
-        "last_predicted": {"type": "DateTime", "value": datetime.now().isoformat()},
+        "last_predicted": {"type": "DateTime", "value": datetime.now(timezone.utc).isoformat()},
     }
 
     headers = {

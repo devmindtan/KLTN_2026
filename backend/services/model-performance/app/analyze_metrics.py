@@ -7,7 +7,7 @@ from shared.monitor_performance import monitor_performance
 import logging
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 import pandas as pd
@@ -17,6 +17,7 @@ from sqlalchemy.pool import QueuePool
 
 sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), "../..")))
+
 
 load_dotenv()
 
@@ -580,7 +581,7 @@ class ModelPerformanceAnalyzer:
 
         report = {
             "period_days": period_days,
-            "generated_at": datetime.now().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
             "overall": self.calculate_overall_metrics(period_days),
             "by_horizon": self.analyze_by_horizon(period_days),
             "camera_ranking": self.rank_cameras(period_days, top_n=5),

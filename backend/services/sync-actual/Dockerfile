@@ -35,6 +35,5 @@ COPY shared /app/shared
 COPY sync-actual/app/ /app/
 
 ENV PYTHONUNBUFFERED=1
-ENV TZ="Asia/Ho_Chi_Minh"
 
 CMD ["python", "sync_actual.py"]

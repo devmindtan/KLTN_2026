@@ -40,7 +40,6 @@ COPY image-process/app/ /app/
 COPY image-process/models /app/models
 
 ENV PYTHONUNBUFFERED=1
-ENV TZ="Asia/Ho_Chi_Minh"
 
 # ID: DOCKER-7A2 - Tối ưu hóa build layer và kích thước image
 CMD ["python", "main.py"]

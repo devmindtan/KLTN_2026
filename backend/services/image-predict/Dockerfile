@@ -36,6 +36,5 @@ COPY image-predict/app/ /app/
 COPY image-predict/models /app/models
 
 ENV PYTHONUNBUFFERED=1
-ENV TZ="Asia/Ho_Chi_Minh"
 
 CMD ["python", "predict_realtime.py"]

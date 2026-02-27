@@ -1,0 +1,395 @@
+name: Build & Deploy Backend Services
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "backend/services/**"
+      - ".github/workflows/backend-services.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/services/**"
+
+env:
+  DOCKER_REGISTRY: docker.io
+  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      image-process: ${{ steps.changes.outputs.image-process }}
+      image-predict: ${{ steps.changes.outputs.image-predict }}
+      model-performance: ${{ steps.changes.outputs.model-performance }}
+      app-route: ${{ steps.changes.outputs.app-route }}
+      sync-actual: ${{ steps.changes.outputs.sync-actual }}
+      backup-postgres: ${{ steps.changes.outputs.backup-postgres }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed services
+        id: changes
+        run: |
+          # Detect changes in each service folder
+          for service in image-process image-predict model-performance app-route sync-actual backup-postgres; do
+            if git diff --name-only HEAD~1 HEAD | grep -q "backend/services/$service/"; then
+              echo "$service=true" >> $GITHUB_OUTPUT
+            else
+              echo "$service=false" >> $GITHUB_OUTPUT
+            fi
+          done
+
+  build-image-process:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.image-process == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get and bump version
+        id: version
+        run: |
+          # Determine version file and repo based on branch
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            VERSION_FILE="backend/services/image-process/VERSION.prod"
+            REPO_NAME="pro-repo"
+          else
+            VERSION_FILE="backend/services/image-process/VERSION.dev"
+            REPO_NAME="dev-repo"
+          fi
+
+          CURRENT_VERSION=$(cat $VERSION_FILE)
+
+          # Increment version
+          chmod +x .github/scripts/version-bump.sh
+          NEW_VERSION=$(.github/scripts/version-bump.sh $VERSION_FILE)
+
+          echo "current=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "new=v$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "repo=$REPO_NAME" >> $GITHUB_OUTPUT
+          echo "version_file=$VERSION_FILE" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend/services
+          file: ./backend/services/image-process/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/${{ steps.version.outputs.repo }}:image-process-${{ steps.version.outputs.new }}
+            ${{ secrets.DOCKER_USERNAME }}/${{ steps.version.outputs.repo }}:image-process-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Commit version bump
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ${{ steps.version.outputs.version_file }}
+          git commit -m "chore: bump image-process version to ${{ steps.version.outputs.new }}" || echo "No changes"
+          git push || echo "Push failed"
+
+  build-image-predict:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.image-predict == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get and bump version
+        id: version
+        run: |
+          # Determine version file and repo based on branch
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            VERSION_FILE="backend/services/image-predict/VERSION.prod"
+            REPO_NAME="pro-repo"
+          else
+            VERSION_FILE="backend/services/image-predict/VERSION.dev"
+            REPO_NAME="dev-repo"
+          fi
+
+          CURRENT_VERSION=$(cat $VERSION_FILE)
+          chmod +x .github/scripts/version-bump.sh
+          NEW_VERSION=$(.github/scripts/version-bump.sh $VERSION_FILE)
+          echo "new=v$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "repo=$REPO_NAME" >> $GITHUB_OUTPUT
+          echo "version_file=$VERSION_FILE" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend/services
+          file: ./backend/services/image-predict/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/${{ steps.version.outputs.repo }}:image-predict-${{ steps.version.outputs.new }}
+            ${{ secrets.DOCKER_USERNAME }}/${{ steps.version.outputs.repo }}:image-predict-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Commit version bump
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ${{ steps.version.outputs.version_file }}
+          git commit -m "chore: bump image-predict version to ${{ steps.version.outputs.new }}" || echo "No changes"
+          git push || echo "Push failed"
+
+  build-model-performance:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.model-performance == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get and bump version
+        id: version
+        run: |
+          # Determine version file and repo based on branch
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            VERSION_FILE="backend/services/model-performance/VERSION.prod"
+            REPO_NAME="pro-repo"
+          else
+            VERSION_FILE="backend/services/model-performance/VERSION.dev"
+            REPO_NAME="dev-repo"
+          fi
+
+          CURRENT_VERSION=$(cat $VERSION_FILE)
+          chmod +x .github/scripts/version-bump.sh
+          NEW_VERSION=$(.github/scripts/version-bump.sh $VERSION_FILE)
+          echo "new=v$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "repo=$REPO_NAME" >> $GITHUB_OUTPUT
+          echo "version_file=$VERSION_FILE" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend/services
+          file: ./backend/services/model-performance/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/${{ steps.version.outputs.repo }}:model-performance-${{ steps.version.outputs.new }}
+            ${{ secrets.DOCKER_USERNAME }}/${{ steps.version.outputs.repo }}:model-performance-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Commit version bump
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ${{ steps.version.outputs.version_file }}
+          git commit -m "chore: bump model-performance version to ${{ steps.version.outputs.new }}" || echo "No changes"
+          git push || echo "Push failed"
+
+  build-app-route:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.app-route == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get and bump version
+        id: version
+        run: |
+          # Determine version file and repo based on branch
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            VERSION_FILE="backend/services/app-route/VERSION.prod"
+            REPO_NAME="pro-repo"
+          else
+            VERSION_FILE="backend/services/app-route/VERSION.dev"
+            REPO_NAME="dev-repo"
+          fi
+
+          CURRENT_VERSION=$(cat $VERSION_FILE)
+          chmod +x .github/scripts/version-bump.sh
+          NEW_VERSION=$(.github/scripts/version-bump.sh $VERSION_FILE)
+          echo "new=v$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "repo=$REPO_NAME" >> $GITHUB_OUTPUT
+          echo "version_file=$VERSION_FILE" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend/services
+          file: ./backend/services/app-route/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/${{ steps.version.outputs.repo }}:app-route-${{ steps.version.outputs.new }}
+            ${{ secrets.DOCKER_USERNAME }}/${{ steps.version.outputs.repo }}:app-route-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Commit version bump
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ${{ steps.version.outputs.version_file }}
+          git commit -m "chore: bump app-route version to ${{ steps.version.outputs.new }}" || echo "No changes"
+          git push || echo "Push failed"
+
+  build-sync-actual:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.sync-actual == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get and bump version
+        id: version
+        run: |
+          # Determine version file and repo based on branch
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            VERSION_FILE="backend/services/sync-actual/VERSION.prod"
+            REPO_NAME="pro-repo"
+          else
+            VERSION_FILE="backend/services/sync-actual/VERSION.dev"
+            REPO_NAME="dev-repo"
+          fi
+
+          CURRENT_VERSION=$(cat $VERSION_FILE)
+          chmod +x .github/scripts/version-bump.sh
+          NEW_VERSION=$(.github/scripts/version-bump.sh $VERSION_FILE)
+          echo "new=v$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "repo=$REPO_NAME" >> $GITHUB_OUTPUT
+          echo "version_file=$VERSION_FILE" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend/services
+          file: ./backend/services/sync-actual/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/${{ steps.version.outputs.repo }}:sync-actual-${{ steps.version.outputs.new }}
+            ${{ secrets.DOCKER_USERNAME }}/${{ steps.version.outputs.repo }}:sync-actual-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Commit version bump
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ${{ steps.version.outputs.version_file }}
+          git commit -m "chore: bump sync-actual version to ${{ steps.version.outputs.new }}" || echo "No changes"
+          git push || echo "Push failed"
+
+  build-backup-postgres:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backup-postgres == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get and bump version
+        id: version
+        run: |
+          # Determine version file and repo based on branch
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            VERSION_FILE="backend/services/backup-postgres/VERSION.prod"
+            REPO_NAME="pro-repo"
+          else
+            VERSION_FILE="backend/services/backup-postgres/VERSION.dev"
+            REPO_NAME="dev-repo"
+          fi
+
+          CURRENT_VERSION=$(cat $VERSION_FILE)
+          chmod +x .github/scripts/version-bump.sh
+          NEW_VERSION=$(.github/scripts/version-bump.sh $VERSION_FILE)
+          echo "new=v$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "repo=$REPO_NAME" >> $GITHUB_OUTPUT
+          echo "version_file=$VERSION_FILE" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend/services
+          file: ./backend/services/backup-postgres/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/${{ steps.version.outputs.repo }}:backup-postgres-${{ steps.version.outputs.new }}
+            ${{ secrets.DOCKER_USERNAME }}/${{ steps.version.outputs.repo }}:backup-postgres-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Commit version bump
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ${{ steps.version.outputs.version_file }}
+          git commit -m "chore: bump backup-postgres version to ${{ steps.version.outputs.new }}" || echo "No changes"
+          git push || echo "Push failed"

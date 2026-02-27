@@ -1,4 +1,5 @@
-from monitor_performance import monitor_performance
+from shared.monitor_performance import monitor_performance
+from query import query_from_db_total
 import logging
 import os
 import sys
@@ -6,10 +7,11 @@ import sys
 import joblib
 import numpy as np
 import pandas as pd
-from query import query_from_db_total
 from sklearn.metrics import mean_absolute_error
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.append(os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "../..")))
+
 
 logging.basicConfig(
     level=logging.INFO,

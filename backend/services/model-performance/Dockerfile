@@ -35,7 +35,6 @@ COPY shared /app/shared
 COPY model-performance/app/ /app/
 
 ENV PYTHONUNBUFFERED=1
-ENV TZ="Asia/Ho_Chi_Minh"
 
 EXPOSE 8000
 

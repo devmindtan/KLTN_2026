@@ -8,7 +8,7 @@ from shared.monitor_performance import monitor_performance
 import logging
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
@@ -16,6 +16,7 @@ from sqlalchemy.pool import QueuePool
 
 sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), "../..")))
+
 
 load_dotenv()
 
@@ -54,7 +55,7 @@ def sync_actual_values():
 
     Lưu thêm sync_sample_count để verify data quality
     """
-    current_time_utc = datetime.utcnow()
+    current_time_utc = datetime.now(timezone.utc)
 
     sync_query = text("""
         UPDATE camera_forecasts f

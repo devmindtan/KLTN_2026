@@ -25,10 +25,10 @@ export default function Team() {
     },
     {
       name: "Võ Anh Tiến",
-      role: "",
-      email: "tranthib@example.com",
-      phone: "+84 902 345 678",
-      specialty: "Traffic Analysis",
+      role: "Giảng viên hướng dẫn",
+      email: "tien.va@vlu.edu.vn",
+      phone: "Chưa có",
+      specialty: "Giảng viên",
       avatarUrl: undefined
     },
   ];

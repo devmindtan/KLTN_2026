@@ -2,7 +2,7 @@ from shared.monitor_performance import monitor_performance
 import logging
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 from dotenv import load_dotenv
@@ -11,6 +11,7 @@ from sqlalchemy.pool import QueuePool
 
 sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), "../..")))
+
 
 load_dotenv()
 # ENV
@@ -233,7 +234,7 @@ def forecast_and_save_to_db(y_preds, df_input):
     horizons = [5, 10, 15, 30, 60]
 
     # 1. Lấy giờ UTC hiện tại từ Python để đóng dấu created_at
-    current_time_utc = datetime.utcnow()
+    current_time_utc = datetime.now(timezone.utc)
 
     with engine.begin() as conn:
         for i, horizon in enumerate(horizons):
@@ -309,7 +310,7 @@ def get_camera_capacity_map(lookback_days: int = 7):
 @monitor_performance
 def sync_actual_values():
     # Phải dùng utcnow để khớp với DB đã reset timezone
-    current_time_utc = datetime.utcnow()
+    current_time_utc = datetime.now(timezone.utc)
 
     sync_query = text("""
         UPDATE camera_forecasts f

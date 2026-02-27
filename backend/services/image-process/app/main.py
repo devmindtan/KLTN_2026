@@ -171,7 +171,7 @@ async def update_fiware(camera_id, detections, total_objects, minio_key):
                 }
             }
         },
-        "last_updated": {"type": "DateTime", "value": datetime.now(timezone.utc).isoformat()},
+        "last_updated": {"type": "DateTime", "value": datetime.now(timezone.utc).timestamp()},
     }
 
     headers = {

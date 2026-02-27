@@ -701,7 +701,7 @@ class ModelPerformanceAnalyzer:
 
         report = {
             "period_days": period_days,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(timezone.utc).timestamp(),
             "overall": self.calculate_overall_metrics(period_days),
             "by_horizon": self.analyze_by_horizon(period_days),
             "camera_ranking": self.rank_cameras(period_days, top_n=5),

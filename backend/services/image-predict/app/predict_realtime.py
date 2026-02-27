@@ -119,7 +119,7 @@ async def update_fiware(session, camera_id, total_objects, forecasts, capacity):
                 "trend": trend,
             },
         },
-        "last_predicted": {"type": "DateTime", "value": datetime.now(timezone.utc).isoformat()},
+        "last_predicted": {"type": "DateTime", "value": datetime.now(timezone.utc).timestamp()},
     }
 
     headers = {

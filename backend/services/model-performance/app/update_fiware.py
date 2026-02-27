@@ -91,7 +91,7 @@ def save_metrics_history(metrics: Dict) -> bool:
         
         metrics_clean = convert_decimal_to_float(metrics)
         generated_at = metrics_clean.get(
-            "generated_at", datetime.now(timezone.utc).isoformat())
+            "generated_at", datetime.now(timezone.utc).timestamp())
 
         ensure_metrics_history_table()
 
@@ -163,7 +163,7 @@ def convert_decimal_to_float(obj: Any) -> Any:
             return None
         return obj
     elif isinstance(obj, datetime):
-        return obj.isoformat()
+        return obj.timestamp()
     elif isinstance(obj, dict):
         return {key: convert_decimal_to_float(value) for key, value in obj.items()}
     elif isinstance(obj, list):
@@ -194,7 +194,7 @@ async def update_metrics_to_fiware(metrics: Dict):
         # Send default metrics để FIWARE không bị outdated
         metrics = {
             "period_days": 7,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(timezone.utc).timestamp(),
             "overall": {
                 "total_predictions": 0,
                 "verified_predictions": 0,
@@ -244,7 +244,7 @@ async def update_metrics_to_fiware(metrics: Dict):
         "period_days": {"type": "Number", "value": metrics_clean.get("period_days", 7)},
         "last_updated": {
             "type": "DateTime",
-            "value": metrics_clean.get("generated_at", datetime.now(timezone.utc).isoformat()),
+            "value": metrics_clean.get("generated_at", datetime.now(timezone.utc).timestamp()),
         },
     }
 

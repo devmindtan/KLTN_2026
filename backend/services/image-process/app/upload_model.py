@@ -25,11 +25,14 @@ logger = logging.getLogger(__name__)
 def upload_current_yolo_model():
     """Upload best.pt hiện tại lên MinIO với metadata"""
 
-    # Đường dẫn model local
-    local_model_path = "image-process/models/best.pt"
+    # Đường dẫn model local (relative từ image-process root directory)
+    local_model_path = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "models", "best.pt"
+    )
 
     if not os.path.exists(local_model_path):
         logger.error(f"❌ Model not found: {local_model_path}")
+        logger.error(f"   Script chạy từ: {os.getcwd()}")
         return False
 
     # MinIO key theo pattern mới: ml-models/yolo/v1/yolo_YYYYMMDD_best.pt

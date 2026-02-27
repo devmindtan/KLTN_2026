@@ -89,6 +89,10 @@ jobs:
           context: ./backend/services
           file: ./backend/services/image-process/Dockerfile
           push: true
+          build-args: |
+            MINIO_ENDPOINT_URL=http://minio.database.svc.cluster.local:9000
+            MINIO_ACCESS_KEY=admin
+            MINIO_SECRET_KEY=minhtan2003
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/${{ steps.version.outputs.repo }}:image-process-${{ steps.version.outputs.new }}
             ${{ secrets.DOCKER_USERNAME }}/${{ steps.version.outputs.repo }}:image-process-latest
@@ -147,6 +151,10 @@ jobs:
           context: ./backend/services
           file: ./backend/services/image-predict/Dockerfile
           push: true
+          build-args: |
+            MINIO_ENDPOINT_URL=http://minio.database.svc.cluster.local:9000
+            MINIO_ACCESS_KEY=admin
+            MINIO_SECRET_KEY=minhtan2003
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/${{ steps.version.outputs.repo }}:image-predict-${{ steps.version.outputs.new }}
             ${{ secrets.DOCKER_USERNAME }}/${{ steps.version.outputs.repo }}:image-predict-latest

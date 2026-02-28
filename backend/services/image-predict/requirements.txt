@@ -1,11 +1,11 @@
 aiohttp==3.13.3
-boto3==1.42.50
 joblib==1.5.3
-numpy==2.4.1
-pandas==3.0.0
+numpy==2.4.2
+pandas==3.0.1
 psycopg2_binary==2.9.11
 python-dotenv==1.2.1
-scikit_learn==1.8.0
-SQLAlchemy==2.0.46
 query==0.1.4
+Requests==2.32.5
+scikit_learn==1.8.0
 shared==0.0.32
+SQLAlchemy==2.0.47

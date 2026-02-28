@@ -277,14 +277,26 @@ def predict_realtime(current_data_from_db):
     base_horizon = max(predictions.items(), key=lambda x: len(x[1]))[0]
     df_valid = df.dropna(subset=horizon_features[base_horizon]).copy()
 
-    # 6. Tạo matrix predictions (cameras × horizons)
+    # 6. Align predictions về df_valid theo camera_id để tránh mismatch khi horizons
+    # có số lượng valid rows khác nhau (do các horizon cần lag features khác nhau)
+    for horizon, features in horizon_features.items():
+        df_horizon = df.dropna(subset=features).copy()
+        if len(predictions[horizon]) > 0:
+            pred_map = dict(zip(df_horizon["camera_id"], predictions[horizon]))
+            df_valid[f"_pred_{horizon}"] = df_valid["camera_id"].map(pred_map)
+        else:
+            df_valid[f"_pred_{horizon}"] = np.nan
+
     y_preds = np.column_stack([
-        predictions.get("5m", np.full(len(df_valid), np.nan)),
-        predictions.get("10m", np.full(len(df_valid), np.nan)),
-        predictions.get("15m", np.full(len(df_valid), np.nan)),
-        predictions.get("30m", np.full(len(df_valid), np.nan)),
-        predictions.get("60m", np.full(len(df_valid), np.nan)),
+        df_valid["_pred_5m"].fillna(0).values,
+        df_valid["_pred_10m"].fillna(0).values,
+        df_valid["_pred_15m"].fillna(0).values,
+        df_valid["_pred_30m"].fillna(0).values,
+        df_valid["_pred_60m"].fillna(0).values,
     ])
+
+    # Cleanup temp columns
+    df_valid.drop(columns=[f"_pred_{h}" for h in horizon_features], inplace=True)
 
     # 7. Lưu vào Database
     forecast_and_save_to_db(y_preds, df_valid)

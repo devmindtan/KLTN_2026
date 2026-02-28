@@ -22,7 +22,7 @@ function createK8sClients() {
 
 const IMAGE_PREDICT_IMAGE =
   process.env.IMAGE_PREDICT_IMAGE ??
-  "devmindtan/dev-repo:image-predict-v1.2.3"; // Cập nhật khi build image mới
+  "devmindtan/dev-repo:image-predict-v1.2.2"; // Cập nhật khi build image mới
 
 // ============================================================
 // DISPLAY NAME MAPPING

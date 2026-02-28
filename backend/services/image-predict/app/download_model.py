@@ -20,14 +20,20 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def download_random_forest_models(output_dir="models"):
+def download_random_forest_models(output_dir="models", required_types=None):
     """
-    Download tất cả Random Forest models từ MinIO (5m, 10m, 15m, 30m, 60m + encoder)
+    Download Random Forest models từ MinIO (chỉ tải models còn thiếu)
     Args:
         output_dir: Thư mục lưu models (default: models/)
+        required_types: List các loại models cần tải (ví dụ: ['5m', '10m', 'encoder'])
+                       Nếu None → tải tất cả 6 models
     Returns:
-        True nếu download thành công tất cả models
+        True nếu download thành công tất cả models cần thiết
     """
+    # Default: tải tất cả nếu không chỉ định
+    if required_types is None:
+        required_types = ['5m', '10m', '15m', '30m', '60m', 'encoder']
+    
     # Hardcode bucket name "ml-models" cho model storage
     # (không dùng MINIO_BUCKET_NAME env var vì đó dành cho camera images)
     client = MinIOModelClient(bucket_name="ml-models")
@@ -38,7 +44,7 @@ def download_random_forest_models(output_dir="models"):
     model_files.append('camera_label_encoder.joblib')
     
     logger.info(f"📥 Downloading Random Forest models from MinIO...")
-    logger.info(f"   Total files: {len(model_files)}")
+    logger.info(f"   Requested types: {required_types}")
     
     # List tất cả files trong random-forest/v1/
     try:
@@ -90,11 +96,10 @@ def download_random_forest_models(output_dir="models"):
             latest = sorted(files, key=lambda x: x['modified'], reverse=True)[0]
             latest_files[file_type] = latest['key']
         
-        # Kiểm tra đủ files chưa
-        required_types = ['5m', '10m', '15m', '30m', '60m', 'encoder']
+        # Kiểm tra đủ files cần thiết chưa
         missing = set(required_types) - set(latest_files.keys())
         if missing:
-            logger.error(f"❌ Missing model types: {missing}")
+            logger.error(f"❌ Missing model types on MinIO: {missing}")
             logger.error("   Available types: " + ", ".join(latest_files.keys()))
             return False
         
@@ -104,8 +109,8 @@ def download_random_forest_models(output_dir="models"):
         logger.error(f"❌ Failed to list models: {e}")
         return False
     
-    # Download all models
-    download_map = {
+    # Chỉ download models cần thiết
+    all_download_map = {
         '5m': os.path.join(output_dir, 'camera_rf_model_5m.joblib'),
         '10m': os.path.join(output_dir, 'camera_rf_model_10m.joblib'),
         '15m': os.path.join(output_dir, 'camera_rf_model_15m.joblib'),
@@ -113,6 +118,9 @@ def download_random_forest_models(output_dir="models"):
         '60m': os.path.join(output_dir, 'camera_rf_model_60m.joblib'),
         'encoder': os.path.join(output_dir, 'camera_label_encoder.joblib'),
     }
+    
+    # Filter chỉ lấy models cần tải
+    download_map = {k: v for k, v in all_download_map.items() if k in required_types}
     
     success_count = 0
     total_size = 0

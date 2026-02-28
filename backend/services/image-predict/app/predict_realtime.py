@@ -12,7 +12,8 @@ import asyncio
 import logging
 import os
 import sys
-from datetime import datetime, timezone
+import time
+from datetime import datetime, timezone, timedelta
 
 import aiohttp
 import joblib
@@ -36,6 +37,63 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+
+def ensure_models_ready():
+    """
+    Kiểm tra và download models từ MinIO nếu chưa có local
+    Chạy 1 lần khi container start để đảm bảo models sẵn sàng trước khi scheduler bắt đầu
+    Returns:
+        bool: True nếu models đã sẵn sàng, False nếu có lỗi
+    """
+    model_dir = "models"
+    os.makedirs(model_dir, exist_ok=True)
+    
+    # Map filename → type để selective download
+    model_map = {
+        "camera_rf_model_5m.joblib": "5m",
+        "camera_rf_model_10m.joblib": "10m",
+        "camera_rf_model_15m.joblib": "15m",
+        "camera_rf_model_30m.joblib": "30m",
+        "camera_rf_model_60m.joblib": "60m",
+        "camera_label_encoder.joblib": "encoder",
+    }
+    
+    # Kiểm tra từng model file
+    existing_models = []
+    missing_models = []
+    
+    for filename, model_type in model_map.items():
+        file_path = os.path.join(model_dir, filename)
+        if os.path.exists(file_path):
+            file_size = os.path.getsize(file_path) / 1024  # KB
+            existing_models.append(f"{model_type} ({file_size:.1f}KB)")
+        else:
+            missing_models.append(model_type)
+    
+    # Log trạng thái hiện tại
+    logger.info(f"📦 Models status:")
+    if existing_models:
+        logger.info(f"   ✅ Existing: {', '.join(existing_models)}")
+    if missing_models:
+        logger.info(f"   ⚠️  Missing: {', '.join(missing_models)}")
+    
+    # Nếu đã đủ models → skip download
+    if not missing_models:
+        logger.info("✅ All models ready (6/6)")
+        return True
+    
+    # Download chỉ những models còn thiếu
+    logger.info(f"📥 Downloading {len(missing_models)} missing models from MinIO...")
+    
+    from download_model import download_random_forest_models
+    
+    if not download_random_forest_models(output_dir=model_dir, required_types=missing_models):
+        logger.error("❌ Không thể tải models từ MinIO. Service không thể hoạt động.")
+        return False
+    
+    logger.info("✅ Đã tải thành công models từ MinIO")
+    return True
 
 
 def calculate_trend(current_val: float, predicted_val: float, threshold_percent: float = 10.0) -> str:
@@ -151,36 +209,8 @@ def predict_realtime(current_data_from_db):
     Returns:
         DataFrame chứa kết quả dự đoán hoặc empty DataFrame nếu lỗi
     """
-    # Check và download models từ MinIO nếu chưa có local
-    model_dir = "models"
-    os.makedirs(model_dir, exist_ok=True)
-    
-    required_models = [
-        "camera_rf_model_5m.joblib",
-        "camera_rf_model_10m.joblib",
-        "camera_rf_model_15m.joblib",
-        "camera_rf_model_30m.joblib",
-        "camera_rf_model_60m.joblib",
-        "camera_label_encoder.joblib"
-    ]
-    
-    # Check nếu thiếu bất kỳ model nào
-    missing_models = [m for m in required_models if not os.path.exists(os.path.join(model_dir, m))]
-    
-    if missing_models:
-        logger.warning(f"⚠️ Models chưa tồn tại local: {missing_models}")
-        logger.info("📥 Đang tải models từ MinIO...")
-        
-        from download_model import download_random_forest_models
-        
-        if not download_random_forest_models(output_dir=model_dir):
-            logger.error("❌ Không thể tải models từ MinIO. Service không thể hoạt động.")
-            return pd.DataFrame()
-        
-        logger.info("✅ Đã tải thành công models từ MinIO")
-    
     try:
-        # Load 5 models riêng biệt
+        # Load 5 models riêng biệt (models đã được download sẵn khi container start)
         models = {
             "5m": joblib.load("models/camera_rf_model_5m.joblib"),
             "10m": joblib.load("models/camera_rf_model_10m.joblib"),
@@ -315,11 +345,75 @@ async def run_cycle():
     # với schedule offset 2-3 phút sau prediction để đảm bảo data đủ
 
 
+def calculate_next_run_time():
+    """
+    Tính thời gian đến phút tiếp theo chia hết cho 5
+    Returns:
+        datetime: Thời điểm chạy tiếp theo (UTC, second=0, microsecond=0)
+    """
+    now = datetime.now(timezone.utc)
+    current_minute = now.minute
+    
+    # Tìm phút tiếp theo chia hết cho 5
+    next_minute = ((current_minute // 5) + 1) * 5
+    
+    if next_minute >= 60:
+        # Sang giờ tiếp theo
+        next_minute = 0
+        next_run = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+    else:
+        next_run = now.replace(minute=next_minute, second=0, microsecond=0)
+    
+    return next_run
+
+
+def run_scheduler():
+    """
+    Chạy prediction loop mỗi 5 phút tại các phút chia hết cho 5 (0, 5, 10, 15...)
+    - Không bị ảnh hưởng bởi thời gian thực thi task trước
+    - Sleep đúng thời gian đến phút schedule tiếp theo
+    """
+    logger.info("🚀 Image-predict scheduler started (runs at :00, :05, :10, :15...)")
+    
+    while True:
+        try:
+            # Tính thời gian chạy lần tiếp theo
+            next_run = calculate_next_run_time()
+            now = datetime.now(timezone.utc)
+            sleep_seconds = (next_run - now).total_seconds()
+            
+            logger.info(f"⏰ Next prediction at {next_run.strftime('%H:%M:%S')} UTC (sleep {sleep_seconds:.1f}s)")
+            time.sleep(sleep_seconds)
+            
+            # Chạy prediction cycle
+            logger.info(f"▶️ Starting prediction cycle at {datetime.now(timezone.utc).strftime('%H:%M:%S')} UTC")
+            asyncio.run(run_cycle())
+            logger.info("✅ Prediction cycle completed")
+            
+        except KeyboardInterrupt:
+            logger.info("⚠️  Scheduler interrupted by user")
+            break
+        except Exception as e:
+            logger.error(f"❌ Error in scheduler loop: {e}")
+            # Sleep 1 phút nếu có lỗi trước khi retry
+            logger.info("Sleeping 60s before retry...")
+            time.sleep(60)
+
+
 # data = query_from_db_realtime()
 # predicted = predict_realtime(data)
 # print(predicted.head(n=20))
 if __name__ == "__main__":
     try:
-        asyncio.run(run_cycle())
+        # 1. Kiểm tra và download models TRƯỚC khi start scheduler
+        logger.info("🔍 Checking models availability...")
+        if not ensure_models_ready():
+            logger.error("❌ Failed to prepare models. Exiting...")
+            sys.exit(1)
+        
+        # 2. Chạy scheduler loop
+        run_scheduler()
     except Exception as e:
-        logger.error(f"Lỗi thực thi chu kỳ: {e}.")
+        logger.error(f"Lỗi thực thi scheduler: {e}.")
+        sys.exit(1)
+

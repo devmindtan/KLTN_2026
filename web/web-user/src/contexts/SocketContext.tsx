@@ -134,12 +134,55 @@ export interface CameraData {
   };
 }
 
+// ============================================================
+// TRAINING JOB (FIWARE entity: TrainingJob)
+// ============================================================
+
+/** Phân giải từ FIWARE entity attr format {type, value} */
+interface FIWAREAttr<T> {
+  type: string;
+  value: T;
+}
+
+interface RawTrainingJobEntity {
+  id?: string;
+  type?: string;
+  job_id?:        FIWAREAttr<string>;
+  model_type?:    FIWAREAttr<string>;
+  status?:        FIWAREAttr<string>;
+  progress_pct?:  FIWAREAttr<number>;
+  current_stage?: FIWAREAttr<string>;
+  start_date?:    FIWAREAttr<string>;
+  end_date?:      FIWAREAttr<string>;
+  total_samples?: FIWAREAttr<number>;
+  started_at?:    FIWAREAttr<string>;
+  finished_at?:   FIWAREAttr<string>;
+  error_message?: FIWAREAttr<string>;
+  result_metrics?: FIWAREAttr<{ mae?: number; rmse?: number; r2?: number }>;
+}
+
+export interface TrainingJobData {
+  job_id:        string;
+  model_type:    string;
+  status:        "pending" | "running" | "succeeded" | "failed";
+  progress_pct:  number;
+  current_stage: string;
+  start_date:    string;
+  end_date:      string;
+  total_samples: number;
+  started_at:    string;
+  finished_at:   string;
+  error_message: string;
+  result_metrics: { mae?: number; rmse?: number; r2?: number };
+}
+
 interface SocketContextType {
   cameras: Record<string, NGSILDCamera>;
   processedCameras: CameraData[];
   isConnected: boolean;
   socket: Socket | null;
   cameraInfoMap: Record<string, CameraInfo>; // Map cam_id -> camera info from database
+  trainingJob: TrainingJobData | null; // Trạng thái realtime của training job hiện tại
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
@@ -149,6 +192,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [cameras, setCameras] = useState<Record<string, NGSILDCamera>>({});
   const [isConnected, setIsConnected] = useState(false);
   const [cameraInfoMap, setCameraInfoMap] = useState<Record<string, CameraInfo>>({});
+  const [trainingJob, setTrainingJob] = useState<TrainingJobData | null>(null);
 
   // Fetch camera list từ database khi component mount
   // Tạo initial cameras với dữ liệu mặc định, socket sẽ update sau
@@ -330,6 +374,26 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         });
       }
     });
+
+    socketInstance.on("TRAINING_JOB_UPDATED", (raw: RawTrainingJobEntity) => {
+      const job: TrainingJobData = {
+        job_id:        raw.job_id?.value        ?? "",
+        model_type:    raw.model_type?.value    ?? "",
+        status:        (raw.status?.value as TrainingJobData["status"]) ?? "pending",
+        progress_pct:  raw.progress_pct?.value  ?? 0,
+        current_stage: raw.current_stage?.value ?? "",
+        start_date:    raw.start_date?.value    ?? "",
+        end_date:      raw.end_date?.value      ?? "",
+        total_samples: raw.total_samples?.value ?? 0,
+        started_at:    raw.started_at?.value    ?? "",
+        finished_at:   raw.finished_at?.value   ?? "",
+        error_message: raw.error_message?.value ?? "",
+        result_metrics: raw.result_metrics?.value ?? {},
+      };
+      setTrainingJob(job);
+      console.log(`🤖 TrainingJob update: ${job.model_type} [${job.status}] ${job.progress_pct}%`);
+    });
+
     socketInstance.on("connect_error", (err) => {
       console.error("❌ Socket connection error:", err.message);
       setIsConnected(false);
@@ -363,6 +427,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       socketInstance.off("connect");
       socketInstance.off("disconnect");
       socketInstance.off("CAMERA_UPDATED");
+      socketInstance.off("TRAINING_JOB_UPDATED");
       socketInstance.off("connect_error");
       socketInstance.off("reconnect");
       socketInstance.off("reconnect_attempt");
@@ -458,6 +523,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     isConnected,
     socket,
     cameraInfoMap,
+    trainingJob,
   };
 
   return (

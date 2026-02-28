@@ -8,6 +8,7 @@ import DataLibrary from "@/pages/data-library.tsx";
 import Lifecycle from "@/pages/lifecycle.tsx";
 import Analytics from "@/pages/analytics.tsx";
 import Projects from "@/pages/projects.tsx";
+import Models from "@/pages/models.tsx";
 import Team from "@/pages/team.tsx";
 import Reports from "@/pages/reports.tsx";
 import WordAssistant from "@/pages/word-assistant.tsx";
@@ -50,6 +51,7 @@ const router = createBrowserRouter([
       {path: "lifecycle", element: <Lifecycle/>},
       {path: "analytics", element: <Analytics/>},
       {path: "projects", element: <Projects/>},
+      {path: "models", element: <Models/>},
       {path: "team", element: <Team/>},
       {path: "data-library", element: <DataLibrary/>},
       {path: "reports", element: <Reports/>},

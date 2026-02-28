@@ -56,7 +56,7 @@ const data = {
     },
     {
       title: "Mô hình ML",
-      url: "/user/projects",
+      url: "/user/models",
       icon: IconFolder,
     },
     {

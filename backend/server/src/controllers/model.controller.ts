@@ -20,9 +20,32 @@ function createK8sClients() {
   };
 }
 
-const IMAGE_PREDICT_IMAGE =
+const IMAGE_PREDICT_IMAGE_FALLBACK =
   process.env.IMAGE_PREDICT_IMAGE ??
-  "devmindtan/dev-repo:image-predict-v1.2.4"; // Cập nhật khi build image mới
+  "devmindtan/dev-repo:image-predict-v1.3.0";
+
+/**
+ * Lấy image đang chạy của deployment image-predict từ k8s API.
+ * Tránh hardcode version — luôn dùng đúng image đang deploy.
+ * Fallback về IMAGE_PREDICT_IMAGE_FALLBACK nếu không đọc được.
+ */
+async function getImagePredictImage(): Promise<string> {
+  try {
+    const { apps } = createK8sClients();
+    const deploy = await apps.readNamespacedDeployment({
+      name: "image-predict",
+      namespace: "backend",
+    });
+    const image = deploy.spec?.template?.spec?.containers?.[0]?.image;
+    if (image) {
+      console.info(`[Train Job] Using image from deployment: ${image}`);
+      return image;
+    }
+  } catch (err) {
+    console.warn(`[Train Job] Cannot read deployment image, using fallback: ${err instanceof Error ? err.message : err}`);
+  }
+  return IMAGE_PREDICT_IMAGE_FALLBACK;
+}
 
 // ============================================================
 // DISPLAY NAME MAPPING
@@ -362,7 +385,7 @@ export const trainModel = async (req: Request, res: Response) => {
           containers: [
             {
               name: "trainer",
-              image: IMAGE_PREDICT_IMAGE,
+              image: IMAGE_PREDICT_IMAGE_FALLBACK, // overridden bởi getImagePredictImage() trong try block
               workingDir: "/app",
               command: [
                 "python", "train_single.py",
@@ -384,10 +407,13 @@ export const trainModel = async (req: Request, res: Response) => {
   };
 
   try {
+    const image = await getImagePredictImage();
+    jobManifest.spec!.template.spec!.containers![0].image = image;
+
     const { batch } = createK8sClients();
     await batch.createNamespacedJob({ namespace: "backend", body: jobManifest });
 
-    console.info(`[Train Job] Created: ${jobName} (${model_type} | ${start_date} → ${end_date})`);
+    console.info(`[Train Job] Created: ${jobName} (${model_type} | ${start_date} → ${end_date}) image=${image}`);
     return res.status(201).json({
       success: true,
       job_name: jobName,

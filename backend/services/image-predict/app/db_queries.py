@@ -34,7 +34,20 @@ logger = logging.getLogger(__name__)
 # postgresql+psycopg2://user:password@host:port/dbname
 DATABASE_URL = f"postgresql://{POSTGRES_USERNAME}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DBS}"
 engine = create_engine(
-    DATABASE_URL, poolclass=QueuePool, pool_size=10, max_overflow=20, pool_timeout=30
+    DATABASE_URL,
+    poolclass=QueuePool,
+    pool_size=10,
+    max_overflow=20,
+    pool_timeout=30,
+    pool_pre_ping=True,          # Kiểm tra connection còn sống trước mỗi query
+    pool_recycle=1800,            # Recycle connection sau 30 phút tránh stale
+    connect_args={
+        "keepalives": 1,           # Bật TCP keepalive
+        "keepalives_idle": 30,     # Gửi keepalive sau 30s idle
+        "keepalives_interval": 10, # Gửi lại mỗi 10s nếu không có ACK
+        "keepalives_count": 5,     # Drop connection sau 5 lần thất bại
+        "options": "-c statement_timeout=180000",  # Timeout query tối đa 3 phút
+    },
 )
 
 

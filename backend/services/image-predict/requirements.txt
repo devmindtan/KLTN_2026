@@ -9,3 +9,5 @@ Requests==2.32.5
 scikit_learn==1.8.0
 shared==0.0.32
 SQLAlchemy==2.0.47
+boto3==1.42.50
+botocore==1.42.50

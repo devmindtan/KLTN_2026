@@ -131,7 +131,8 @@ def update_fiware(
         "started_at":    {"type": "Text",            "value": started_at or datetime.utcnow().isoformat()},
         "finished_at":   {"type": "Text",            "value": finished_at or ""},
         "error_message": {"type": "Text",            "value": error_message or ""},
-        "result_metrics": {"type": "StructuredValue", "value": result_metrics or {}},
+        # Dùng None thay vì {} — Orion reject StructuredValue với empty dict {}
+        "result_metrics": {"type": "StructuredValue", "value": result_metrics if result_metrics else None},
     }
     try:
         # Thử POST upsert trước (tạo hoặc thay thế entity)

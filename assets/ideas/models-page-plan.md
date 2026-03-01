@@ -820,16 +820,39 @@ curl -iX POST "$BASE/models/$MODEL_ID/activate"
 | TC-01 | RBAC permissions | ok | kubectl auth can-i = yes |
 | TC-02 | Model list render | ok | 6 cards OK |
 | TC-03 | ModelDetailSheet | ok | metrics + history |
-| TC-04 | Activate happy path | ⬜ | DB + k8s restart |
-| TC-05 | Activate current version | ⬜ | disabled hoặc warning |
+| TC-04 | Activate happy path | ok | Cũng ổn nhưng chỗ so sánh vẫn còn thiếu 1 màu dành cho bằng nhau nữa |
+| TC-05 | Activate current version | ok | disabled hoặc warning |
 | TC-06 | Training end-to-end | ok |  |
-| TC-07 | Training — ít dữ liệu | ⬜ | failed gracefully |
-| TC-08 | Training — invalid dates | ⬜ | validation error |
+| TC-07 | Training — ít dữ liệu | n/a | Không đạt được — date range đã cố định, luôn đủ dữ liệu |
+| TC-08 | Training — invalid dates | n/a | Không đạt được — date inputs đã có min/max constraint |
 | TC-09 | Training — k8s error | ⬜ | 500 + error UI |
 | TC-10 | WebSocket realtime | ok | progress live update |
-| TC-11 | Activate new version | ⬜ | sau train xong |
-| TC-12 | Job TTL cleanup | ⬜ | auto delete sau 1h |
-| TC-13 | Concurrent job guard | ⬜ | button disabled |
-| TC-14 | Refresh mid-training | ⬜ | job vẫn chạy |
+| TC-11 | Activate new version | ok | Hot-swap qua HTTP /reload + FIWARE ModelReload + WebSocket banner |
+| TC-12 | Job TTL cleanup | n/a | Không đạt được — job bị xoá thủ công trước 1h |
+| TC-13 | Concurrent job guard | ok | button disabled |
+| TC-14 | Refresh mid-training | ok | job vẫn chạy |
 | TC-15 | YOLO card no-train | ok | no train button |
 | TC-16 | API smoke tests | ⬜ | tất cả 2xx |
+
+
+
+
+## Báo cáo TC-09:
+- Hiện tại pod lỗi vẫn chưa hiện thông báo lỗi mà nó lại đứng trạng thái đó nếu reload trang thì nó mất nhưng cốt lõi vẫn không hiện thông báo đã lỗi
+Sau khi thực hiện sửa xong thì tạo luôn 1 card trên giao diện model mục đích là để giả để kích hoạt tiến trình lỗi xem có hoạt động ổn không (sau khi đảm bảo nó hoạt động thì tôi sẽ tự xoá). 
+=> Cần nói lại về phần này là nó tiến hành tạo 1 trainning lỗi luôn chứ không phải giả trên giao diện (bản chất vẫn sẽ là tạo 1 trainning nhưng nó bị lỗi không hoàn thành chứ không phải là chỉ kiểm tra sơ sơ như vậy) (bỏ đi không cần nữa)
+## Khác
+- Hãy điều chỉnh lại cách mà modal (dialog) hiện ra là từ chính giữa (mặc định của shadcn) thay vì hiện ra từ góc trái trên (xong)
+- Giới hạn lại số lượng mà bảng lịch sử phiên bản hiển thị cụ thể là:
+  - Bổ sung bộ lọc (theo ngày) (xong)
+  - Sắp xếp (theo các giá trị (phiên bản, MAE, R2, Samples, Ngày tạo)) (xong)
+  - Tìm kiếm theo phiên bản (xong)
+Lưu ý: hãy thiết kế phần sắp xếp theo dạng có mũi tên lên xuống ở kế bên tên của mỗi title chứ không cần tạo 1 button để chọn, còn lọc và tìm kiếm thì giữ nguyên nhưng hãy thiét kế vừa và phù hợp đừng quá lớn (xong)
+Bổ sung thêm: 
+- phần hiển thị lịch sử sẽ để cái mô hình đang kích hoạt luôn ở trên cùng (xong)
+- hiển thị tối đa 1 trang là 10 verion thôi nhưng cái sau thực hiện phân trang (xong)
+- Phần thông báo thành công thì mặc dù trainning đã xong lâu rồi và đã đóng nhưng khi chuyển page và quay trở lại thì nó lại hiện lên không mất đi (xong — dùng sessionStorage lưu job_id đã dismiss) - Còn thiếu vì kích hoạt hiện ra 2 thông báo lận thông báo tải thành công vẫn chưa được reload còn thông báo cũ đã được xử lí rồi (xong — áp dụng sessionStorage cho cả modelReload banner, dùng key `kltn_dismissed_model_reloads`)
+- Lỗi `FIWARE [failed 0%] → 400` khiến UI đơ ở 10% — `train_single.py` gửi failed update nhưng Orion trả 400 (entity đã tồn tại, Orion version cũ không upsert đúng). Fix: `update_fiware()` thêm fallback `PATCH /v2/entities/{id}/attrs` khi POST upsert thất bại (xong)
+- Lỗi Postgres `server closed the connection unexpectedly` tại ~17s + FIWARE 400 cả POST lẫn PATCH (xong):
+  - **Postgres drop**: `keepalives_idle=30` → 30s quá trễ, k8s CNI drop connection trước khi keepalive probe kịp gửi. Fix: `keepalives_idle=5`, `keepalives_interval=5` trong `db_queries.py`
+  - **FIWARE 400 cả hai lần**: `result_metrics` gửi `{}` (empty dict) cho `StructuredValue` → Orion reject. Fix: đổi sang `None` khi không có result (`result_metrics if result_metrics else None`)

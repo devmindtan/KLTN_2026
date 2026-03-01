@@ -43,8 +43,8 @@ engine = create_engine(
     pool_recycle=1800,            # Recycle connection sau 30 phút tránh stale
     connect_args={
         "keepalives": 1,           # Bật TCP keepalive
-        "keepalives_idle": 30,     # Gửi keepalive sau 30s idle
-        "keepalives_interval": 10, # Gửi lại mỗi 10s nếu không có ACK
+        "keepalives_idle": 5,      # Gửi keepalive sau 5s idle (thay vì 30s) — tránh k8s CNI drop connection trong lúc query nặng
+        "keepalives_interval": 5,  # Gửi lại mỗi 5s nếu không có ACK
         "keepalives_count": 5,     # Drop connection sau 5 lần thất bại
         "options": "-c statement_timeout=180000",  # Timeout query tối đa 3 phút
     },

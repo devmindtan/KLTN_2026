@@ -176,13 +176,43 @@ export interface TrainingJobData {
   result_metrics: { mae?: number; rmse?: number; r2?: number };
 }
 
+// ============================================================
+// MODEL RELOAD (FIWARE entity: ModelReload)
+// ============================================================
+interface RawModelReloadEntity {
+  id?: string;
+  type?: string;
+  reload_id?:     FIWAREAttr<string>;
+  model_type?:    FIWAREAttr<string>;
+  status?:        FIWAREAttr<string>;
+  progress_pct?:  FIWAREAttr<number>;
+  current_stage?: FIWAREAttr<string>;
+  model_version?: FIWAREAttr<string>;
+  started_at?:    FIWAREAttr<string>;
+  finished_at?:   FIWAREAttr<string>;
+  error_message?: FIWAREAttr<string>;
+}
+
+export interface ModelReloadData {
+  reload_id:     string;
+  model_type:    string;
+  status:        "running" | "succeeded" | "failed";
+  progress_pct:  number;
+  current_stage: string;
+  model_version: string;
+  started_at:    string;
+  finished_at:   string;
+  error_message: string;
+}
+
 interface SocketContextType {
   cameras: Record<string, NGSILDCamera>;
   processedCameras: CameraData[];
   isConnected: boolean;
   socket: Socket | null;
   cameraInfoMap: Record<string, CameraInfo>; // Map cam_id -> camera info from database
-  trainingJob: TrainingJobData | null; // Trạng thái realtime của training job hiện tại
+  trainingJob: TrainingJobData | null;
+  modelReload:  ModelReloadData | null; // Trạng thái realtime khi reload model sau activate
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
@@ -193,6 +223,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
   const [cameraInfoMap, setCameraInfoMap] = useState<Record<string, CameraInfo>>({});
   const [trainingJob, setTrainingJob] = useState<TrainingJobData | null>(null);
+  const [modelReload, setModelReload] = useState<ModelReloadData | null>(null);
 
   // Fetch camera list từ database khi component mount
   // Tạo initial cameras với dữ liệu mặc định, socket sẽ update sau
@@ -394,6 +425,22 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       console.log(`🤖 TrainingJob update: ${job.model_type} [${job.status}] ${job.progress_pct}%`);
     });
 
+    socketInstance.on("MODEL_RELOAD_UPDATED", (raw: RawModelReloadEntity) => {
+      const reload: ModelReloadData = {
+        reload_id:     raw.reload_id?.value     ?? "",
+        model_type:    raw.model_type?.value    ?? "",
+        status:        (raw.status?.value as ModelReloadData["status"]) ?? "running",
+        progress_pct:  raw.progress_pct?.value  ?? 0,
+        current_stage: raw.current_stage?.value ?? "",
+        model_version: raw.model_version?.value ?? "",
+        started_at:    raw.started_at?.value    ?? "",
+        finished_at:   raw.finished_at?.value   ?? "",
+        error_message: raw.error_message?.value ?? "",
+      };
+      setModelReload(reload);
+      console.log(`🔄 ModelReload update: ${reload.model_type} [${reload.status}] ${reload.progress_pct}%`);
+    });
+
     socketInstance.on("connect_error", (err) => {
       console.error("❌ Socket connection error:", err.message);
       setIsConnected(false);
@@ -428,6 +475,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       socketInstance.off("disconnect");
       socketInstance.off("CAMERA_UPDATED");
       socketInstance.off("TRAINING_JOB_UPDATED");
+      socketInstance.off("MODEL_RELOAD_UPDATED");
       socketInstance.off("connect_error");
       socketInstance.off("reconnect");
       socketInstance.off("reconnect_attempt");
@@ -524,6 +572,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     socket,
     cameraInfoMap,
     trainingJob,
+    modelReload,
   };
 
   return (

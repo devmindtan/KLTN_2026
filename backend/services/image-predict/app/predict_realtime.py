@@ -44,28 +44,48 @@ logger = logging.getLogger(__name__)
 
 def ensure_models_ready():
     """
-    Kiểm tra và download models từ MinIO nếu chưa có local
-    Chạy 1 lần khi container start để đảm bảo models sẵn sàng trước khi scheduler bắt đầu
+    Kiểm tra và download models từ MinIO nếu chưa có local.
+    - RF models (5m-60m): tải đúng phiên bản is_active=TRUE từ DB
+    - Encoder: tải latest từ MinIO (không có is_active trong DB)
+    Chạy 1 lần khi container start để đảm bảo models sẵn sàng trước khi scheduler bắt đầu.
     Returns:
         bool: True nếu models đã sẵn sàng, False nếu có lỗi
     """
     model_dir = "models"
     os.makedirs(model_dir, exist_ok=True)
-    
-    # Map filename → type để selective download
+
+    # Map filename → short type
     model_map = {
-        "camera_rf_model_5m.joblib": "5m",
+        "camera_rf_model_5m.joblib":  "5m",
         "camera_rf_model_10m.joblib": "10m",
         "camera_rf_model_15m.joblib": "15m",
         "camera_rf_model_30m.joblib": "30m",
         "camera_rf_model_60m.joblib": "60m",
         "camera_label_encoder.joblib": "encoder",
     }
-    
+
+    # Map short type → DB model_type (chỉ RF models có is_active trong DB)
+    SHORT_TO_MODEL_TYPE = {
+        "5m":  "random_forest_5m",
+        "10m": "random_forest_10m",
+        "15m": "random_forest_15m",
+        "30m": "random_forest_30m",
+        "60m": "random_forest_60m",
+    }
+
+    # Map short type → local filename
+    SHORT_TO_FILENAME = {
+        "5m":  "camera_rf_model_5m.joblib",
+        "10m": "camera_rf_model_10m.joblib",
+        "15m": "camera_rf_model_15m.joblib",
+        "30m": "camera_rf_model_30m.joblib",
+        "60m": "camera_rf_model_60m.joblib",
+    }
+
     # Kiểm tra từng model file
     existing_models = []
     missing_models = []
-    
+
     for filename, model_type in model_map.items():
         file_path = os.path.join(model_dir, filename)
         if os.path.exists(file_path):
@@ -73,29 +93,66 @@ def ensure_models_ready():
             existing_models.append(f"{model_type} ({file_size:.1f}KB)")
         else:
             missing_models.append(model_type)
-    
+
     # Log trạng thái hiện tại
-    logger.info(f"📦 Models status:")
+    logger.info("📦 Models status:")
     if existing_models:
         logger.info(f"   ✅ Existing: {', '.join(existing_models)}")
     if missing_models:
         logger.info(f"   ⚠️  Missing: {', '.join(missing_models)}")
-    
-    # Nếu đã đủ models → skip download
+
     if not missing_models:
         logger.info("✅ All models ready (6/6)")
         return True
-    
-    # Download chỉ những models còn thiếu
-    logger.info(f"📥 Downloading {len(missing_models)} missing models from MinIO...")
-    
-    from download_model import download_random_forest_models
-    
-    if not download_random_forest_models(output_dir=model_dir, required_types=missing_models):
-        logger.error("❌ Không thể tải models từ MinIO. Service không thể hoạt động.")
-        return False
-    
-    logger.info("✅ Đã tải thành công models từ MinIO")
+
+    # Chia thành RF models (tải theo is_active=TRUE từ DB) và encoder (tải latest)
+    missing_rf = [t for t in missing_models if t != "encoder"]
+    need_encoder = "encoder" in missing_models
+
+    # --- Download RF models theo is_active=TRUE ---
+    if missing_rf:
+        logger.info(f"📥 Downloading {len(missing_rf)} RF models by is_active=TRUE from DB...")
+        from reload_model import get_active_model_info
+        from shared.minio_client import MinIOModelClient
+
+        client = MinIOModelClient(bucket_name="ml-models")
+
+        for short_type in missing_rf:
+            db_model_type = SHORT_TO_MODEL_TYPE[short_type]
+            model_info = get_active_model_info(db_model_type)
+
+            if model_info is None:
+                # Fallback: tải latest nếu chưa có bản nào is_active (lần deploy đầu tiên)
+                logger.warning(
+                    f"⚠️  Không tìm thấy is_active=TRUE cho {db_model_type}, "
+                    "fallback về latest từ MinIO..."
+                )
+                from download_model import download_random_forest_models
+                if not download_random_forest_models(output_dir=model_dir, required_types=[short_type]):
+                    logger.error(f"❌ Không thể tải model {short_type}")
+                    return False
+            else:
+                minio_key = model_info["minio_key"]
+                model_version = model_info["model_version"]
+                local_path = os.path.join(model_dir, SHORT_TO_FILENAME[short_type])
+                logger.info(f"   📥 {short_type}: {minio_key} (version={model_version})")
+
+                if not client.download_model(minio_key, local_path):
+                    logger.error(f"❌ Không thể tải {short_type} từ {minio_key}")
+                    return False
+
+                file_size = os.path.getsize(local_path) / 1024
+                logger.info(f"      ✅ {file_size:.1f} KB")
+
+    # --- Download encoder theo latest (encoder không có is_active trong DB) ---
+    if need_encoder:
+        logger.info("📥 Downloading encoder (latest from MinIO)...")
+        from download_model import download_random_forest_models
+        if not download_random_forest_models(output_dir=model_dir, required_types=["encoder"]):
+            logger.error("❌ Không thể tải encoder")
+            return False
+
+    logger.info("✅ Đã tải thành công tất cả models từ MinIO")
     return True
 
 

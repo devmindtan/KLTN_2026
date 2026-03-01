@@ -276,21 +276,64 @@ export const activateModel = async (req: Request, res: Response) => {
     // Phase 2b: Rollout restart deployment/image-predict để pod load model mới
     let k8s_restart = false;
     try {
-      const { apps } = createK8sClients();
-      await apps.patchNamespacedDeployment({
-        name: "image-predict",
-        namespace: "backend",
-        body: {
-          spec: {
-            template: {
-              metadata: {
-                annotations: {
-                  "kubectl.kubernetes.io/restartedAt": new Date().toISOString(),
-                },
+      // k8s rollout restart: patch deployment qua native https để inject đúng Content-Type
+      // @kubernetes/client-node v1.x gửi application/json mặc định → k8s reject với 400
+      // Dùng trực tiếp https để tránh vấn đề này
+      const kc2 = new k8s.KubeConfig();
+      kc2.loadFromDefault();
+      const cluster = kc2.getCurrentCluster();
+      const user = kc2.getCurrentUser();
+      const patchBody = JSON.stringify({
+        spec: {
+          template: {
+            metadata: {
+              annotations: {
+                "kubectl.kubernetes.io/restartedAt": new Date().toISOString(),
               },
             },
           },
         },
+      });
+
+      await new Promise<void>((resolve, reject) => {
+        const url = new URL(
+          `/apis/apps/v1/namespaces/backend/deployments/image-predict`,
+          cluster?.server ?? "https://kubernetes.default.svc"
+        );
+        const options: import("https").RequestOptions = {
+          hostname: url.hostname,
+          port: url.port || 443,
+          path: url.pathname,
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/strategic-merge-patch+json",
+            "Content-Length": Buffer.byteLength(patchBody),
+          },
+          rejectUnauthorized: false,
+        };
+
+        // In-cluster: dùng service account token
+        const fs = require("fs") as typeof import("fs");
+        const tokenPath = "/var/run/secrets/kubernetes.io/serviceaccount/token";
+        if (fs.existsSync(tokenPath)) {
+          (options.headers as Record<string, string | number>)["Authorization"] =
+            `Bearer ${fs.readFileSync(tokenPath, "utf8").trim()}`;
+        } else if (user?.token) {
+          (options.headers as Record<string, string | number>)["Authorization"] = `Bearer ${user.token}`;
+        }
+
+        const req = require("https").request(options, (res: import("http").IncomingMessage) => {
+          let data = "";
+          res.on("data", (chunk: string) => { data += chunk; });
+          res.on("end", () => {
+            const code = res.statusCode ?? 0;
+            if (code >= 200 && code < 300) resolve();
+            else reject(new Error(`k8s PATCH ${code}: ${data.slice(0, 200)}`));
+          });
+        });
+        req.on("error", reject);
+        req.write(patchBody);
+        req.end();
       });
       k8s_restart = true;
       console.info(`[Model Activate] k8s rollout restart image-predict triggered`);

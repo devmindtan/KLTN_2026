@@ -18,6 +18,7 @@ import argparse
 import logging
 import os
 import sys
+import time
 from datetime import datetime, timezone
 
 import joblib
@@ -348,6 +349,8 @@ def main():
     # ----------------------------------------------------------
     # Stage 7: Hoàn thành (100%)
     # ----------------------------------------------------------
+    # Delay đảm bảo FIWARE throttling (1s) không suppress notification cuối
+    time.sleep(1.5)
     result_metrics = {"mae": mae, "rmse": rmse, "r2": r2}
     finished_at = datetime.utcnow().isoformat()
 

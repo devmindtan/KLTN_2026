@@ -319,6 +319,34 @@ export const activateModel = async (req: Request, res: Response) => {
 };
 
 /**
+ * Trả về khoảng thời gian có dữ liệu thực trong bảng camera_detections.
+ * Dùng để constrain date picker khi user chọn phạm vi huấn luyện.
+ * GET /api/models/data-range
+ */
+export const getDataRange = async (_req: Request, res: Response) => {
+  try {
+    const result = await pool.query<{ min_date: string; max_date: string }>(
+      `SELECT
+         TO_CHAR(MIN(created_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS min_date,
+         TO_CHAR(MAX(created_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS max_date
+       FROM camera_detections`
+    );
+    const { min_date, max_date } = result.rows[0] ?? {};
+    if (!min_date || !max_date) {
+      return res.status(200).json({ success: true, min_date: null, max_date: null });
+    }
+    return res.status(200).json({ success: true, min_date, max_date });
+  } catch (error) {
+    console.error("Error fetching data range:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi khi lấy phạm vi dữ liệu",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+/**
  * Tạo k8s Job để huấn luyện một phiên bản mới của model RF.
  * Job sẽ chạy train_single.py trong image-predict container.
  * Kết quả (is_active=FALSE) lưu vào DB, user tự kích hoạt sau khi xem metrics.

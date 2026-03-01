@@ -6,6 +6,7 @@ import {
   getModelHistory,
   activateModel,
   trainModel,
+  getDataRange,
 } from "../controllers/model.controller";
 
 const router = express.Router();
@@ -15,6 +16,9 @@ router.get("/", getActiveModels);
 
 // GET /api/models/all    — tất cả versions, grouped by model_type
 router.get("/all", getAllModelVersions);
+
+// GET /api/models/data-range — phạm vi ngày có dữ liệu trong camera_detections
+router.get("/data-range", getDataRange);
 
 // POST /api/models/train — tạo k8s Job huấn luyện phiên bản mới
 router.post("/train", trainModel);

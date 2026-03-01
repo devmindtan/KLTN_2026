@@ -134,8 +134,20 @@ def update_fiware(
         "result_metrics": {"type": "StructuredValue", "value": result_metrics or {}},
     }
     try:
+        # Thử POST upsert trước (tạo hoặc thay thế entity)
         url = f"{FIWARE_ORION_URL}?options=upsert"
         resp = requests.post(url, json=payload, headers=FIWARE_HEADERS, timeout=5)
+        # Nếu POST thất bại (entity đã tồn tại và Orion trả lỗi),
+        # fallback sang PATCH attrs để cập nhật trực tiếp
+        if resp.status_code not in (200, 201, 204):
+            logger.warning(f"FIWARE POST upsert thất bại ({resp.status_code}), thử PATCH attrs...")
+            attrs_payload = {k: v for k, v in payload.items() if k not in ("id", "type")}
+            resp = requests.patch(
+                f"{FIWARE_ORION_URL}/{ENTITY_ID}/attrs",
+                json=attrs_payload,
+                headers=FIWARE_HEADERS,
+                timeout=5,
+            )
         logger.info(f"FIWARE [{status} {progress_pct}%] → {resp.status_code}")
     except Exception as e:
         logger.warning(f"FIWARE update non-critical failure: {e}")

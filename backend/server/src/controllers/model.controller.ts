@@ -273,80 +273,53 @@ export const activateModel = async (req: Request, res: Response) => {
       `[Model Activate] ${model_type} → version ${model_version} (id=${targetId})`
     );
 
-    // Phase 2b: Rollout restart deployment/image-predict để pod load model mới
-    let k8s_restart = false;
+    // Gọi image-predict /reload để tải lại model mới theo is_active=TRUE
+    // image-predict sẽ download file từ MinIO và cập nhật FIWARE ModelReload entity
+    // Non-critical: DB đã commit — nếu lỗi, user vẫn thấy thành công nhưng model chưa load
+    let model_reload_triggered = false;
     try {
-      // k8s rollout restart: patch deployment qua native https để inject đúng Content-Type
-      // @kubernetes/client-node v1.x gửi application/json mặc định → k8s reject với 400
-      // Dùng trực tiếp https để tránh vấn đề này
-      const kc2 = new k8s.KubeConfig();
-      kc2.loadFromDefault();
-      const cluster = kc2.getCurrentCluster();
-      const user = kc2.getCurrentUser();
-      const patchBody = JSON.stringify({
-        spec: {
-          template: {
-            metadata: {
-              annotations: {
-                "kubectl.kubernetes.io/restartedAt": new Date().toISOString(),
-              },
-            },
-          },
-        },
-      });
+      const imagePredictUrl = process.env.IMAGE_PREDICT_RELOAD_URL ?? "http://image-predict-service.backend.svc.cluster.local:8080";
+      const reloadBody = JSON.stringify({ model_type });
 
       await new Promise<void>((resolve, reject) => {
-        const url = new URL(
-          `/apis/apps/v1/namespaces/backend/deployments/image-predict`,
-          cluster?.server ?? "https://kubernetes.default.svc"
-        );
-        const options: import("https").RequestOptions = {
+        const url = new URL("/reload", imagePredictUrl);
+        const isHttps = url.protocol === "https:";
+        const httpModule = isHttps ? require("https") : require("http");
+        const options: import("http").RequestOptions = {
           hostname: url.hostname,
-          port: url.port || 443,
+          port: url.port || (isHttps ? 443 : 80),
           path: url.pathname,
-          method: "PATCH",
+          method: "POST",
           headers: {
-            "Content-Type": "application/strategic-merge-patch+json",
-            "Content-Length": Buffer.byteLength(patchBody),
+            "Content-Type": "application/json",
+            "Content-Length": Buffer.byteLength(reloadBody),
           },
-          rejectUnauthorized: false,
         };
-
-        // In-cluster: dùng service account token
-        const fs = require("fs") as typeof import("fs");
-        const tokenPath = "/var/run/secrets/kubernetes.io/serviceaccount/token";
-        if (fs.existsSync(tokenPath)) {
-          (options.headers as Record<string, string | number>)["Authorization"] =
-            `Bearer ${fs.readFileSync(tokenPath, "utf8").trim()}`;
-        } else if (user?.token) {
-          (options.headers as Record<string, string | number>)["Authorization"] = `Bearer ${user.token}`;
-        }
-
-        const req = require("https").request(options, (res: import("http").IncomingMessage) => {
+        const req = (httpModule as typeof import("http")).request(options, (inner) => {
           let data = "";
-          res.on("data", (chunk: string) => { data += chunk; });
-          res.on("end", () => {
-            const code = res.statusCode ?? 0;
+          inner.on("data", (chunk: string) => { data += chunk; });
+          inner.on("end", () => {
+            const code = inner.statusCode ?? 0;
+            // 202 Accepted = trigger thành công (reload chạy async)
             if (code >= 200 && code < 300) resolve();
-            else reject(new Error(`k8s PATCH ${code}: ${data.slice(0, 200)}`));
+            else reject(new Error(`image-predict /reload ${code}: ${data.slice(0, 200)}`));
           });
         });
         req.on("error", reject);
-        req.write(patchBody);
+        req.write(reloadBody);
         req.end();
       });
-      k8s_restart = true;
-      console.info(`[Model Activate] k8s rollout restart image-predict triggered`);
-    } catch (k8sErr) {
-      // Non-critical: DB đã commit thành công, chỉ warn nếu k8s không available (dev local)
-      console.warn(`[Model Activate] k8s rollout restart skipped: ${k8sErr instanceof Error ? k8sErr.message : k8sErr}`);
+      model_reload_triggered = true;
+      console.info(`[Model Activate] image-predict /reload triggered for ${model_type}`);
+    } catch (reloadErr) {
+      console.warn(`[Model Activate] /reload skipped: ${reloadErr instanceof Error ? reloadErr.message : reloadErr}`);
     }
 
     return res.status(200).json({
       success: true,
       message: `Đã kích hoạt phiên bản ${model_version}`,
       data: { id: targetId, model_type, model_version },
-      k8s_restart,
+      model_reload_triggered,
     });
   } catch (error) {
     await client.query("ROLLBACK");

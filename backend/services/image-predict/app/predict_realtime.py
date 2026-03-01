@@ -9,11 +9,14 @@ from shared.los_utils import (
     get_camera_capacity_map,
 )
 import asyncio
+import json
 import logging
 import os
 import sys
+import threading
 import time
 from datetime import datetime, timezone, timedelta
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import aiohttp
 import joblib
@@ -379,6 +382,65 @@ def calculate_next_run_time():
     return next_run
 
 
+# ============================================================
+# RELOAD HTTP SERVER
+# ============================================================
+class ReloadHandler(BaseHTTPRequestHandler):
+    """
+    HTTP handler cho endpoint POST /reload.
+    Nhận trigger từ backend server sau khi activate model mới,
+    chạy reload trong background thread để không block HTTP response.
+    """
+
+    def do_POST(self):
+        if self.path != "/reload":
+            self._send(404, {"error": "Not found"})
+            return
+
+        content_len = int(self.headers.get("Content-Length", 0))
+        raw = self.rfile.read(content_len) if content_len > 0 else b"{}"
+        try:
+            body = json.loads(raw)
+        except Exception:
+            self._send(400, {"error": "Invalid JSON"})
+            return
+
+        model_type = body.get("model_type", "")
+        if not model_type:
+            self._send(400, {"error": "model_type required"})
+            return
+
+        # Chạy reload trong background thread để không block response
+        def _run():
+            from reload_model import reload_active_model
+            reload_active_model(model_type)
+
+        threading.Thread(target=_run, daemon=True).start()
+        self._send(202, {"status": "accepted", "model_type": model_type})
+
+    def _send(self, code: int, body: dict):
+        data = json.dumps(body).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", len(data))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def log_message(self, format, *args):  # noqa: A002
+        logger.info(f"[ReloadServer] {format % args}")
+
+
+def start_reload_server(port: int = 8080):
+    """
+    Khởi động HTTP server lắng nghe POST /reload trên port 8080.
+    Chạy trong daemon thread riêng — không ảnh hưởng scheduler chính.
+    """
+    server = HTTPServer(("0.0.0.0", port), ReloadHandler)
+    logger.info(f"🔌 Reload server listening on port {port}")
+    server.serve_forever()
+
+
+
 def run_scheduler():
     """
     Chạy prediction loop mỗi 5 phút tại các phút chia hết cho 5 (0, 5, 10, 15...)
@@ -422,8 +484,12 @@ if __name__ == "__main__":
         if not ensure_models_ready():
             logger.error("❌ Failed to prepare models. Exiting...")
             sys.exit(1)
-        
-        # 2. Chạy scheduler loop
+
+        # 2. Khởi động HTTP reload server trong daemon thread
+        reload_port = int(os.getenv("RELOAD_SERVER_PORT", 8080))
+        threading.Thread(target=start_reload_server, args=(reload_port,), daemon=True).start()
+
+        # 3. Chạy scheduler loop
         run_scheduler()
     except Exception as e:
         logger.error(f"Lỗi thực thi scheduler: {e}.")

@@ -87,6 +87,9 @@ def fiware_webhook():
             elif entity_type == 'TrainingJob':
                 socketio.emit('TRAINING_JOB_UPDATED', entity)
                 logger.info(f"🤖 Emit TRAINING_JOB_UPDATED: {entity_id}")
+            elif entity_type == 'ModelReload':
+                socketio.emit('MODEL_RELOAD_UPDATED', entity)
+                logger.info(f"🔄 Emit MODEL_RELOAD_UPDATED: {entity_id}")
             else:
                 logger.warning(f"⚠️ Unknown entity type: {entity_type}")
 

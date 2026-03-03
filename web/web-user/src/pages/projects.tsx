@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconBrain, IconChartLine, IconDatabase, IconSettings } from "@tabler/icons-react";
+import { PageHeader } from "@/components/page-header";
 
 export default function TrafficModels() {
   const models = [
@@ -58,13 +59,13 @@ export default function TrafficModels() {
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Mô Hình Machine Learning</h1>
-          <p className="text-sm text-muted-foreground mt-1">Quản lý và theo dõi các mô hình dự đoán lưu lượng giao thông</p>
-        </div>
+      <PageHeader
+        icon={<IconBrain className="w-5 h-5" />}
+        title="Mô hình Machine Learning"
+        description="Quản lý và theo dõi các mô hình dự đoán lưu lượng giao thông"
+      >
         <Button>Thêm mô hình mới</Button>
-      </div>
+      </PageHeader>
 
       <div className="grid gap-4 md:grid-cols-2">
         {models.map((model, idx) => {

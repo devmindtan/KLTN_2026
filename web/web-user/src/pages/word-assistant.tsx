@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconBulb, IconAlertCircle, IconArrowRight, IconCircle } from "@tabler/icons-react";
+import { PageHeader } from "@/components/page-header";
 
 export default function DecisionSupport() {
   const recommendations = [
@@ -66,13 +67,11 @@ export default function DecisionSupport() {
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Hỗ Trợ Ra Quyết Định</h1>
-          <p className="text-sm text-muted-foreground mt-1">Khuyến nghị tự động dựa trên phân tích AI và dự đoán lưu lượng</p>
-        </div>
-      </div>
-
+      <PageHeader
+        icon={<IconBulb className="w-5 h-5" />}
+        title="Hỗ Trợ Ra Quyết Định"
+        description="Khuyến nghị tự động dựa trên phân tích AI và dự đoán lưu lượng"
+      />
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

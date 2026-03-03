@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { IconSearch, IconMapPin, IconClock, IconFileText } from "@tabler/icons-react";
+import { PageHeader } from "@/components/page-header";
 
 export default function Search() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -54,13 +55,11 @@ export default function Search() {
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Tìm Kiếm</h1>
-          <p className="text-sm text-muted-foreground mt-1">Tìm kiếm dữ liệu, báo cáo và thông tin giao thông</p>
-        </div>
-      </div>
-
+      <PageHeader
+        icon={<IconSearch className="w-5 h-5" />}
+        title="Tìm Kiếm"
+        description="Tìm kiếm dữ liệu, báo cáo và thông tin giao thông"
+      />
       <Card>
         <CardContent className="pt-6">
           <div className="flex gap-2">

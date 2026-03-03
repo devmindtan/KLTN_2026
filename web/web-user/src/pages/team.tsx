@@ -3,7 +3,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import avatarImage from "@/assets/avatar.jpg";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { IconMail, IconPhone } from "@tabler/icons-react";
+import { IconMail, IconPhone, IconUsers } from "@tabler/icons-react";
+import { PageHeader } from "@/components/page-header";
 
 export default function Team() {
   const getInitials = (name: string) => {
@@ -35,14 +36,11 @@ export default function Team() {
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Đội ngũ phát triển</h1>
-          <p className="text-sm text-muted-foreground mt-1">Thành viên tham gia dự án dự đoán lưu lượng giao thông</p>
-        </div>
-        <Button>Thêm thành viên</Button>
-      </div>
-
+      <PageHeader
+        icon={<IconUsers className="w-5 h-5" />}
+        title="Đội ngũ phát triển"
+        description="Thành viên tham gia dự án dự đoán lưu lượng giao thông"
+      />
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {teamMembers.map((member, idx) => (
           <Card key={idx}>

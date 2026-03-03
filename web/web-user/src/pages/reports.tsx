@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconFileText, IconDownload, IconCalendar } from "@tabler/icons-react";
+import { PageHeader } from "@/components/page-header";
 
 export default function TrafficReports() {
   const reports = [
@@ -62,13 +63,13 @@ export default function TrafficReports() {
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Báo cáo giao thông</h1>
-          <p className="text-sm text-muted-foreground mt-1">Báo cáo và phân tích lưu lượng giao thông đô thị</p>
-        </div>
+      <PageHeader
+        icon={<IconFileText className="w-5 h-5" />}
+        title="Báo cáo giao thông"
+        description="Báo cáo và phân tích lưu lượng giao thông đô thị"
+      >
         <Button>Tạo báo cáo mới</Button>
-      </div>
+      </PageHeader>
 
       <div className="grid gap-4">
         {reports.map((report, idx) => (

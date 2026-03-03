@@ -38,6 +38,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { IconBrain, IconClockHour4, IconDatabase, IconRobot, IconSparkles, IconCheck, IconAlertTriangle, IconLoader2, IconCircleCheck, IconCircleX, IconArrowsSort, IconSortAscending, IconSortDescending, IconSearch } from "@tabler/icons-react";
+import { PageHeader } from "@/components/page-header";
 import {
   getActiveModels,
   getModelHistory,
@@ -1091,13 +1092,11 @@ export default function ModelsPage() {
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Mô Hình Machine Learning</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Quản lý và theo dõi các mô hình dự đoán lưu lượng giao thông
-          </p>
-        </div>
+      <PageHeader
+        icon={<IconBrain className="w-5 h-5" />}
+        title="Mô hình Machine Learning"
+        description="Quản lý và theo dõi các mô hình dự đoán lưu lượng giao thông"
+      >
         <Button
           onClick={() => { setTrainModalMode('new'); setTrainTarget(null); setTrainModalOpen(true); }}
           disabled={isTrainingRunning}
@@ -1106,7 +1105,7 @@ export default function ModelsPage() {
           <IconSparkles className="w-4 h-4 mr-2" />
           Huấn luyện phiên bản mới
         </Button>
-      </div>
+      </PageHeader>
 
       {/* Success banner (activate) */}
       {activateSuccess && (

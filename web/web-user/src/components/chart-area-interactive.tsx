@@ -135,17 +135,17 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
   return (
     <Card className="@container/card">
       <CardHeader className="relative">
-        <CardTitle>Traffic Forecast</CardTitle>
+        <CardTitle>Dự báo giao thông</CardTitle>
         <CardDescription>
           <span className="@[540px]/card:block hidden">
-            Predicted vehicle count for next hour
+            Dự đoán số lượng phương tiện trong các mốc 5/10/15/30/60 phút
           </span>
           <span className="@[540px]/card:hidden">Next hour forecast</span>
         </CardDescription>
         <div className="absolute right-4 top-4">
           <Select value={selectedCamera} onValueChange={setSelectedCamera}>
             <SelectTrigger
-              className="w-48"
+              className="w-65"
               aria-label="Select camera"
             >
               <SelectValue placeholder="All Cameras" />
@@ -164,7 +164,7 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
               </div>
               <div className="overflow-y-auto max-h-[300px]">
                 <SelectItem value="all" className="rounded-lg">
-                  All Cameras (Average)
+                  Tất cả camera (trung bình)
                 </SelectItem>
                 {filteredCameras.length > 0 ? (
                   filteredCameras.map((cam) => (

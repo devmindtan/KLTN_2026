@@ -25,6 +25,7 @@ import {
 } from "@/services/model-metrics.service";
 import { getAllCameras } from "@/services/camera.service";
 import { IconBrain, IconChartBar, IconChevronDown, IconClock, IconInfoCircle, IconTrendingUp } from "@tabler/icons-react";
+import { PageHeader } from "@/components/page-header";
 
 /**
  * Định dạng thời gian cho giao diện
@@ -185,15 +186,13 @@ export default function PredictiveAnalytics() {
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Phân tích hiệu suất mô hình</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Theo dõi độ chính xác dự đoán từ dữ liệu lịch sử
-          </p>
-        </div>
+      <PageHeader
+        icon={<IconChartBar className="w-5 h-5" />}
+        title="Phân tích hiệu suất mô hình"
+        description="Theo dõi độ chính xác dự đoán từ dữ liệu lịch sử"
+      >
         <Badge variant="outline">Cập nhật gần nhất: {latestGeneratedAt}</Badge>
-      </div>
+      </PageHeader>
 
       {isLoading && (
         <Card>

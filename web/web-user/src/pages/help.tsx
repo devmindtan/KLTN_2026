@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { IconBook, IconMessageCircle, IconMail, IconPhone } from "@tabler/icons-react";
+import { PageHeader } from "@/components/page-header";
 
 export default function Help() {
   const helpCategories = [
@@ -30,13 +31,11 @@ export default function Help() {
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Trung tâm hỗ trợ</h1>
-          <p className="text-sm text-muted-foreground mt-1">Tài liệu, hướng dẫn và hỗ trợ kỹ thuật</p>
-        </div>
-      </div>
-
+      <PageHeader
+        icon={<IconBook className="w-5 h-5" />}
+        title="Trung tâm hỗ trợ"
+        description="Tài liệu, hướng dẫn và hỗ trợ kỹ thuật"
+      />
       <div className="grid gap-4 md:grid-cols-2">
         {helpCategories.map((category, idx) => {
           const Icon = category.icon;

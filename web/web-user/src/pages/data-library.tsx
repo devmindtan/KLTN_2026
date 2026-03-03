@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconDatabase, IconFileSpreadsheet, IconCloud, IconRefresh } from "@tabler/icons-react";
+import { PageHeader } from "@/components/page-header";
 
 export default function TrafficDataLibrary() {
   const datasets = [
@@ -82,13 +83,13 @@ export default function TrafficDataLibrary() {
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Thư viện dữ liệu giao thông</h1>
-          <p className="text-sm text-muted-foreground mt-1">Quản lý và truy cập dữ liệu giao thông đô thị</p>
-        </div>
+      <PageHeader
+        icon={<IconDatabase className="w-5 h-5" />}
+        title="Thư viện dữ liệu giao thông"
+        description="Quản lý và truy cập dữ liệu giao thông đô thị"
+      >
         <Button>Import dữ liệu mới</Button>
-      </div>
+      </PageHeader>
 
       <div className="grid gap-4 md:grid-cols-2">
         {datasets.map((dataset, idx) => {

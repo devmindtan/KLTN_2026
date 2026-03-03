@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { IconMapPin, IconClock, IconAlertTriangle, IconCheck, IconActivity, IconInfoCircle, IconSearch, IconFilter, IconX } from "@tabler/icons-react";
+import { PageHeader } from "@/components/page-header";
 import { TrendingDownIcon, TrendingUpIcon } from "lucide-react";
 import { useSocket, type CameraData } from "@/contexts/SocketContext";
 import * as React from "react";
@@ -128,18 +129,16 @@ export default function TrafficMonitoring() {
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Giám sát lưu lượng thời gian thực</h1>
-          <p className="text-sm text-muted-foreground mt-1">Theo dõi lưu lượng giao thông tại các điểm quan trọng trong thành phố</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant={isConnected ? "default" : "destructive"} className="gap-1">
-            <IconActivity className="w-3 h-3" />
-            {isConnected ? "Đã Kết nối" : "Mất kết nối"}
-          </Badge>
-        </div>
-      </div>
+      <PageHeader
+        icon={<IconActivity className="w-5 h-5" />}
+        title="Giám sát lưu lượng thời gian thực"
+        description="Theo dõi lưu lượng giao thông tại các điểm quan trọng trong thành phố"
+      >
+        <Badge variant={isConnected ? "default" : "destructive"} className="gap-1">
+          <IconActivity className="w-3 h-3" />
+          {isConnected ? "Đã Kết nối" : "Mất kết nối"}
+        </Badge>
+      </PageHeader>
       
       {/* Search and Filters */}
       {processedCameras.length > 0 && (

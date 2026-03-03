@@ -6,8 +6,6 @@ Phù hợp với personal Google account
 
 import os
 import subprocess
-import gzip
-import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 import psycopg2
@@ -66,11 +64,16 @@ def log_backup_complete(cursor, backup_id, storage_location, file_size_mb, metad
 
 
 def run_pg_dump():
-    """Chạy pg_dump để backup database"""
+    """
+    Chạy pg_dump với định dạng custom (-Fc) và nén tích hợp.
+    Loại bỏ bước gzip riêng biệt → giảm 50% I/O disk.
+    Thêm lock-timeout để không block traffic production.
+    """
     Path(BACKUP_DIR).mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
-    dump_file = f"{BACKUP_DIR}/postgres_backup_{timestamp}.sql"
+    # .dump = custom binary format (nén tích hợp, không cần gzip riêng)
+    dump_file = f"{BACKUP_DIR}/postgres_backup_{timestamp}.dump"
 
     cmd = [
         'pg_dump',
@@ -79,8 +82,9 @@ def run_pg_dump():
         f'--username={DB_USER}',
         f'--dbname={DB_NAME}',
         '--no-password',
-        '--verbose',
-        '--format=plain',
+        '--format=custom',       # Binary format với nén tích hợp
+        '--compress=6',          # Level 6: cân bằng tốc độ/kích thước
+        f'--file={dump_file}',   # lock_timeout được set qua PGOPTIONS env bên dưới
     ]
 
     if BACKUP_TYPE == 'schema-only':
@@ -88,33 +92,30 @@ def run_pg_dump():
 
     env = os.environ.copy()
     env['PGPASSWORD'] = DB_PASSWORD
+    # lock_timeout: fail nhanh nếu bị block bởi lock khác (30s)
+    # statement_timeout=0: không timeout COPY của bảng lớn
+    # tcp_keepalives_*: gửi TCP keepalive mỗi 10s để CNI không drop connection
+    #   khi COPY bảng lớn (camera_detections có thể stream hàng trăm ngàn rows)
+    env['PGOPTIONS'] = (
+        '-c lock_timeout=30000'
+        ' -c statement_timeout=0'
+        ' -c tcp_keepalives_idle=10'
+        ' -c tcp_keepalives_interval=5'
+        ' -c tcp_keepalives_count=3'
+    )
 
-    print(f"🔄 Running pg_dump to {dump_file}...")
-    with open(dump_file, 'w') as f:
-        result = subprocess.run(cmd, env=env, stdout=f,
-                                stderr=subprocess.PIPE, text=True)
+    print(f"🔄 Running pg_dump (format=custom, compress=6) to {dump_file}...")
+    result = subprocess.run(cmd, env=env, stderr=subprocess.PIPE, text=True)
 
     if result.returncode != 0:
+        # Dọn file dump bị lỗi tránh tốn disk
+        if os.path.exists(dump_file):
+            os.remove(dump_file)
         raise Exception(f"pg_dump failed: {result.stderr}")
 
-    print(f"✅ pg_dump completed - {dump_file}")
-    return dump_file
-
-
-def compress_file(source_file):
-    """Compress file bằng gzip"""
-    compressed_file = f"{source_file}.gz"
-    print(f"🔄 Compressing {source_file}...")
-
-    with open(source_file, 'rb') as f_in:
-        with gzip.open(compressed_file, 'wb') as f_out:
-            shutil.copyfileobj(f_in, f_out)
-
-    os.remove(source_file)
-
-    file_size_mb = os.path.getsize(compressed_file) / (1024 * 1024)
-    print(f"✅ Compressed to {compressed_file} - Size: {file_size_mb:.2f} MB")
-    return compressed_file, file_size_mb
+    file_size_mb = os.path.getsize(dump_file) / (1024 * 1024)
+    print(f"✅ pg_dump completed - {dump_file} ({file_size_mb:.2f} MB)")
+    return dump_file, file_size_mb
 
 
 def upload_with_rclone(file_path):
@@ -148,39 +149,36 @@ def upload_with_rclone(file_path):
 
 
 def get_database_stats(cursor):
-    """Lấy thống kê database để lưu vào metadata"""
+    """
+    Lấy thống kê database để lưu metadata.
+    Gộp 3 queries cũ thành 1 query duy nhất để giảm round-trip DB.
+    """
     cursor.execute("""
-        SELECT 
+        SELECT
             schemaname,
-            COUNT(*) as table_count
-        FROM pg_tables
-        WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
-        GROUP BY schemaname
-    """)
-    schema_stats = cursor.fetchall()
-
-    cursor.execute("""
-        SELECT 
-            COUNT(*) as total_tables
-        FROM pg_tables
-        WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
-    """)
-    total_tables = cursor.fetchone()[0]
-
-    cursor.execute("""
-        SELECT 
-            relname as table_name,
-            n_live_tup as row_count
+            relname AS table_name,
+            n_live_tup AS row_count,
+            pg_size_pretty(pg_total_relation_size(
+                quote_ident(schemaname) || '.' || quote_ident(relname)
+            )) AS table_size
         FROM pg_stat_user_tables
+        WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
         ORDER BY n_live_tup DESC
-        LIMIT 10
     """)
-    top_tables = cursor.fetchall()
+    tables = cursor.fetchall()
+
+    # Tổng hợp schema counts từ kết quả duy nhất
+    schema_counts: dict[str, int] = {}
+    for row in tables:
+        schema_counts[row[0]] = schema_counts.get(row[0], 0) + 1
 
     return {
-        'total_tables': total_tables,
-        'schemas': [{'name': s[0], 'table_count': s[1]} for s in schema_stats],
-        'top_tables': [{'name': t[0], 'rows': t[1]} for t in top_tables]
+        'total_tables': len(tables),
+        'schemas': [{'name': k, 'table_count': v} for k, v in schema_counts.items()],
+        'top_tables': [
+            {'name': t[1], 'rows': t[2], 'size': t[3]}
+            for t in tables[:10]
+        ]
     }
 
 
@@ -209,25 +207,23 @@ def main():
         # 1. Log start time
         backup_id = log_backup_start(cursor)
 
-        # 2. Get database stats
+        # 2. Get database stats (single query)
         metadata = get_database_stats(cursor)
         print(f"📊 Database stats: {metadata['total_tables']} tables")
 
-        # 3. Run pg_dump
-        dump_file = run_pg_dump()
+        # 3. Run pg_dump với custom format + nén tích hợp (không cần bước gzip riêng)
+        dump_file, file_size_mb = run_pg_dump()
 
-        # 4. Compress
-        compressed_file, file_size_mb = compress_file(dump_file)
+        # 4. Upload with rclone (file .dump đã được nén sẵn)
+        storage_location = upload_with_rclone(dump_file)
 
-        # 5. Upload with rclone
-        storage_location = upload_with_rclone(compressed_file)
-
-        # 6. Update metadata
+        # 5. Update metadata
         metadata['rclone_remote'] = RCLONE_REMOTE
         metadata['rclone_folder'] = RCLONE_FOLDER
-        metadata['original_filename'] = os.path.basename(compressed_file)
+        metadata['original_filename'] = os.path.basename(dump_file)
+        metadata['dump_format'] = 'custom'  # Có thể restore bằng pg_restore
 
-        # 7. Log completion
+        # 6. Log completion
         log_backup_complete(
             cursor=cursor,
             backup_id=backup_id,
@@ -237,11 +233,11 @@ def main():
         )
 
         # Cleanup
-        os.remove(compressed_file)
+        os.remove(dump_file)
 
         print("=" * 60)
         print("✅ Backup completed successfully!")
-        print(f"📦 File: {os.path.basename(compressed_file)}")
+        print(f"📦 File: {os.path.basename(dump_file)}")
         print(f"💾 Size: {file_size_mb:.2f} MB")
         print(f"📁 Location: {storage_location}")
         print("=" * 60)
@@ -251,15 +247,18 @@ def main():
         print(f"❌ Backup failed: {error_msg}")
 
         if backup_id and conn:
-            cursor = conn.cursor()
-            log_backup_complete(
-                cursor=cursor,
-                backup_id=backup_id,
-                storage_location=None,
-                file_size_mb=None,
-                metadata={},
-                error_message=error_msg
-            )
+            try:
+                cursor = conn.cursor()
+                log_backup_complete(
+                    cursor=cursor,
+                    backup_id=backup_id,
+                    storage_location=None,
+                    file_size_mb=None,
+                    metadata={},
+                    error_message=error_msg
+                )
+            except Exception:
+                pass  # Không để lỗi log che khuất lỗi chính
 
         raise
 

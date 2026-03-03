@@ -30,7 +30,7 @@ rclone config
 rclone lsd gdrive:
 
 # Tạo folder backup
-rclone mkdir gdrive:KLTN_Backups
+rclone mkdir gdrive:School/KLTN_2026/In-project/Backups
 ```
 
 ## Bước 2: Test backup local

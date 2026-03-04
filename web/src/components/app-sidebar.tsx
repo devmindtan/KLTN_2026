@@ -8,7 +8,6 @@ import {
   IconFileWord,
   IconFolder,
   IconHelp,
-  IconInnerShadowTop,
   IconListDetails,
   IconReport,
   IconSearch,
@@ -129,13 +128,13 @@ function LogoButton({ prefix }: { prefix: string }) {
     <NavLink
       to={`/${prefix}/dashboard`}
       className={cn(
-        "flex items-center gap-2 rounded-md px-2 py-2 text-sm font-semibold",
+        "flex items-center gap-2 rounded-md px-0 py-0 text-xl font-bold",
         "hover:bg-sidebar-accent transition-colors",
         !open && "justify-center px-0"
       )}
     >
-      <IconInnerShadowTop className="size-5 shrink-0" />
-      {open && <span className="min-w-0 truncate">KLTN_2026</span>}
+      <img src="/logo_2.png" alt="logo" className="size-10 shrink-0 object-contain" />
+      {open && <span className="min-w-0 truncate tracking-widest" style={{ fontFamily: "'Orbitron', sans-serif", fontSize: "1rem", fontWeight: 900 }}>SMARTCITY</span>}
     </NavLink>
   )
 }

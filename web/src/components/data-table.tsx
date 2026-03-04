@@ -50,6 +50,7 @@ import {
   FilterIcon,
   XIcon,
 } from "lucide-react"
+import { IconCar, IconMotorbike } from "@tabler/icons-react"
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 // import { toast } from "sonner"
 import { z } from "zod"
@@ -205,8 +206,10 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
         <span className="text-lg font-semibold tabular-nums">
           {row.original.totalObjects}
         </span>
-        <Badge variant="outline" className="px-1.5 text-xs">
-          🚗 {row.original.carCount} • 🏍️ {row.original.motorbikeCount}
+        <Badge variant="outline" className="px-1.5 text-xs flex items-center gap-1">
+          <IconCar className="size-3 text-blue-500 shrink-0" />{row.original.carCount}
+          <span className="mx-1 text-muted-foreground/50">•</span>
+          <IconMotorbike className="size-3 text-orange-500 shrink-0" />{row.original.motorbikeCount}
         </Badge>
       </div>
     ),
@@ -846,11 +849,17 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1">
               <Label className="text-xs text-muted-foreground">Ô tô</Label>
-              <div className="text-xl font-semibold tabular-nums">🚗 {item.carCount}</div>
+              <div className="flex items-center gap-1.5 text-xl font-semibold tabular-nums">
+                <IconCar className="size-5 text-blue-500 shrink-0" />
+                {item.carCount}
+              </div>
             </div>
             <div className="flex flex-col gap-1">
               <Label className="text-xs text-muted-foreground">Xe máy</Label>
-              <div className="text-xl font-semibold tabular-nums">🏍️ {item.motorbikeCount}</div>
+              <div className="flex items-center gap-1.5 text-xl font-semibold tabular-nums">
+                <IconMotorbike className="size-5 text-orange-500 shrink-0" />
+                {item.motorbikeCount}
+              </div>
             </div>
           </div>
 
@@ -1071,11 +1080,17 @@ function TableCellViewerModal({ item, open, onOpenChange }: { item: z.infer<type
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1">
               <Label className="text-xs text-muted-foreground">Ô tô</Label>
-              <div className="text-xl font-semibold tabular-nums">🚗 {item.carCount}</div>
+              <div className="flex items-center gap-1.5 text-xl font-semibold tabular-nums">
+                <IconCar className="size-5 text-blue-500 shrink-0" />
+                {item.carCount}
+              </div>
             </div>
             <div className="flex flex-col gap-1">
               <Label className="text-xs text-muted-foreground">Xe máy</Label>
-              <div className="text-xl font-semibold tabular-nums">🏍️ {item.motorbikeCount}</div>
+              <div className="flex items-center gap-1.5 text-xl font-semibold tabular-nums">
+                <IconMotorbike className="size-5 text-orange-500 shrink-0" />
+                {item.motorbikeCount}
+              </div>
             </div>
           </div>
 

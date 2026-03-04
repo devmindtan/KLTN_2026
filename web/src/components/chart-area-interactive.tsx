@@ -50,7 +50,7 @@ interface ChartAreaInteractiveProps {
 
 const chartConfig = {
   vehicles: {
-    label: "Vehicles",
+    label: "Phương tiện",
     color: "hsl(var(--chart-1))",
   },
 } satisfies ChartConfig
@@ -76,7 +76,7 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
     // console.log("📊 [ChartAreaInteractive] Cameras received:", cameras.length);
 
     if (cameras.length === 0) {
-      console.log("⚠️ [ChartAreaInteractive] No cameras available");
+      console.log("⚠️ [ChartAreaInteractive] Không có camera nào");
       return [];
     }
 
@@ -97,10 +97,10 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
         return {
           time: timeframe,
           vehicles: Math.round(avgVehicles),
-          label: timeframe === "5m" ? "5 min" :
-            timeframe === "10m" ? "10 min" :
-              timeframe === "15m" ? "15 min" :
-                timeframe === "30m" ? "30 min" : "60 min",
+          label: timeframe === "5m" ? "5 phút" :
+            timeframe === "10m" ? "10 phút" :
+              timeframe === "15m" ? "15 phút" :
+                timeframe === "30m" ? "30 phút" : "60 phút",
         };
       });
 
@@ -121,10 +121,10 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
     const chartData = timeframes.map((timeframe) => ({
       time: timeframe,
       vehicles: Math.round(camera.forecasts[timeframe] || 0),
-      label: timeframe === "5m" ? "5 min" :
-        timeframe === "10m" ? "10 min" :
-          timeframe === "15m" ? "15 min" :
-            timeframe === "30m" ? "30 min" : "60 min",
+      label: timeframe === "5m" ? "5 phút" :
+        timeframe === "10m" ? "10 phút" :
+          timeframe === "15m" ? "15 phút" :
+            timeframe === "30m" ? "30 phút" : "60 phút",
     }));
 
     // console.log("📈 [Chart] Specific camera forecast data:", chartData);
@@ -140,7 +140,7 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
           <span className="@[540px]/card:block hidden">
             Dự đoán số lượng phương tiện trong các mốc 5/10/15/30/60 phút
           </span>
-          <span className="@[540px]/card:hidden">Next hour forecast</span>
+          <span className="@[540px]/card:hidden">Giờ dự đoán tiếp theo</span>
         </CardDescription>
         <div className="absolute right-4 top-4">
           <Select value={selectedCamera} onValueChange={setSelectedCamera}>
@@ -154,7 +154,7 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
               <div className="sticky top-0 z-10 bg-background p-2 border-b">
                 <input
                   type="text"
-                  placeholder="Search camera..."
+                  placeholder="Tìm kiếm camera..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-ring"
@@ -174,7 +174,7 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
                   ))
                 ) : (
                   <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-                    No cameras found
+                    Không tìm thấy camera nào
                   </div>
                 )}
               </div>
@@ -186,8 +186,8 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
         {filteredData.length === 0 ? (
           <div className="flex h-[250px] items-center justify-center text-muted-foreground">
             <div className="text-center">
-              <p className="text-lg font-medium">No forecast data available</p>
-              <p className="text-sm">Waiting for predictions from AI model...</p>
+              <p className="text-lg font-medium">Không có dữ liệu dự đoán nào</p>
+              <p className="text-sm">Đợi kết quả dự đoán từ model...</p>
             </div>
           </div>
         ) : (
@@ -221,13 +221,13 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
-                label={{ value: 'Vehicles', angle: -90, position: 'insideLeft' }}
+                label={{ value: 'Phương tiện', angle: -90, position: 'insideLeft' }}
               />
               <ChartTooltip
                 cursor={false}
                 content={
                   <ChartTooltipContent
-                    labelFormatter={(value) => `Forecast: ${value}`}
+                    labelFormatter={(value) => `Mốc: ${value}`}
                     indicator="dot"
                   />
                 }

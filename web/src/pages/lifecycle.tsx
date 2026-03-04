@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { IconMapPin, IconClock, IconAlertTriangle, IconCheck, IconActivity, IconInfoCircle, IconSearch, IconFilter, IconX } from "@tabler/icons-react";
+import { IconMapPin, IconClock, IconAlertTriangle, IconCheck, IconActivity, IconInfoCircle, IconSearch, IconFilter, IconX, IconCar, IconMotorbike } from "@tabler/icons-react";
 import { PageHeader } from "@/components/page-header";
 import { TrendingDownIcon, TrendingUpIcon } from "lucide-react";
 import { useSocket, type CameraData } from "@/contexts/SocketContext";
@@ -383,11 +383,17 @@ function CameraDetailDialog({ camera }: { camera: CameraData }) {
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1">
               <Label className="text-xs text-muted-foreground">Ô tô</Label>
-              <div className="text-xl font-semibold tabular-nums">🚗 {camera.carCount}</div>
+              <div className="flex items-center gap-1.5 text-xl font-semibold tabular-nums">
+                <IconCar className="size-5 text-blue-500 shrink-0" />
+                {camera.carCount}
+              </div>
             </div>
             <div className="flex flex-col gap-1">
               <Label className="text-xs text-muted-foreground">Xe máy</Label>
-              <div className="text-xl font-semibold tabular-nums">🏍️ {camera.motorbikeCount}</div>
+              <div className="flex items-center gap-1.5 text-xl font-semibold tabular-nums">
+                <IconMotorbike className="size-5 text-orange-500 shrink-0" />
+                {camera.motorbikeCount}
+              </div>
             </div>
           </div>
 

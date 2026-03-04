@@ -1,6 +1,7 @@
 /**
  * Model Metrics Service - API service để lấy dữ liệu hiệu suất model
  */
+import { apiFetch } from "@/lib/apiFetch";
 
 const BACKEND_API_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -131,12 +132,7 @@ interface HistoryResponse {
  */
 export async function getLatestModelMetrics(): Promise<ModelMetricsHistoryRow | null> {
   try {
-    const response = await fetch(`${BACKEND_API_URL}/api/model-metrics/latest`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+    const response = await apiFetch(`${BACKEND_API_URL}/api/model-metrics/latest`, { method: "GET" });
 
     if (response.status === 404) {
       return null;
@@ -164,14 +160,9 @@ export async function getLatestModelMetrics(): Promise<ModelMetricsHistoryRow | 
  */
 export async function getModelMetricsHistory(limit: number = 20): Promise<ModelMetricsHistoryRow[]> {
   try {
-    const response = await fetch(
+    const response = await apiFetch(
       `${BACKEND_API_URL}/api/model-metrics/history?limit=${limit}&offset=0`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
+      { method: "GET" }
     );
 
     if (!response.ok) {

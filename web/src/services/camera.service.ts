@@ -2,6 +2,7 @@
  * Camera Service - API service để xử lý các request liên quan đến camera
  * Tương tác với Backend API để lấy thông tin camera tĩnh (static data)
  */
+import { apiFetch } from "@/lib/apiFetch";
 
 const BACKEND_API_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -29,12 +30,7 @@ export interface CamerasResponse {
  */
 export async function getAllCameras(): Promise<CameraInfo[]> {
   try {
-    const response = await fetch(`${BACKEND_API_URL}/api/cameras`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    const response = await apiFetch(`${BACKEND_API_URL}/api/cameras`, { method: 'GET' });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -67,12 +63,7 @@ export async function getCameraById(camId: string): Promise<CameraInfo | null> {
       return null;
     }
     
-    const response = await fetch(`${BACKEND_API_URL}/api/cameras/${camId}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    const response = await apiFetch(`${BACKEND_API_URL}/api/cameras/${camId}`, { method: 'GET' });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -108,14 +99,9 @@ export async function getNearbyCameras(
       return [];
     }
     
-    const response = await fetch(
+    const response = await apiFetch(
       `${BACKEND_API_URL}/api/cameras/nearby?lat=${lat}&lng=${lng}&radius=${radius}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
+      { method: 'GET' }
     );
 
     if (!response.ok) {

@@ -1,6 +1,8 @@
 ## Báo cáo chỉnh sửa
-1. Backup postgres cronjob tối qua đã bị sập vì server không chịu nổi lượng đọc ghi lớn cần cải thiện và tối ưu lại query,... (xong)
-2. Điều chỉnh lại phần title của các trang tôi thấy mặc dù dashboard không có nó vẫn trông ổn hơn các trang khác (Tôi yêu cầu bạn thiết kế chỗ đó lại cho đẹp hơn chứ không kêu bạn chỉ mỗi xoá)
-3. Xoá checkbox kế bên mỗi camid trong dashboard.tsx (xong)
-4. Cần bắt đầu sử dụng JWT để phân quyền route (có 3 quyền chỉnh: người dùng phổ thông, quản lí giao thông, kỹ thuật viên)
-5. Chuẩn bị lên kế hoạch phát triển các trang còn lại
+1. Cần bắt đầu sử dụng JWT để phân quyền route (có 2 quyền chính: người dùng phổ thông - quản lí giao thông, kỹ thuật viên) - trước tiên cần tiến hành tạo file thiết kế trong ideas/ 
+   - Người dùng phổ thông và quản lí giao thông thì công cần có tài khoản nhưng vẫn cần có JWT (chỉ xem, và tải về nhưng file báo cáo)
+   - Kỹ thuật viên tức là super admin có toàn quyền và cần có tài khoản để dễ dàng kiểm soát lịch sử hoạt động khi làm việc theo team
+   - Chỉnh sửa lại giao diện phần tài khoản bỏ những chỗ không cần và bổ sung nhưng chỗ cần
+2. Chuẩn bị lên kế hoạch phát triển các trang còn lại
+3. Chuyển đổi tiếng anh và tiếng việt
+4. Bổ sung chatbot thông minh có khả năng tổng hợp những dữ liệu báo cáo và đưa ra những đề xuất về quyết định

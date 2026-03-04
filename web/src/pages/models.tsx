@@ -50,6 +50,7 @@ import {
   type ModelHistoryResponse,
 } from "@/services/model.service";
 import { useSocket, type TrainingJobData } from "@/contexts/SocketContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 // ============================================================
 // HELPERS
@@ -96,6 +97,8 @@ function ModelDetailSheet({
   onClose: () => void;
   onActivateRequest: (target: MLModelMetadata, currentActive: MLModelMetadata) => void;
 }) {
+  const { role } = useAuth();
+  const isTechnician = role === "technician";
   const [history, setHistory] = useState<ModelHistoryResponse | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
   // History filter / sort states
@@ -379,8 +382,10 @@ function ModelDetailSheet({
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-6 text-[10px] px-2 border-blue-300 text-blue-700 hover:bg-blue-50"
+                                className="h-6 text-[10px] px-2 border-blue-300 text-blue-700 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 onClick={() => model && onActivateRequest(v, model)}
+                                disabled={!isTechnician}
+                                title={!isTechnician ? "Cần đăng nhập kỹ thuật viên để kích hoạt" : undefined}
                               >
                                 <IconCheck className="w-3 h-3 mr-1" />
                                 Kích hoạt
@@ -586,6 +591,8 @@ function ModelCard({
   const r2 = model.metrics?.r2;
   const horizon = HORIZON_LABEL[model.model_type];
   const isYolo = model.model_type === "yolo";
+  const { role } = useAuth();
+  const isTechnician = role === "technician";
 
   return (
     <Card className="flex flex-col justify-between hover:shadow-md transition-shadow">
@@ -650,7 +657,7 @@ function ModelCard({
           >
             Xem chi tiết
           </Button>
-          {!isYolo && (
+          {!isYolo && isTechnician && (
             <Button
               size="sm"
               className="flex-1"
@@ -975,6 +982,8 @@ function TrainNewVersionModal({
 
 export default function ModelsPage() {
   const { trainingJob, modelReload } = useSocket();
+  const { role } = useAuth();
+  const isTechnician = role === "technician";
   const [models, setModels] = useState<MLModelMetadata[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1097,14 +1106,16 @@ export default function ModelsPage() {
         title="Mô hình Machine Learning"
         description="Quản lý và theo dõi các mô hình dự đoán lưu lượng giao thông"
       >
-        <Button
-          onClick={() => { setTrainModalMode('new'); setTrainTarget(null); setTrainModalOpen(true); }}
-          disabled={isTrainingRunning}
-          title={isTrainingRunning ? "Đang có tiến trình huấn luyện đang chạy" : undefined}
-        >
-          <IconSparkles className="w-4 h-4 mr-2" />
-          Huấn luyện phiên bản mới
-        </Button>
+        {isTechnician && (
+          <Button
+            onClick={() => { setTrainModalMode('new'); setTrainTarget(null); setTrainModalOpen(true); }}
+            disabled={isTrainingRunning}
+            title={isTrainingRunning ? "Đang có tiến trình huấn luyện đang chạy" : undefined}
+          >
+            <IconSparkles className="w-4 h-4 mr-2" />
+            Huấn luyện phiên bản mới
+          </Button>
+        )}
       </PageHeader>
 
       {/* Success banner (activate) */}

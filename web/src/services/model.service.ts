@@ -1,6 +1,7 @@
 /**
  * Model Service - API service để quản lý ML models
  */
+import { apiFetch } from "@/lib/apiFetch";
 
 const BACKEND_API_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -57,7 +58,7 @@ export interface AllVersionsResponse {
  * Lấy danh sách tất cả model đang active (1 model/loại)
  */
 export const getActiveModels = async (): Promise<MLModelMetadata[]> => {
-  const res = await fetch(`${BACKEND_API_URL}/api/models`);
+  const res = await apiFetch(`${BACKEND_API_URL}/api/models`);
   if (!res.ok) throw new Error("Lỗi khi lấy danh sách mô hình");
   const json: ActiveModelsResponse = await res.json();
   return json.data ?? [];
@@ -67,7 +68,7 @@ export const getActiveModels = async (): Promise<MLModelMetadata[]> => {
  * Lấy chi tiết 1 model theo ID
  */
 export const getModelById = async (id: number): Promise<MLModelMetadata> => {
-  const res = await fetch(`${BACKEND_API_URL}/api/models/${id}`);
+  const res = await apiFetch(`${BACKEND_API_URL}/api/models/${id}`);
   if (!res.ok) throw new Error("Lỗi khi lấy chi tiết mô hình");
   const json = await res.json();
   return json.data;
@@ -77,7 +78,7 @@ export const getModelById = async (id: number): Promise<MLModelMetadata> => {
  * Lấy lịch sử tất cả versions của cùng loại model (theo ID của model hiện tại)
  */
 export const getModelHistory = async (id: number): Promise<ModelHistoryResponse> => {
-  const res = await fetch(`${BACKEND_API_URL}/api/models/${id}/history`);
+  const res = await apiFetch(`${BACKEND_API_URL}/api/models/${id}/history`);
   if (!res.ok) throw new Error("Lỗi khi lấy lịch sử phiên bản");
   return res.json();
 };
@@ -86,7 +87,7 @@ export const getModelHistory = async (id: number): Promise<ModelHistoryResponse>
  * Lấy tất cả versions của mọi loại model (dùng cho selector kích hoạt)
  */
 export const getAllModelVersions = async (): Promise<Record<string, MLModelMetadata[]>> => {
-  const res = await fetch(`${BACKEND_API_URL}/api/models/all`);
+  const res = await apiFetch(`${BACKEND_API_URL}/api/models/all`);
   if (!res.ok) throw new Error("Lỗi khi lấy phiên bản mô hình");
   const json: AllVersionsResponse = await res.json();
   return json.data ?? {};
@@ -98,9 +99,8 @@ export const getAllModelVersions = async (): Promise<Record<string, MLModelMetad
 export const activateModel = async (
   id: number
 ): Promise<{ success: boolean; message: string; k8s_restart: boolean }> => {
-  const res = await fetch(`${BACKEND_API_URL}/api/models/${id}/activate`, {
+  const res = await apiFetch(`${BACKEND_API_URL}/api/models/${id}/activate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
   });
   const json = await res.json();
   if (!res.ok) throw new Error(json.message ?? "Lỗi khi kích hoạt mô hình");
@@ -115,9 +115,8 @@ export const trainModel = async (payload: {
   start_date: string;
   end_date: string;
 }): Promise<{ success: boolean; job_name: string; job_id: string; status: string }> => {
-  const res = await fetch(`${BACKEND_API_URL}/api/models/train`, {
+  const res = await apiFetch(`${BACKEND_API_URL}/api/models/train`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
   const json = await res.json();

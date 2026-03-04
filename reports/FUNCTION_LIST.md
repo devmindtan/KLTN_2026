@@ -29,6 +29,16 @@ Template:
 | TS-ML04 | **GET /api/models/:id/history** - Lịch sử versions | **Input:** `id` (number)<br>**Output:** `{success, model_type, display_name, data[]}` | ✅ | None | Tìm model_type từ id, query tất cả versions cùng type ORDER DESC | `backend/server/src/controllers/model.controller.ts::getModelHistory()` |
 | TS-ML05 | **POST /api/models/:id/activate** - Kích hoạt version | **Input:** `id` (number)<br>**Output:** `{success, message, k8s_restart}` | ✅ | [UPDATED 28/02/26] Thêm k8s rollout restart qua `apps.patchNamespacedDeployment()` sau commit DB. Graceful fallback khi dev local | Transaction: deactivate all same-type → activate target. Sau đó patch deployment image-predict (rollout restart). k8s_restart=false khi dev | `backend/server/src/controllers/model.controller.ts::activateModel()` |
 | TS-ML06 | **POST /api/models/train** - Tạo training job | **Input:** `{model_type, start_date, end_date}`<br>**Output:** `{success, job_name, job_id, status}` | ✅ | Cần in-cluster k8s config (server.yaml cần `serviceAccountName: server-sa`). 503 khi dev local | Tạo k8s Job bằng `@kubernetes/client-node`, Job chạy train_single.py với env vars từ image-predict-deployment, resources 2-4Gi RAM, ttl=3600s | `backend/server/src/controllers/model.controller.ts::trainModel()` |
+| TS-A01 | **POST /api/auth/guest-token** - Cấp JWT anonymous | **Input:** None<br>**Output:** `{success, token, role: "viewer"}` | ✅ | None | Tạo anonymous JWT với `role: viewer`, hết hạn 24h. Tự động cấp khi frontend khởi động | `backend/server/src/controllers/auth.controller.ts::getGuestToken()` |
+| TS-A02 | **POST /api/auth/login** - Đăng nhập kỹ thuật viên | **Input:** `{email, password}`<br>**Output:** `{success, token, user}` + refreshToken cookie | ✅ | None | bcrypt verify hash, set HttpOnly refresh token cookie 30 ngày, trả access token 8h | `backend/server/src/controllers/auth.controller.ts::login()` |
+| TS-A03 | **POST /api/auth/refresh** - Làm mới access token | **Input:** refreshToken cookie<br>**Output:** `{success, token}` | ✅ | None | Verify refresh token của kỹ thuật viên, cấp access token mới 8h | `backend/server/src/controllers/auth.controller.ts::refreshToken()` |
+| TS-A04 | **POST /api/auth/logout** - Đăng xuất | **Input:** Bearer token<br>**Output:** `{success, message}` | ✅ | None | Xóa refreshToken cookie | `backend/server/src/controllers/auth.controller.ts::logout()` |
+| TS-A05 | **GET /api/auth/me** - Thông tin tài khoản | **Input:** Bearer token<br>**Output:** `{success, data: TechnicianAccount}` | ✅ | None | Query technician_accounts theo userId từ JWT payload | `backend/server/src/controllers/auth.controller.ts::getMe()` |
+| TS-A06 | **PUT /api/auth/change-password** - Đổi mật khẩu | **Input:** `{current_password, new_password}` + Bearer token<br>**Output:** `{success, message}` | ✅ | None | bcrypt compare current → hash new → update DB | `backend/server/src/controllers/auth.controller.ts::changePassword()` |
+| TS-A07 | **GET /api/auth/activity-logs** - Lịch sử hoạt động | **Input:** `?limit=10` + Bearer token<br>**Output:** `{success, data: ActivityLog[]}` | ✅ | None | Query activity_logs ORDER BY created_at DESC LIMIT n | `backend/server/src/controllers/auth.controller.ts::getActivityLogs()` |
+| TS-MW01 | **requireAuth** - Middleware xác thực JWT | **Input:** Request headers Authorization<br>**Output:** `req.auth` gọn JWT payload | ✅ | None | Verify JWT, inject `req.auth = payload`. Áp dụng cho /api/cameras, /api/model-metrics, /api/models | `backend/server/src/middleware/auth.middleware.ts::requireAuth()` |
+| TS-MW02 | **requireTechnician** - Middleware phân quyền | **Input:** Request headers Authorization<br>**Output:** 403 nếu không phải technician | ✅ | None | Verify JWT + check role=technician. Áp dụng cho POST/models/train, POST/models/:id/activate, tất cả /api/auth write routes | `backend/server/src/middleware/auth.middleware.ts::requireTechnician()` |
+| TS-MW03 | **logActivity** - Middleware ghi log hoạt động | **Input:** `(action, resource)` factory function<br>**Output:** Insert row vào activity_logs | ✅ | None | Async insert activity_logs không block request. Dùng cho TRAIN_MODEL và ACTIVATE_MODEL | `backend/server/src/middleware/auth.middleware.ts::logActivity()` |
 
 ---
 
@@ -155,8 +165,13 @@ Template:
 | TSX-P01 | **Dashboard** - Trang tổng quan | **Input:** Real-time socket data<br>**Output:** Cards, charts, metrics | ✅ | None | Hiển thị tổng quan giao thông: total cameras, avg vehicles, status distribution (dùng status.current), trending cameras. Metrics tính từ processedCameras với LOS grouping (goodStatus: free_flow+smooth, moderateStatus: moderate, badStatus: heavy+congested) | `web/web-user/src/pages/dashboard.tsx` |
 | TSX-P02 | **Lifecycle** - Trang lifecycle camera | **Input:** Socket data<br>**Output:** Camera list with DataTable | ✅ | [UPDATED 17/02/26] Thêm hiển thị calculation (predicted_volume / capacity + vc_ratio%) trong Dialog detail | Bảng chi tiết tất cả camera với dual status (current+forecast), trend, forecasts, search/filter (theo status.current), detail dialog với calculation info "11/120 xe (9%)" giúp user hiểu công thức tính LOS | `web/web-user/src/pages/lifecycle.tsx` |
 | TSX-P03 | **Analytics** - Trang phân tích hiệu suất model | **Input:** API model-metrics (`latest`, `history`) + mapping camera data<br>**Output:** Cards + bảng horizon + ranking + history table | ✅ | [UPDATED 22/02/26] Đã chuyển từ mock sang dữ liệu thật và map ID camera thành tên hiển thị | Hiển thị MAE/MAPE/Accuracy/Trend Accuracy, so sánh theo horizon, top/bottom camera theo tên thực tế, snapshot lịch sử và khối giải thích ý nghĩa metric bằng tiếng Việt | `web/web-user/src/pages/analytics.tsx` |
-| TSX-P04 | **Settings** - Trang cài đặt | **Input:** User preferences<br>**Output:** Settings form | 🚧 | [TODO] Chưa có UI settings | User preferences, notifications, display options | `web/web-user/src/pages/setting.tsx` |
+| TSX-P04 | **Settings** - Trang cài đặt tài khoản | **Input:** `useAuth()` context<br>**Output:** Viewer: badge + nút đăng nhập. Technician: thông tin tài khoản + form đổi mật khẩu + lịch sử hoạt động | ✅ | [UPDATED 03/03/26] Redesign từ placeholder → nội dung thật theo role | Hiển thị ViewerSettings (hạn chế quyền + nút login) hoặc TechnicianSettings (thông tin + change password form + activity log 10 entries) | `web/web-user/src/pages/setting.tsx` |
 | TSX-P05 | **ModelsPage** - Quản lý ML Models | **Input:** API models + socket `trainingJob`<br>**Output:** Grid + Sheet + AlertDialog + TrainNewVersionModal | ✅ | [NEW 28/02/26] ⚠️ FIWARE TrainingJob subscription cần register thủ công. server.yaml cần `serviceAccountName: server-sa` | Grid active models/type. Sheet: history table + Kích hoạt (ActivateModelDialog). TrainNewVersionModal 3 bước: radio type → date range → progress bar realtime (TRAINING_JOB_UPDATED socket event) | `web/web-user/src/pages/models.tsx::ModelsPage()` |
+| TSX-P06 | **Login** - Trang đăng nhập kỹ thuật viên | **Input:** `{email, password}`<br>**Output:** Redirect /user/dashboard sau đăng nhập thành công | ✅ | [NEW 03/03/26] | Form đăng nhập: gọi `login()` từ AuthContext, hiển thị toast error/success, redirect sau thành công. Auto-redirect nếu đã đăng nhập. | `web/web-user/src/pages/login.tsx` |
+| TSX-AC01 | **AuthContext / useAuth** - Quản lý trạng thái xác thực | **Input:** N/A (Context provider)<br>**Output:** `{isAuthenticated, role, user, token, login(), logout(), getToken()}` | ✅ | [NEW 03/03/26] | Init: check token localStorage → verify /api/auth/me → silent refresh → fallback guest. Silent refresh timer: gia hạn 30 phút trước khi hết hạn | `web/web-user/src/contexts/AuthContext.tsx` |
+| TSX-PR01 | **ProtectedRoute** - Bảo vệ route theo role | **Input:** `{children, role?, redirectTo?}`<br>**Output:** Render children hoặc Navigate | ✅ | [NEW 03/03/26] | Check isLoading → check role → redirect nếu không đủ quyền | `web/web-user/src/components/auth/ProtectedRoute.tsx` |
+| TS-AS01 | **auth.service.ts** - API calls xác thực | **Input:** Nạp các params (email, password, token...)<br>**Output:** API responses | ✅ | [NEW 03/03/26] | 6 functions: fetchGuestToken, loginRequest, logoutRequest, refreshTokenRequest, getMeRequest, changePasswordRequest, getActivityLogsRequest | `web/web-user/src/services/auth.service.ts` |
+| TS-AF01 | **apiFetch** - HTTP wrapper tự động gắn JWT | **Input:** `(url, options?)`<br>**Output:** `Promise<Response>` | ✅ | [NEW 03/03/26] | Đọc token từ localStorage, gắn `Authorization: Bearer` vào mọi request. Dùng thay thế fetch trong camera.service, model.service, model-metrics.service | `web/web-user/src/lib/apiFetch.ts` |
 
 ---
 
@@ -165,7 +180,6 @@ Template:
 ### 🔴 Known Issues & TODOs
 - **[TODO] TS-C03**: Nearby camera search chưa có logic GPS thực sự → Cần implement PostGIS hoặc Haversine
 - **[TODO] TS-S03**: Frontend nearby search phụ thuộc vào TS-C03
-- **[TODO] TSX-P04**: Settings page chưa có UI
 
 ### ✅ Recent Updates (Từ AGENT_LOG.md)
 - **LOS Calculation**: Đã chuyển sang dynamic capacity với 2 nhánh realtime/prediction theo MAX 7 ngày
@@ -180,16 +194,19 @@ Template:
 - **[NEW 26/02/26] Sample Counts Tracking**: Thêm 3 cột vào camera_forecasts (input/lag/sync_sample_count) để verify data quality
 - **[NEW 26/02/26] Confidence Scoring**: Service model-performance giờ tính prediction_confidence và error_confidence dựa trên sample counts consistency
 - **[NEW 26/02/26] Analytics UI Enhancement**: Frontend analytics.tsx hiển thị confidence scores với badges màu sắc và recommendation tiếng Việt (Giữ lại/Tùy chọn/Loại bỏ)
+- **[NEW 03/03/26] JWT Auth System**: Implement đầy đủ hệ thống xác thực 2 vai trò (viewer anonymous JWT 24h + technician authenticated JWT 8h + refresh 30d). Backend: 7 routes auth + 3 middleware. Frontend: AuthContext, login page, ProtectedRoute, apiFetch wrapper, settings redesign, nav-user + sidebar theo role
 
 ### 📊 Thống kê Functions
-- **Backend API**: 6 endpoints
+- **Backend API**: 17 endpoints (6 camera/metrics + 5 model + 7 auth + 1 test)
+- **Backend Middleware**: 3 functions (requireAuth, requireTechnician, logActivity)
 - **Python ML**: 25 functions (Image Process, Prediction, Query, Model Performance + 2 helpers confidence)
 - **Python Backup**: 7 functions (Disaster Recovery)
 - **Python App Route**: 3 functions
-- **Frontend Services**: 5 API services + 2 Contexts
-- **UI Components**: 10 components (Navigation, Dashboard, Table, Charts)
-- **Pages**: 4 pages (Dashboard, Lifecycle, Analytics, Settings)
-- **Tổng cộng**: **63 functions** được document
+- **Frontend Services**: 6 API services + 3 Contexts (Socket, Theme, Auth)
+- **Frontend Utils**: 1 utility (apiFetch)
+- **UI Components**: 12 components (Navigation, Dashboard, Table, Charts + ProtectedRoute + Login)
+- **Pages**: 6 pages (Dashboard, Lifecycle, Analytics, Settings, Models, Login)
+- **Tổng cộng**: **75 functions** được document
 
 ### 🎯 Luồng dữ liệu chính
 ```

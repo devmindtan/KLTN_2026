@@ -37,24 +37,24 @@ export function SectionCards({ metrics, isConnected }: SectionCardsProps) {
     : 0;
 
   return (
-    <div className="*:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4 grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card lg:px-6">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 px-6">
       <Card className="@container/card">
-        <CardHeader className="relative">
-          <CardDescription>Tổng Phương Tiện</CardDescription>
-          <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
-            {metrics.totalVehicles}
-          </CardTitle>
-          <div className="absolute right-4 top-4">
+        <CardHeader>
+          <div className="flex items-center justify-between gap-2">
+            <CardDescription>Tổng Phương Tiện</CardDescription>
             <Badge
               variant="outline"
-              className={`flex gap-1 rounded-lg text-xs ${
+              className={`flex items-center gap-1 rounded-lg text-xs whitespace-nowrap shrink-0 ${
                 isConnected ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"
               }`}
             >
-              <ActivityIcon className="size-3" />
+              <ActivityIcon className="size-3 shrink-0" />
               {isConnected ? "Trực tiếp" : "Mất kết nối"}
             </Badge>
           </div>
+          <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
+            {metrics.totalVehicles}
+          </CardTitle>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium text-muted-foreground">
@@ -67,17 +67,17 @@ export function SectionCards({ metrics, isConnected }: SectionCardsProps) {
       </Card>
 
       <Card className="@container/card">
-        <CardHeader className="relative">
-          <CardDescription>Camera Hoạt Động</CardDescription>
-          <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
-            {metrics.activeCameras}
-          </CardTitle>
-          <div className="absolute right-4 top-4">
-            <Badge variant="outline" className="flex gap-1 rounded-lg text-xs">
-              <CameraIcon className="size-3" />
+        <CardHeader>
+          <div className="flex items-center justify-between gap-2">
+            <CardDescription>Camera Hoạt Động</CardDescription>
+            <Badge variant="outline" className="flex items-center gap-1 rounded-lg text-xs whitespace-nowrap shrink-0">
+              <CameraIcon className="size-3 shrink-0" />
               Trực tuyến
             </Badge>
           </div>
+          <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
+            {metrics.activeCameras}
+          </CardTitle>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
@@ -90,15 +90,12 @@ export function SectionCards({ metrics, isConnected }: SectionCardsProps) {
       </Card>
 
       <Card className="@container/card">
-        <CardHeader className="relative">
-          <CardDescription>Tình Trạng Giao Thông</CardDescription>
-          <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
-            {metrics.goodStatus}/{metrics.activeCameras}
-          </CardTitle>
-          <div className="absolute right-4 top-4">
+        <CardHeader>
+          <div className="flex items-center justify-between gap-2">
+            <CardDescription>Tình Trạng Giao Thông</CardDescription>
             <Badge
               variant="outline"
-              className={`flex gap-1 rounded-lg text-xs ${
+              className={`flex items-center gap-1 rounded-lg text-xs whitespace-nowrap shrink-0 ${
                 badStatusPercentage > 50
                   ? "bg-red-500/10 text-red-600"
                   : "bg-green-500/10 text-green-600"
@@ -107,6 +104,9 @@ export function SectionCards({ metrics, isConnected }: SectionCardsProps) {
               {badStatusPercentage > 50 ? "⚠️" : "✓"} {badStatusPercentage}%
             </Badge>
           </div>
+          <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
+            {metrics.goodStatus}/{metrics.activeCameras}
+          </CardTitle>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
@@ -119,21 +119,21 @@ export function SectionCards({ metrics, isConnected }: SectionCardsProps) {
       </Card>
 
       <Card className="@container/card">
-        <CardHeader className="relative">
-          <CardDescription>Xu Hướng Giao Thông</CardDescription>
-          <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
-            {trendPercentage}%
-          </CardTitle>
-          <div className="absolute right-4 top-4">
-            <Badge variant="outline" className="flex gap-1 rounded-lg text-xs">
+        <CardHeader>
+          <div className="flex items-center justify-between gap-2">
+            <CardDescription>Xu Hướng Giao Thông</CardDescription>
+            <Badge variant="outline" className="flex items-center gap-1 rounded-lg text-xs whitespace-nowrap shrink-0">
               {metrics.trendingUp > metrics.trendingDown ? (
-                <TrendingUpIcon className="size-3 text-orange-500" />
+                <TrendingUpIcon className="size-3 shrink-0 text-orange-500" />
               ) : (
-                <TrendingDownIcon className="size-3 text-green-500" />
+                <TrendingDownIcon className="size-3 shrink-0 text-green-500" />
               )}
               {metrics.trendingUp > metrics.trendingDown ? "Tăng" : "Giảm"}
             </Badge>
           </div>
+          <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
+            {trendPercentage}%
+          </CardTitle>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">

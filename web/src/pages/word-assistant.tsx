@@ -69,7 +69,7 @@ export default function DecisionSupport() {
     <div className="flex flex-1 flex-col gap-4 p-4">
       <PageHeader
         icon={<IconBulb className="w-5 h-5" />}
-        title="Hỗ Trợ Ra Quyết Định"
+        title="Hỗ trợ ra quyết định"
         description="Khuyến nghị tự động dựa trên phân tích AI và dự đoán lưu lượng"
       />
       <div className="grid gap-4 md:grid-cols-3">

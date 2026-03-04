@@ -81,7 +81,7 @@ export default function Help() {
               </div>
               <div>
                 <div className="text-sm font-medium">Email</div>
-                <div className="text-sm text-muted-foreground">support@traffic-ai.vn</div>
+                <div className="text-sm text-muted-foreground">devmind.tan@gmail.com</div>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -89,8 +89,8 @@ export default function Help() {
                 <IconPhone className="w-5 h-5 text-green-600" />
               </div>
               <div>
-                <div className="text-sm font-medium">Hột line</div>
-                <div className="text-sm text-muted-foreground">1900 xxxx</div>
+                <div className="text-sm font-medium">Hotline</div>
+                <div className="text-sm text-muted-foreground">+84 942 510 317</div>
               </div>
             </div>
             <div className="flex items-center gap-3">

@@ -57,7 +57,7 @@ export default function Search() {
     <div className="flex flex-1 flex-col gap-4 p-4">
       <PageHeader
         icon={<IconSearch className="w-5 h-5" />}
-        title="Tìm Kiếm"
+        title="Tìm kiếm"
         description="Tìm kiếm dữ liệu, báo cáo và thông tin giao thông"
       />
       <Card>

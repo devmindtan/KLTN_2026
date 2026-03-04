@@ -40,9 +40,14 @@ Template:
 | TS-MW02 | **requireTechnician** - Middleware phân quyền | **Input:** Request headers Authorization<br>**Output:** 403 nếu không phải technician | ✅ | None | Verify JWT + check role=technician. Áp dụng cho POST/models/train, POST/models/:id/activate, tất cả /api/auth write routes | `backend/server/src/middleware/auth.middleware.ts::requireTechnician()` |
 | TS-MW03 | **logActivity** - Middleware ghi log hoạt động | **Input:** `(action, resource)` factory function<br>**Output:** Insert row vào activity_logs | ✅ | None | Async insert activity_logs không block request. Dùng cho TRAIN_MODEL và ACTIVATE_MODEL | `backend/server/src/middleware/auth.middleware.ts::logActivity()` |
 
----
+| TS-DL01 | **GET /api/data-library/collections** - Danh sách collections | **Input:** query `{source?, data_type?, search?, limit?, offset?}`<br>**Output:** `{success, data: Collection[], total, limit, offset}` | ✅ | None | Query `data_library_collections` với filter + pagination, kèm entry_count và last_snapshot_date từ subquery | `backend/server/src/controllers/data-library.controller.ts::getCollections()` |
+| TS-DL02 | **GET /api/data-library/collections/:id** - Chi tiết collection + entries | **Input:** `id` (uuid)<br>**Output:** `{success, data: CollectionDetail}` | ✅ | None | JOIN với `data_library_entries`, trả về entries array ORDER BY snapshot_date DESC | `backend/server/src/controllers/data-library.controller.ts::getCollectionById()` |
+| TS-DL03 | **POST /api/data-library/collections** - Tạo collection ngoài | **Input:** `{title, data_type, description?}`<br>**Output:** `{success, data: Collection}` | ✅ | requireTechnician | INSERT với source='external'. collection_id = crypto.randomUUID() | `backend/server/src/controllers/data-library.controller.ts::createCollection()` |
+| TS-DL04 | **DELETE /api/data-library/collections/:id** - Xóa collection | **Input:** `id` (uuid)<br>**Output:** `{success, message}` | ✅ | requireTechnician | Chỉ cho phép xóa source='external'. Cascade xóa entries | `backend/server/src/controllers/data-library.controller.ts::deleteCollection()` |
+| TS-DL05 | **GET /api/data-library/entries/:id/download** - Tải file | **Input:** `id` (entry), `file` query (key hoặc "all")<br>**Output:** Stream (gzip decompress hoặc zip) | ✅ | None | `file=all`: archiver zip (level 0), stream tất cả files của entry. `file={key}`: Get S3 object → decompress gzip → stream với Content-Disposition | `backend/server/src/controllers/data-library.controller.ts::downloadEntry()` |
+| TS-DL06 | **POST /api/data-library/entries** - Import file vào collection | **Input:** FormData `{collection_id, snapshot_date, file}` + optional new collection fields<br>**Output:** `{success, data: Entry}` | ✅ | requireTechnician + multer | `collection_id="new"` → auto-create collection. gzipSync file → upload MinIO → upsert entry (JSONB merge minio_keys). Hỗ trợ .csv và .json | `backend/server/src/controllers/data-library.controller.ts::importEntry()` |
+| TS-DL07 | **DELETE /api/data-library/entries/:id** - Xóa entry | **Input:** `id` (uuid)<br>**Output:** `{success, message}` | ✅ | requireTechnician | Xóa từ DB và xóa tất cả files trên MinIO theo minio_keys JSONB | `backend/server/src/controllers/data-library.controller.ts::deleteEntry()` |
 
-### 🔷 Python ML Services
 
 #### **📌 Image Processing Service** (`image-process`)
 
@@ -169,7 +174,12 @@ Template:
 | TSX-P05 | **ModelsPage** - Quản lý ML Models | **Input:** API models + socket `trainingJob`<br>**Output:** Grid + Sheet + AlertDialog + TrainNewVersionModal | ✅ | [NEW 28/02/26] ⚠️ FIWARE TrainingJob subscription cần register thủ công. server.yaml cần `serviceAccountName: server-sa` | Grid active models/type. Sheet: history table + Kích hoạt (ActivateModelDialog). TrainNewVersionModal 3 bước: radio type → date range → progress bar realtime (TRAINING_JOB_UPDATED socket event) | `web/web-user/src/pages/models.tsx::ModelsPage()` |
 | TSX-P06 | **Login** - Trang đăng nhập kỹ thuật viên | **Input:** `{email, password}`<br>**Output:** Redirect /user/dashboard sau đăng nhập thành công | ✅ | [NEW 03/03/26] | Form đăng nhập: gọi `login()` từ AuthContext, hiển thị toast error/success, redirect sau thành công. Auto-redirect nếu đã đăng nhập. | `web/web-user/src/pages/login.tsx` |
 | TSX-AC01 | **AuthContext / useAuth** - Quản lý trạng thái xác thực | **Input:** N/A (Context provider)<br>**Output:** `{isAuthenticated, role, user, token, login(), logout(), getToken()}` | ✅ | [NEW 03/03/26] | Init: check token localStorage → verify /api/auth/me → silent refresh → fallback guest. Silent refresh timer: gia hạn 30 phút trước khi hết hạn | `web/web-user/src/contexts/AuthContext.tsx` |
-| TSX-PR01 | **ProtectedRoute** - Bảo vệ route theo role | **Input:** `{children, role?, redirectTo?}`<br>**Output:** Render children hoặc Navigate | ✅ | [NEW 03/03/26] | Check isLoading → check role → redirect nếu không đủ quyền | `web/web-user/src/components/auth/ProtectedRoute.tsx` |
+| TSX-DL01 | **CollectionDetailSheet** - Sheet chi tiết collection với accordion entries | **Input:** `{collection, open, isTechnician, onClose, onEntryDeleted, onImportClick}`<br>**Output:** Sheet sidebar với accordion theo ngày, download per file / ZIP, xóa entry | ✅ | [NEW 03/07/26] | Sheet từ shadcn, entries accordion grouped by snapshot_date, search filter date, bulk ZIP download, delete entry với confirm | `web/src/components/data-library/collection-detail-sheet.tsx::CollectionDetailSheet()` |
+| TSX-DL02 | **ImportDialog** - Dialog nhập file CSV/JSON vào collection | **Input:** `{open, onClose, onSuccess, existingCollections, preselectedCollectionId}`<br>**Output:** Dialog với form 2 nhánh (new/existing) + drag&drop file | ✅ | [NEW 03/07/26] | RadioGroup chọn mode, form fields new/existing, date picker, file drop zone (.csv/.json), submit gọi `importEntry()` service | `web/src/components/data-library/import-dialog.tsx::ImportDialog()` |
+| TSX-P07 | **TrafficDataLibrary** - Trang thư viện dữ liệu | **Input:** API data-library<br>**Output:** Grid CollectionCard, filter bar, Sheet + Dialog | ✅ | [NEW 03/07/26] | Grid collections với filter (source, data_type, search), Skeleton loading, CollectionCard, CollectionDetailSheet và ImportDialog | `web/src/pages/data-library.tsx::TrafficDataLibrary()` |
+| TS-DLS01 | **data-library.service.ts** - Frontend API service | **Input:** Các params (id, payload, file FormData...)<br>**Output:** Typed responses | ✅ | [NEW 03/07/26] | 6 functions: getCollections, getCollectionById, createCollection, deleteCollection, importEntry (raw fetch FormData), deleteEntry, downloadEntryFile (blob trigger) | `web/src/services/data-library.service.ts` |
+
+
 | TS-AS01 | **auth.service.ts** - API calls xác thực | **Input:** Nạp các params (email, password, token...)<br>**Output:** API responses | ✅ | [NEW 03/03/26] | 6 functions: fetchGuestToken, loginRequest, logoutRequest, refreshTokenRequest, getMeRequest, changePasswordRequest, getActivityLogsRequest | `web/web-user/src/services/auth.service.ts` |
 | TS-AF01 | **apiFetch** - HTTP wrapper tự động gắn JWT | **Input:** `(url, options?)`<br>**Output:** `Promise<Response>` | ✅ | [NEW 03/03/26] | Đọc token từ localStorage, gắn `Authorization: Bearer` vào mọi request. Dùng thay thế fetch trong camera.service, model.service, model-metrics.service | `web/web-user/src/lib/apiFetch.ts` |
 
@@ -197,16 +207,15 @@ Template:
 - **[NEW 03/03/26] JWT Auth System**: Implement đầy đủ hệ thống xác thực 2 vai trò (viewer anonymous JWT 24h + technician authenticated JWT 8h + refresh 30d). Backend: 7 routes auth + 3 middleware. Frontend: AuthContext, login page, ProtectedRoute, apiFetch wrapper, settings redesign, nav-user + sidebar theo role
 
 ### 📊 Thống kê Functions
-- **Backend API**: 17 endpoints (6 camera/metrics + 5 model + 7 auth + 1 test)
+- **Backend API**: 24 endpoints (6 camera/metrics + 5 model + 7 auth + 7 data-library + 1 test)
 - **Backend Middleware**: 3 functions (requireAuth, requireTechnician, logActivity)
 - **Python ML**: 25 functions (Image Process, Prediction, Query, Model Performance + 2 helpers confidence)
 - **Python Backup**: 7 functions (Disaster Recovery)
 - **Python App Route**: 3 functions
-- **Frontend Services**: 6 API services + 3 Contexts (Socket, Theme, Auth)
-- **Frontend Utils**: 1 utility (apiFetch)
-- **UI Components**: 12 components (Navigation, Dashboard, Table, Charts + ProtectedRoute + Login)
-- **Pages**: 6 pages (Dashboard, Lifecycle, Analytics, Settings, Models, Login)
-- **Tổng cộng**: **75 functions** được document
+- **Frontend Services**: 7 API services + 3 Contexts (Socket, Theme, Auth)
+- **UI Components**: 14 components (Navigation, Dashboard, Table, Charts + ProtectedRoute + Login + Data Library)
+- **Pages**: 7 pages (Dashboard, Lifecycle, Analytics, Settings, Models, Login, DataLibrary)
+- **Tổng cộng**: **82 functions** được document
 
 ### 🎯 Luồng dữ liệu chính
 ```

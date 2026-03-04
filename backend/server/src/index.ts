@@ -10,6 +10,7 @@ import cameraApi from "./routes/camera.api";
 import modelMetricsApi from "./routes/model-metrics.api";
 import modelApi from "./routes/model.api";
 import authApi from "./routes/auth.api";
+import dataLibraryApi from "./routes/data-library.api";
 import { requireAuth } from "./middleware/auth.middleware";
 
 dotenv.config();
@@ -56,6 +57,9 @@ app.use("/api/model-metrics", requireAuth, modelMetricsApi);
 
 // Model routes – GET requireAuth, write operations requireTechnician (xử lý trong route file)
 app.use("/api/models", requireAuth, modelApi);
+
+// Data Library routes – GET requireAuth, write operations requireTechnician (xử lý trong route file)
+app.use("/api/data-library", requireAuth, dataLibraryApi);
 
 // Legacy test route
 app.use("/", testControllerApi);

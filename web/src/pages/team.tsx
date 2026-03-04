@@ -39,7 +39,7 @@ export default function Team() {
       <PageHeader
         icon={<IconUsers className="w-5 h-5" />}
         title="Đội ngũ phát triển"
-        description="Thành viên tham gia dự án dự đoán lưu lượng giao thông"
+        description="Thành viên tham gia dự án dự án phát triển phần mềm đoán lưu lượng giao thông"
       />
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {teamMembers.map((member, idx) => (

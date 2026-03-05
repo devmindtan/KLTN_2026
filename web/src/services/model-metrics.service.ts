@@ -2,6 +2,7 @@
  * Model Metrics Service - API service để lấy dữ liệu hiệu suất model
  */
 import { apiFetch } from "@/lib/apiFetch";
+import logger from "@/lib/logger";
 
 const BACKEND_API_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -149,7 +150,7 @@ export async function getLatestModelMetrics(): Promise<ModelMetricsHistoryRow | 
 
     return null;
   } catch (error) {
-    console.error("❌ Error fetching latest model metrics:", error);
+    logger.error("❌ Error fetching latest model metrics:", error);
     return null;
   }
 }
@@ -176,7 +177,7 @@ export async function getModelMetricsHistory(limit: number = 20): Promise<ModelM
 
     return [];
   } catch (error) {
-    console.error("❌ Error fetching model metrics history:", error);
+    logger.error("❌ Error fetching model metrics history:", error);
     return [];
   }
 }

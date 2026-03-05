@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import logger from "@/lib/logger"
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts"
 
 // import { useIsMobile } from "@/hooks/use-mobile"
@@ -76,7 +77,7 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
     // console.log("📊 [ChartAreaInteractive] Cameras received:", cameras.length);
 
     if (cameras.length === 0) {
-      console.log("⚠️ [ChartAreaInteractive] Không có camera nào");
+      logger.log("⚠️ [ChartAreaInteractive] Không có camera nào");
       return [];
     }
 
@@ -162,7 +163,7 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
                   onKeyDown={(e) => e.stopPropagation()}
                 />
               </div>
-              <div className="overflow-y-auto max-h-[300px]">
+              <div className="overflow-y-auto scrollbar max-h-[300px]">
                 <SelectItem value="all" className="rounded-lg">
                   Tất cả camera (trung bình)
                 </SelectItem>

@@ -332,7 +332,7 @@ function CameraDetailDialog({ camera }: { camera: CameraData }) {
           Xem thông tin chi tiết
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto scrollbar">
         <DialogHeader>
           <DialogTitle>{camera.name}</DialogTitle>
           <DialogDescription>

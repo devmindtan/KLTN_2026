@@ -101,6 +101,23 @@ export async function createCollection(payload: {
 }
 
 /**
+ * Cập nhật thông tin cơ bản collection (title, description, data_type)
+ * PUT /api/data-library/collections/:id
+ */
+export async function updateCollection(
+  id: string,
+  payload: { title?: string; description?: string | null; data_type?: string }
+): Promise<DataLibraryCollection> {
+  const res = await apiFetch(`${BASE}/api/data-library/collections/${id}`, {
+    method: "PUT",
+    body:   JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Không thể cập nhật bộ dữ liệu");
+  const json = await res.json();
+  return json.data;
+}
+
+/**
  * Xóa collection
  * DELETE /api/data-library/collections/:id
  */

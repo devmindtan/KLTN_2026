@@ -3,6 +3,7 @@
  * Tương tác với Backend API để lấy thông tin camera tĩnh (static data)
  */
 import { apiFetch } from "@/lib/apiFetch";
+import logger from "@/lib/logger";
 
 const BACKEND_API_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -39,14 +40,14 @@ export async function getAllCameras(): Promise<CameraInfo[]> {
     const result: CamerasResponse = await response.json();
     
     if (result.success && Array.isArray(result.data)) {
-      console.log(`✅ Fetched ${result.data.length} cameras from database`);
+      logger.log(`✅ Fetched ${result.data.length} cameras from database`);
       return result.data;
     } else {
-      console.error('❌ Invalid response format:', result);
+      logger.error('❌ Invalid response format:', result);
       return [];
     }
   } catch (error) {
-    console.error('❌ Error fetching cameras:', error);
+    logger.error('❌ Error fetching cameras:', error);
     return [];
   }
 }
@@ -59,7 +60,7 @@ export async function getCameraById(camId: string): Promise<CameraInfo | null> {
   try {
     // Validation: Kiểm tra camId hợp lệ
     if (!camId || camId.trim() === '') {
-      console.error('❌ camId không hợp lệ');
+      logger.error('❌ camId không hợp lệ');
       return null;
     }
     
@@ -74,11 +75,11 @@ export async function getCameraById(camId: string): Promise<CameraInfo | null> {
     if (result.success && result.data && result.data.length > 0) {
       return result.data[0];
     } else {
-      console.warn(`⚠️ Camera not found: ${camId}`);
+      logger.warn(`⚠️ Camera not found: ${camId}`);
       return null;
     }
   } catch (error) {
-    console.error(`❌ Error fetching camera ${camId}:`, error);
+    logger.error(`❌ Error fetching camera ${camId}:`, error);
     return null;
   }
 }
@@ -95,7 +96,7 @@ export async function getNearbyCameras(
   try {
     // Validation: Kiểm tra lat, lng hợp lệ
     if (isNaN(lat) || isNaN(lng) || isNaN(radius)) {
-      console.error('❌ Tham số lat, lng, radius phải là số hợp lệ');
+      logger.error('❌ Tham số lat, lng, radius phải là số hợp lệ');
       return [];
     }
     
@@ -111,13 +112,13 @@ export async function getNearbyCameras(
     const result: CamerasResponse = await response.json();
     
     if (result.success && Array.isArray(result.data)) {
-      console.log(`✅ Found ${result.data.length} nearby cameras`);
+      logger.log(`✅ Found ${result.data.length} nearby cameras`);
       return result.data;
     } else {
       return [];
     }
   } catch (error) {
-    console.error('❌ Error fetching nearby cameras:', error);
+    logger.error('❌ Error fetching nearby cameras:', error);
     return [];
   }
 }

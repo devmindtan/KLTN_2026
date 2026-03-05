@@ -3,3 +3,4 @@ botocore==1.42.50
 pandas==3.0.1
 python-dotenv==1.2.2
 SQLAlchemy==2.0.48
+psycopg2_binary==2.9.11

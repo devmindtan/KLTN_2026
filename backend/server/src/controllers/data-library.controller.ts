@@ -4,7 +4,7 @@ import multer from "multer";
 import archiver from "archiver";
 import { createGunzip, gzipSync } from "zlib";
 import { randomUUID } from "crypto";
-import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import pool from "../config/database";
 import { Readable } from "stream";
 
@@ -164,11 +164,75 @@ export const createCollection = async (req: Request, res: Response) => {
 };
 
 /**
- * Xóa collection và toàn bộ entries liên quan (CASCADE)
+ * Cập nhật thông tin cơ bản collection (title, description, data_type)
+ * PUT /api/data-library/collections/:id [TECHNICIAN]
+ */
+export const updateCollection = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const schema = z.object({
+    title:       z.string().min(1).max(255).optional(),
+    description: z.string().nullable().optional(),
+    data_type:   z.string().min(1).max(50).optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ success: false, errors: parsed.error.flatten() });
+  }
+
+  const sets: string[]   = [];
+  const vals: unknown[]  = [];
+  let   idx              = 1;
+
+  if (parsed.data.title       !== undefined) { sets.push(`title = $${idx++}`);       vals.push(parsed.data.title); }
+  if (parsed.data.description !== undefined) { sets.push(`description = $${idx++}`); vals.push(parsed.data.description); }
+  if (parsed.data.data_type   !== undefined) { sets.push(`data_type = $${idx++}`);   vals.push(parsed.data.data_type); }
+
+  if (!sets.length) {
+    return res.status(400).json({ success: false, message: "Không có gì để cập nhật" });
+  }
+
+  sets.push(`updated_at = NOW()`);
+  vals.push(id);
+
+  const result = await pool.query(
+    `UPDATE data_library_collections SET ${sets.join(", ")} WHERE id = $${idx} RETURNING *`,
+    vals
+  );
+  if (!result.rows.length) {
+    return res.status(404).json({ success: false, message: "Collection không tồn tại" });
+  }
+  res.json({ success: true, data: result.rows[0] });
+};
+
+/**
+ * Xóa collection, toàn bộ entries và các file MinIO liên quan
  * DELETE /api/data-library/collections/:id [TECHNICIAN]
  */
 export const deleteCollection = async (req: Request, res: Response) => {
   const { id } = req.params;
+
+  // Lấy tất cả minio_keys của entries thuộc collection
+  const entriesResult = await pool.query(
+    "SELECT minio_keys FROM data_library_entries WHERE collection_id = $1",
+    [id]
+  );
+
+  // Xóa từng file trên MinIO
+  if (entriesResult.rows.length) {
+    const s3 = createS3Client();
+    const deletePromises: Promise<unknown>[] = [];
+    for (const entry of entriesResult.rows) {
+      const keys = entry.minio_keys as Record<string, string>;
+      for (const minioKey of Object.values(keys)) {
+        deletePromises.push(
+          s3.send(new DeleteObjectCommand({ Bucket: DATA_LIBRARY_BUCKET, Key: minioKey }))
+            .catch((e) => console.warn(`[deleteCollection] MinIO delete failed: ${minioKey}`, e))
+        );
+      }
+    }
+    await Promise.all(deletePromises);
+  }
+
   const result = await pool.query(
     "DELETE FROM data_library_collections WHERE id = $1 RETURNING id",
     [id]
@@ -360,17 +424,32 @@ export const importEntry = async (req: Request, res: Response) => {
 };
 
 /**
- * Xóa 1 entry (snapshot)
+ * Xóa 1 entry (snapshot) và các file MinIO liên quan
  * DELETE /api/data-library/entries/:id [TECHNICIAN]
  */
 export const deleteEntry = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const result = await pool.query(
-    "DELETE FROM data_library_entries WHERE id = $1 RETURNING id",
+
+  const entryResult = await pool.query(
+    "SELECT minio_keys FROM data_library_entries WHERE id = $1",
     [id]
   );
-  if (!result.rows.length) {
+  if (!entryResult.rows.length) {
     return res.status(404).json({ success: false, message: "Entry không tồn tại" });
   }
+
+  // Xóa từng file trên MinIO
+  const minioKeys = entryResult.rows[0].minio_keys as Record<string, string>;
+  if (minioKeys && Object.keys(minioKeys).length) {
+    const s3 = createS3Client();
+    await Promise.all(
+      Object.values(minioKeys).map((key) =>
+        s3.send(new DeleteObjectCommand({ Bucket: DATA_LIBRARY_BUCKET, Key: key }))
+          .catch((e) => console.warn(`[deleteEntry] MinIO delete failed: ${key}`, e))
+      )
+    );
+  }
+
+  await pool.query("DELETE FROM data_library_entries WHERE id = $1", [id]);
   res.json({ success: true, message: "Đã xóa snapshot" });
 };

@@ -87,8 +87,8 @@ function translateRecommendation(rec: string) {
  */
 function TermTooltip({ term, description }: { term: string; description: string }) {
   return (
-    <TooltipProvider>
-      <Tooltip delayDuration={200}>
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
         <TooltipTrigger asChild>
           <span className="inline-flex items-center gap-1 cursor-help text-primary underline decoration-dotted underline-offset-2">
             {term}

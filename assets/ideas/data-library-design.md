@@ -496,3 +496,4 @@ Phase 3 - Frontend:
 | **UI structure** | 2 tầng: Collection (card) → Snapshot theo ngày (accordion) → Files |
 
 
+## Báo cáo kiểm thử:

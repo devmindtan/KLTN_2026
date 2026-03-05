@@ -195,7 +195,7 @@ function ModelDetailSheet({
 
   return (
     <Sheet open={!!model} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+      <SheetContent className="w-full sm:max-w-xl overflow-y-auto scrollbar">
         {model && (
           <>
             <SheetHeader className="pb-2">

@@ -3,6 +3,7 @@ import {
   getCollections,
   getCollectionById,
   createCollection,
+  updateCollection,
   deleteCollection,
   downloadEntry,
   importEntry,
@@ -23,6 +24,9 @@ router.get("/collections/:id", getCollectionById);
 
 // POST /api/data-library/collections — tạo collection mới [technician]
 router.post("/collections", requireTechnician, createCollection);
+
+// PUT /api/data-library/collections/:id — cập nhật thông tin collection [technician]
+router.put("/collections/:id", requireTechnician, updateCollection);
 
 // DELETE /api/data-library/collections/:id — xóa collection [technician]
 router.delete("/collections/:id", requireTechnician, deleteCollection);

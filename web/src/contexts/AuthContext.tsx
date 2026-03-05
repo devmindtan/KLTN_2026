@@ -88,9 +88,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
       } else if (stored && storedRole === "viewer") {
-        // Token viewer còn → giữ nguyên (sẽ rotate khi hết hạn)
-        setToken(stored);
-        setRole("viewer");
+        // Kiểm tra token viewer còn hạn không (decode exp, không cần verify)
+        const expiry = getTokenExpiry(stored);
+        if (expiry && Date.now() < expiry) {
+          setToken(stored);
+          setRole("viewer");
+        } else {
+          // Token viewer đã hết hạn → lấy guest token mới
+          clearAuth();
+          const guest = await fetchGuestToken();
+          if (guest) saveToken(guest, "viewer");
+        }
       } else {
         // Chưa có token → lấy guest token
         const guest = await fetchGuestToken();

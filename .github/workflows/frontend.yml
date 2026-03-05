@@ -83,6 +83,7 @@ jobs:
             VITE_SOCKET_URL=https://socket.devmindtan.uk
             VITE_MINIO_URL=https://api-minio.devmindtan.uk
             VITE_BACKEND_URL=https://server.devmindtan.uk
+            VITE_LOG=false
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/${{ steps.version.outputs.repo }}:frontend-${{ steps.version.outputs.new }}
             ${{ secrets.DOCKER_USERNAME }}/${{ steps.version.outputs.repo }}:frontend-latest

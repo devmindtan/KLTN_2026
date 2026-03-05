@@ -145,7 +145,7 @@ export function SidebarHeader({ className, children }: { className?: string; chi
 
 export function SidebarContent({ className, children }: { className?: string; children: React.ReactNode }) {
   return (
-    <div className={cn("flex flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden min-h-0 p-2", className)}>
+    <div className={cn("flex flex-1 flex-col gap-2 overflow-y-auto scrollbar overflow-x-hidden min-h-0 p-2", className)}>
       {children}
     </div>
   )
@@ -165,7 +165,7 @@ export function SidebarFooter({ className, children }: { className?: string; chi
  */
 export function SidebarInset({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <main className={cn("flex flex-1 flex-col min-w-0 overflow-y-auto overflow-x-hidden bg-background", className)}>
+    <main className={cn("flex flex-1 flex-col min-w-0 overflow-y-auto scrollbar overflow-x-hidden bg-background", className)}>
       {children}
     </main>
   )

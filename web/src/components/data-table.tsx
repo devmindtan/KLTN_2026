@@ -592,7 +592,7 @@ export function DataTable({
       
       <TabsContent
         value="cameras"
-        className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6"
+        className="relative flex flex-col gap-4 overflow-auto scrollbar px-4 lg:px-6"
       >
         <div className="overflow-hidden rounded-lg border">
           <DndContext
@@ -762,7 +762,7 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
           {item.shortId}
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="flex flex-col overflow-y-auto">
+      <SheetContent side="right" className="flex flex-col overflow-y-auto scrollbar">
         <SheetHeader className="gap-1">
           <SheetTitle>{item.name}</SheetTitle>
           <SheetDescription>
@@ -993,7 +993,7 @@ function TableCellViewerModal({ item, open, onOpenChange }: { item: z.infer<type
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex flex-col overflow-y-auto">
+      <SheetContent side="right" className="flex flex-col overflow-y-auto scrollbar">
         <SheetHeader className="gap-1">
           <SheetTitle>{item.name}</SheetTitle>
           <SheetDescription>

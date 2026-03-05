@@ -3,6 +3,8 @@ import * as React from "react";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import io, { Socket } from "socket.io-client";
 import { getAllCameras, type CameraInfo } from "@/services/camera.service";
+import { useAuth } from "@/contexts/AuthContext";
+import logger from "@/lib/logger";
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
 const MINIO_URL = import.meta.env.VITE_MINIO_URL;
@@ -225,9 +227,14 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [trainingJob, setTrainingJob] = useState<TrainingJobData | null>(null);
   const [modelReload, setModelReload] = useState<ModelReloadData | null>(null);
 
+  // Chờ AuthProvider hoàn tất khởi tạo (fetch guest token) trước khi gọi API
+  const { isLoading: authLoading } = useAuth();
+
   // Fetch camera list từ database khi component mount
   // Tạo initial cameras với dữ liệu mặc định, socket sẽ update sau
   useEffect(() => {
+    if (authLoading) return; // Token chưa sẵn sàng → bỏ qua, chờ re-render
+
     async function fetchCameraInfo() {
       const cameraList = await getAllCameras();
       const infoMap: Record<string, CameraInfo> = {};
@@ -312,8 +319,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       
       setCameraInfoMap(infoMap);
       setCameras(initialCameras); // Set initial cameras với dữ liệu mặc định
-      console.log(`📍 Loaded ${cameraList.length} cameras from database`);
-      console.log(`✅ Initialized ${Object.keys(initialCameras).length} cameras with default data`);
+      logger.log(`📍 Loaded ${cameraList.length} cameras from database`);
+      logger.log(`✅ Initialized ${Object.keys(initialCameras).length} cameras with default data`);
       // console.log(`🗺️ CameraInfoMap keys:`, Object.keys(infoMap));
       
       // Debug: Show first 3 entries với full detail
@@ -326,7 +333,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     }
     
     fetchCameraInfo();
-  }, []);
+  }, [authLoading]); // re-run khi auth sẵn sàng (authLoading false → có token)
 
   useEffect(() => {
     // Khởi tạo socket connection một lần duy nhất
@@ -341,14 +348,14 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     setSocket(socketInstance);
     socketInstance.on("connect", () => {
-      console.log("✅ Socket connected to", SOCKET_URL);
+      logger.log("✅ Socket connected to", SOCKET_URL);
       // console.log("🔌 Socket ID:", socketInstance.id);
       // console.log("🎯 Socket transport:", socketInstance.io.engine.transport.name);
       setIsConnected(true);
     });
 
     socketInstance.on("disconnect", (reason) => {
-      console.log("❌ Socket disconnected:", reason);
+      logger.log("❌ Socket disconnected:", reason);
       setIsConnected(false);
     });
 
@@ -383,7 +390,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         // console.log("✅ [Format 2] Camera ID:", cameraId);
       }
       else {
-        console.error("❌ Invalid camera data structure:", data);
+        logger.error("❌ Invalid camera data structure:", data);
         return;
       }
 
@@ -422,7 +429,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         result_metrics: raw.result_metrics?.value ?? {},
       };
       setTrainingJob(job);
-      console.log(`🤖 TrainingJob update: ${job.model_type} [${job.status}] ${job.progress_pct}%`);
+      logger.log(`🤖 TrainingJob update: ${job.model_type} [${job.status}] ${job.progress_pct}%`);
     });
 
     socketInstance.on("MODEL_RELOAD_UPDATED", (raw: RawModelReloadEntity) => {
@@ -438,16 +445,16 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         error_message: raw.error_message?.value ?? "",
       };
       setModelReload(reload);
-      console.log(`🔄 ModelReload update: ${reload.model_type} [${reload.status}] ${reload.progress_pct}%`);
+      logger.log(`🔄 ModelReload update: ${reload.model_type} [${reload.status}] ${reload.progress_pct}%`);
     });
 
     socketInstance.on("connect_error", (err) => {
-      console.error("❌ Socket connection error:", err.message);
+      logger.error("❌ Socket connection error:", err.message);
       setIsConnected(false);
     });
 
     socketInstance.on("reconnect", (attemptNumber) => {
-      console.log("🔄 Socket reconnected after", attemptNumber, "attempts");
+      logger.log("🔄 Socket reconnected after", attemptNumber, "attempts");
       setIsConnected(true);
     });
 

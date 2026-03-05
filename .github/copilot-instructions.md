@@ -38,6 +38,11 @@
   - Chỉ sử dụng Shadcn UI và Tailwind CSS.
   - Icon ưu tiên Lucide React hoặc bộ icon thống nhất của dự án.
   - Hiển thị giao diện hãy sử dụng từ Tiếng Việt.
+  - **Dialog margin**: Tất cả `DialogContent` và `AlertDialogContent` PHẢI có `w-[calc(100%-2rem)] max-h-[calc(100dvh-2rem)] overflow-y-auto` để đảm bảo khoảng cách tối thiểu 1rem so với cạnh màn hình. Đã implement ở base `dialog.tsx` / `alert-dialog.tsx` – không cần thêm ở từng dialog cụ thể.
+  - **Tooltip – hover-only**: Tất cả tooltip PHẢI chỉ hiện khi hover (không hiện khi focus). Base `tooltip.tsx` đã handle qua pointer tracking context. `TooltipProvider` dùng `delayDuration={200}` (sidebar standard). Không dùng native `title=""` attribute – luôn dùng Radix `<Tooltip>`.
+  - **Text overflow – main pages**: Mọi text có thể dài hơn container ở trang giao diện chính (card title, badge, label, tên...) PHẢI dùng `truncate` (= `overflow-hidden text-ellipsis whitespace-nowrap`) + `max-w-*` phù hợp. Không để text tràn layout.
+  - **Scroll cho list / overflow**: Mọi danh sách dữ liệu hoặc vùng content có thể vượt quá viewport PHẢI có `overflow-y-auto` (hoặc `overflow-auto`). Sheet/Dialog chứa danh sách dài dùng `max-h-[X] overflow-y-auto`. Không dùng `overflow-hidden` ở container chứa danh sách.
+  - **Custom scrollbar**: Tuyệt đối KHÔNG dùng scrollbar mặc định của trình duyệt. Mọi container có `overflow-y-auto` / `overflow-auto` PHẢI kèm class `scrollbar` (định nghĩa trong `index.css`). Scrollbar custom: 4px, bo tròn, dùng `--muted-foreground` 25% opacity, hover 50%. Áp dụng cả base components (dialog, select, dropdown, sheet).
 - **Documentation (Function Headers)**:
   - Mọi hàm (Function/Method) và API Route PHẢI có JSDoc/docstring ngắn gọn ngay phía trên.
   - Định dạng:

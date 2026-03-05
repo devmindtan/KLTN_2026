@@ -7,6 +7,16 @@ import { Badge }  from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input }  from "@/components/ui/input";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -15,8 +25,14 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   IconDatabase,
   IconFolderOpen,
+  IconPencil,
   IconPlus,
   IconSearch,
   IconRefresh,
@@ -29,6 +45,7 @@ import type { DataLibraryCollection, CollectionDetail } from "@/services/data-li
 import { getCollections, getCollectionById, deleteCollection } from "@/services/data-library.service";
 import { CollectionDetailSheet } from "@/components/data-library/collection-detail-sheet";
 import { ImportDialog }          from "@/components/data-library/import-dialog";
+import { EditCollectionDialog }  from "@/components/data-library/edit-collection-dialog";
 
 
 // ---- Helpers ----
@@ -76,14 +93,14 @@ interface CollectionCardProps {
   onView:       (c: DataLibraryCollection) => void;
   onImport:     (id: string) => void;
   onDelete:     (id: string) => void;
+  onEdit:       (c: DataLibraryCollection) => void;
 }
 
-function CollectionCard({ collection: c, isTechnician, onView, onImport, onDelete }: CollectionCardProps) {
+function CollectionCard({ collection: c, isTechnician, onView, onImport, onDelete, onEdit }: CollectionCardProps) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const handleDelete = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!confirm(`Xóa bộ sưu tập "${c.title}"?`)) return;
+  const handleDeleteConfirmed = async () => {
     setDeleting(true);
     try {
       await deleteCollection(c.id);
@@ -99,10 +116,25 @@ function CollectionCard({ collection: c, isTechnician, onView, onImport, onDelet
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardHeader className="pb-2">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
             <IconDatabase className="size-4 text-primary shrink-0" />
-            <CardTitle className="text-base leading-tight truncate">{c.title}</CardTitle>
+            <CardTitle className="text-base leading-tight truncate max-w-[14rem]">{c.title}</CardTitle>
+            {isTechnician && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 shrink-0"
+                    onClick={(e) => { e.stopPropagation(); onEdit(c); }}
+                  >
+                    <IconPencil className="size-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Chỉnh sửa thông tin</TooltipContent>
+              </Tooltip>
+            )}
           </div>
           <Badge
             variant={c.source === "internal" ? "default" : "secondary"}
@@ -145,19 +177,40 @@ function CollectionCard({ collection: c, isTechnician, onView, onImport, onDelet
                 className="flex-1"
                 onClick={() => onImport(c.id)}
               >
-                Import
+                Nạp dữ liệu 
               </Button>
               <Button
                 size="sm"
                 variant="ghost"
                 className="text-destructive hover:text-destructive px-2"
-                onClick={handleDelete}
+                onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }}
                 disabled={deleting}
               >
                 {deleting ? (
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent inline-block" />
                 ) : "Xóa"}
               </Button>
+
+              {/* Confirm xóa collection */}
+              <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Xóa bộ sưu tập "{c.title}"?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Toàn bộ snapshots và files trong bộ sưu tập này sẽ bị xóa vĩnh viễn, bao gồm cả dữ liệu trên storage.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={handleDeleteConfirmed}
+                    >
+                      Xóa
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </>
           )}
         </div>
@@ -186,6 +239,10 @@ export default function TrafficDataLibrary() {
   // Import dialog state
   const [importOpen,      setImportOpen]      = useState(false);
   const [importPreselect, setImportPreselect] = useState<string | undefined>(undefined);
+
+  // Edit dialog state
+  const [editOpen,        setEditOpen]        = useState(false);
+  const [editTarget,      setEditTarget]      = useState<DataLibraryCollection | null>(null);
 
   /** Load danh sách collections với bộ lọc hiện tại */
   const loadCollections = useCallback(async () => {
@@ -225,6 +282,22 @@ export default function TrafficDataLibrary() {
   const handleImportClick = (collectionId?: string) => {
     setImportPreselect(collectionId ?? undefined);
     setImportOpen(true);
+  };
+
+  /** Mở edit dialog */
+  const handleEditClick = (c: DataLibraryCollection) => {
+    setEditTarget(c);
+    setEditOpen(true);
+  };
+
+  /** Sau khi cập nhật collection → sync cả list và sheetDetail */
+  const handleCollectionUpdated = (updated: DataLibraryCollection) => {
+    setCollections((prev) =>
+      prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c))
+    );
+    setSheetDetail((prev) =>
+      prev && prev.id === updated.id ? { ...prev, ...updated } : prev
+    );
   };
 
   /** Sau khi xóa collection từ card → remove khỏi list */
@@ -331,6 +404,7 @@ export default function TrafficDataLibrary() {
               onView={handleViewCollection}
               onImport={handleImportClick}
               onDelete={handleCollectionDeleted}
+              onEdit={handleEditClick}
             />
           ))
         }
@@ -344,6 +418,7 @@ export default function TrafficDataLibrary() {
         isTechnician={isTech}
         onEntryDeleted={handleEntryDeleted}
         onImportClick={() => handleImportClick(sheetDetail?.id)}
+        onEditClick={handleEditClick}
       />
 
       {/* Import dialog */}
@@ -353,6 +428,14 @@ export default function TrafficDataLibrary() {
         onSuccess={() => { setImportOpen(false); loadCollections(); }}
         existingCollections={collections}
         preselectedCollectionId={importPreselect}
+      />
+
+      {/* Edit dialog */}
+      <EditCollectionDialog
+        collection={editTarget}
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        onUpdated={handleCollectionUpdated}
       />
     </div>
   );

@@ -46,10 +46,10 @@ def main():
 
     now_utc = datetime.now(timezone.utc)
 
-    # Ngày hôm qua (D-1), từ 00:00:00 → 23:59:59 UTC
+    # Ngày hôm qua (D-1), từ 00:00:00 → < 00:00:00 ngày tiếp theo (exclusive end)
     yesterday = (now_utc - timedelta(days=1)).date()
     date_from = datetime(yesterday.year, yesterday.month, yesterday.day, 0, 0, 0, tzinfo=timezone.utc)
-    date_to   = datetime(yesterday.year, yesterday.month, yesterday.day, 23, 59, 59, tzinfo=timezone.utc)
+    date_to   = date_from + timedelta(days=1)  # exclusive: < 00:00:00 ngày hôm nay
 
     # Timestamp prefix cho tên file: YYYYMMDD_HHmmss (theo giờ chạy job)
     timestamp_str = now_utc.strftime("%Y%m%d_%H%M%S")

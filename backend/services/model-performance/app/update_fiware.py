@@ -46,10 +46,12 @@ logger = logging.getLogger(__name__)
 def ensure_metrics_history_table() -> None:
     """
     Tạo bảng lưu lịch sử metrics nếu chưa tồn tại (với confidence_distribution)
+    Unique constraint trên snapshot_date để đảm bảo 1 snapshot / ngày
     """
     create_table_query = text("""
         CREATE TABLE IF NOT EXISTS model_metrics_history (
             id BIGSERIAL PRIMARY KEY,
+            snapshot_date DATE NOT NULL,
             generated_at TIMESTAMPTZ NOT NULL,
             period_days INTEGER NOT NULL,
             overall JSONB NOT NULL,
@@ -67,9 +69,23 @@ def ensure_metrics_history_table() -> None:
         ON model_metrics_history (generated_at DESC)
     """)
 
+    # Unique constraint: chỉ 1 snapshot mỗi ngày
+    create_unique_query = text("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_model_metrics_history_snapshot_date
+        ON model_metrics_history (snapshot_date)
+    """)
+
+    # Thêm cột snapshot_date nếu bảng đã tồn tại nhưng chưa có cột này
+    add_column_query = text("""
+        ALTER TABLE model_metrics_history
+        ADD COLUMN IF NOT EXISTS snapshot_date DATE
+    """)
+
     with engine.begin() as conn:
         conn.execute(create_table_query)
+        conn.execute(add_column_query)
         conn.execute(create_index_query)
+        conn.execute(create_unique_query)
 
 
 @monitor_performance
@@ -106,6 +122,7 @@ def save_metrics_history(metrics: Dict) -> bool:
 
         insert_query = text("""
             INSERT INTO model_metrics_history (
+                snapshot_date,
                 generated_at,
                 period_days,
                 overall,
@@ -116,6 +133,7 @@ def save_metrics_history(metrics: Dict) -> bool:
                 confidence_distribution
             )
             VALUES (
+                :snapshot_date,
                 :generated_at,
                 :period_days,
                 CAST(:overall AS JSONB),
@@ -125,12 +143,22 @@ def save_metrics_history(metrics: Dict) -> bool:
                 CAST(:trend_accuracy AS JSONB),
                 CAST(:confidence_distribution AS JSONB)
             )
+            ON CONFLICT (snapshot_date) DO UPDATE SET
+                generated_at           = EXCLUDED.generated_at,
+                period_days            = EXCLUDED.period_days,
+                overall                = EXCLUDED.overall,
+                by_horizon             = EXCLUDED.by_horizon,
+                camera_ranking         = EXCLUDED.camera_ranking,
+                data_coverage          = EXCLUDED.data_coverage,
+                trend_accuracy         = EXCLUDED.trend_accuracy,
+                confidence_distribution = EXCLUDED.confidence_distribution
         """)
 
         with engine.begin() as conn:
             conn.execute(
                 insert_query,
                 {
+                    "snapshot_date": generated_at.date(),
                     "generated_at": generated_at,
                     "period_days": metrics_clean.get("period_days", 7),
                     "overall": json.dumps(metrics_clean.get("overall", {})),
@@ -146,7 +174,7 @@ def save_metrics_history(metrics: Dict) -> bool:
             )
 
         logger.info(
-            "✅ Metrics history saved to PostgreSQL (with confidence data)")
+            f"✅ Metrics history upserted for {generated_at.date()} (1 snapshot/day)")
         return True
     except Exception as e:
         logger.error(f"❌ Error saving metrics history: {e}")
@@ -295,73 +323,18 @@ async def update_metrics_to_fiware(metrics: Dict):
 
 
 @monitor_performance
-async def run_metrics_update_cycle(interval_minutes: int = 60):
-    """
-    Chạy định kỳ: Tính metrics → Lưu vào PostgreSQL (FIWARE disabled)
-
-    Args:
-        interval_minutes: Khoảng thời gian giữa các lần update (default: 60 phút)
-    """
-    analyzer = ModelPerformanceAnalyzer(engine)
-    logger.info(
-        f"Starting metrics update cycle (every {interval_minutes} minutes)")
-    logger.info("ℹ️  FIWARE updates DISABLED - only saving to PostgreSQL")
-
-    iteration = 0
-    while True:
-        iteration += 1
-        logger.info(f"\n{'='*60}")
-        logger.info(f"METRICS UPDATE CYCLE #{iteration}")
-        logger.info(f"{'='*60}")
-
-        try:
-            # Calculate full report
-            report = analyzer.get_full_report(period_days=7)
-
-            # Save history to PostgreSQL
-            save_success = save_metrics_history(report)
-
-            # FIWARE update disabled - không gửi lên FIWARE nữa
-            # success = await update_metrics_to_fiware(report)
-
-            if save_success:
-                logger.info(f"✅ Cycle #{iteration} completed successfully (saved to PostgreSQL)")
-                # Print summary
-                overall = report.get("overall", {})
-                logger.info(
-                    f"   MAE: {overall.get('mae', 'N/A')}, "
-                    f"MAPE: {overall.get('mape', 'N/A')}%, "
-                    f"Accuracy≤5xe: {overall.get('accuracy_5xe', 'N/A')}%"
-                )
-            else:
-                logger.warning(f"⚠️ Cycle #{iteration} failed to save to PostgreSQL")
-
-        except Exception as e:
-            logger.error(f"❌ Error in cycle #{iteration}: {e}")
-
-        # Sleep until next cycle
-        sleep_seconds = interval_minutes * 60
-        logger.info(
-            f"💤 Sleeping for {interval_minutes} minutes until next cycle...")
-        await asyncio.sleep(sleep_seconds)
-
-
 async def run_single_update():
     """
-    Chạy 1 lần update - Lưu vào PostgreSQL (FIWARE disabled)
+    Chạy 1 lần: Tính metrics → Lưu vào PostgreSQL (1 snapshot/ngày).
+    Được gọi bởi CronJob qua `python main.py --once`.
     """
-    logger.info("Running single metrics update...")
-    logger.info("ℹ️  FIWARE updates DISABLED - only saving to PostgreSQL")
+    logger.info("📊 Tính metrics và lưu vào PostgreSQL...")
     analyzer = ModelPerformanceAnalyzer(engine)
 
     try:
         report = analyzer.get_full_report(period_days=7)
 
-        # Save history to PostgreSQL
         save_success = save_metrics_history(report)
-
-        # FIWARE update disabled - không gửi lên FIWARE nữa
-        # success = await update_metrics_to_fiware(report)
 
         if save_success:
             logger.info("✅ Single update completed successfully (saved to PostgreSQL)")
@@ -373,34 +346,3 @@ async def run_single_update():
     except Exception as e:
         logger.error(f"❌ Error in single update: {e}")
         return None
-
-
-if __name__ == "__main__":
-    import sys
-
-    if len(sys.argv) > 1 and sys.argv[1] == "--once":
-        # Run once and exit
-        logger.info("Running in single-shot mode (--once)")
-        result = asyncio.run(run_single_update())
-        if result:
-            print("\n" + "=" * 60)
-            print("METRICS SUMMARY")
-            print("=" * 60)
-            overall = result.get("overall", {})
-            print(f"MAE:           {overall.get('mae', 'N/A')} xe")
-            print(f"MAPE:          {overall.get('mape', 'N/A')}%")
-            print(f"Accuracy ≤5xe: {overall.get('accuracy_5xe', 'N/A')}%")
-            print(f"Accuracy ≤10xe: {overall.get('accuracy_10xe', 'N/A')}%")
-            print(f"Verified:      {overall.get('verification_rate', 'N/A')}%")
-            sys.exit(0)
-        else:
-            sys.exit(1)
-    else:
-        # Run continuous loop
-        logger.info("Running in continuous mode (Ctrl+C to stop)")
-        logger.info("Tip: Use --once flag for single execution")
-        try:
-            asyncio.run(run_metrics_update_cycle(interval_minutes=60))
-        except KeyboardInterrupt:
-            logger.info("\n⚠️ Stopped by user (Ctrl+C)")
-            sys.exit(0)

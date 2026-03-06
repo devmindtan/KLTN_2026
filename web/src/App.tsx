@@ -61,6 +61,7 @@ const router = createBrowserRouter([
     path: "/:prefix",
     element: <RootLayout/>,
     children: [
+      {index: true, element: <Navigate to="dashboard" replace />},
       {path: "dashboard", element: <Dashboard/>},
       {path: "lifecycle", element: <Lifecycle/>},
       {path: "analytics", element: <Analytics/>},

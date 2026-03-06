@@ -2,8 +2,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { IconMapPin, IconClock, IconAlertTriangle, IconCheck, IconActivity, IconInfoCircle, IconSearch, IconFilter, IconX, IconCar, IconMotorbike } from "@tabler/icons-react";
+import { IconMapPin, IconClock, IconAlertTriangle, IconCheck, IconActivity, IconInfoCircle, IconSearch, IconFilter, IconX, IconCar, IconMotorbike, IconLayoutGrid } from "@tabler/icons-react";
 import { PageHeader } from "@/components/page-header";
+import { CameraWallView } from "@/components/camera-wall-view";
 import { TrendingDownIcon, TrendingUpIcon } from "lucide-react";
 import { useSocket, type CameraData } from "@/contexts/SocketContext";
 import * as React from "react";
@@ -68,6 +69,11 @@ export default function TrafficMonitoring() {
   const [trendFilter, setTrendFilter] = React.useState<string>("all");
   const [sortBy, setSortBy] = React.useState<string>("name");
 
+  // ─── Camera Wall state ───────────────────────────────────────────────────
+  const [viewMode, setViewMode] = React.useState<"cards" | "wall">("cards");
+  const [wallPerPage, setWallPerPage] = React.useState<number>(9);
+  const [wallCurrentPage, setWallCurrentPage] = React.useState<number>(1);
+
   // Hàm format thời gian relative từ timestamp (chỉ hiển thị phút trở lên)
   const getRelativeTime = (timestamp: string) => {
     if (!timestamp) return "Chưa cập nhật";
@@ -127,6 +133,22 @@ export default function TrafficMonitoring() {
     setSortBy("name");
   };
 
+  // ─── Wall mode: chiếm toàn bộ content area ──────────────────────────────
+  if (viewMode === "wall") {
+    return (
+      <div className="flex flex-1 flex-col min-h-0">
+        <CameraWallView
+          cameras={filteredAndSortedCameras}
+          perPage={wallPerPage}
+          currentPage={wallCurrentPage}
+          onPerPageChange={(v) => { setWallPerPage(v); setWallCurrentPage(1); }}
+          onPageChange={setWallCurrentPage}
+          onExit={() => setViewMode("cards")}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
       <PageHeader
@@ -138,6 +160,18 @@ export default function TrafficMonitoring() {
           <IconActivity className="w-3 h-3" />
           {isConnected ? "Đã Kết nối" : "Mất kết nối"}
         </Badge>
+        <Button
+          variant={viewMode === "wall" ? "default" : "outline"}
+          size="sm"
+          className="gap-1.5"
+          onClick={() => {
+            setViewMode((v) => (v === "cards" ? "wall" : "cards"));
+            setWallCurrentPage(1);
+          }}
+        >
+          <IconLayoutGrid className="w-4 h-4" />
+          {viewMode === "wall" ? "Thoát Wall" : "Chế độ Wall"}
+        </Button>
       </PageHeader>
       
       {/* Search and Filters */}

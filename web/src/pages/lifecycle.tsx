@@ -161,16 +161,16 @@ export default function TrafficMonitoring() {
           {isConnected ? "Đã Kết nối" : "Mất kết nối"}
         </Badge>
         <Button
-          variant={viewMode === "wall" ? "default" : "outline"}
+          variant="outline"
           size="sm"
           className="gap-1.5"
           onClick={() => {
-            setViewMode((v) => (v === "cards" ? "wall" : "cards"));
+            setViewMode("wall");
             setWallCurrentPage(1);
           }}
         >
           <IconLayoutGrid className="w-4 h-4" />
-          {viewMode === "wall" ? "Thoát Wall" : "Chế độ Wall"}
+          Chế độ Wall
         </Button>
       </PageHeader>
       

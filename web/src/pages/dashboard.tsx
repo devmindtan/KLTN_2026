@@ -2,7 +2,9 @@
 import { useMemo } from "react";
 import { ChartAreaInteractive } from "@/components/chart-area-interactive";
 import { DataTable } from "@/components/data-table";
+import { ForecastAccuracyCard } from "@/components/forecast-accuracy-card";
 import { SectionCards } from "@/components/section-cards";
+import { TrafficDensityChart } from "@/components/traffic-density-chart";
 // import { SocketDebug } from "@/components/socket-debug";
 import { useSocket } from "@/contexts/SocketContext";
 
@@ -52,10 +54,10 @@ export default function Dashboard() {
     ).length;
 
     const trendingUp = processedCameras.filter(
-      (cam) => cam.trend === "increasing"
+      (cam) => cam.trend.direction === "increasing"
     ).length;
     const trendingDown = processedCameras.filter(
-      (cam) => cam.trend === "decreasing"
+      (cam) => cam.trend.direction === "decreasing"
     ).length;
 
     return {
@@ -83,7 +85,17 @@ export default function Dashboard() {
 
           <SectionCards metrics={metrics} isConnected={isConnected} />
           <div className="px-4 lg:px-6">
-            <ChartAreaInteractive cameras={processedCameras} />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="lg:col-span-2">
+                <ChartAreaInteractive cameras={processedCameras} />
+              </div>
+              <div>
+                <ForecastAccuracyCard />
+              </div>
+            </div>
+          </div>
+          <div className="px-4 lg:px-6">
+            <TrafficDensityChart />
           </div>
           <DataTable data={processedCameras} />
         </div>

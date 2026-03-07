@@ -121,7 +121,13 @@ export const schema = z.object({
     current: z.string(),
     forecast: z.string(),
   }),
-  trend: z.string(),
+  trend: z.object({
+    direction: z.string(),
+    gti_state: z.string(),
+    gti: z.number(),
+    current_ratio: z.number(),
+    diff: z.number(),
+  }),
   forecasts: z.object({
     "5m": z.number(),
     "10m": z.number(),
@@ -138,14 +144,15 @@ export const schema = z.object({
 })
 
 // Helper function to get trend explanation
-const getTrendExplanation = (trend: string) => {
-  switch (trend) {
+const getTrendExplanation = (trend: { direction: string; gti: number; current_ratio: number; diff: number }) => {
+  const d = trend.diff?.toFixed(1) ?? "?";
+  switch (trend.direction) {
     case "increasing":
-      return "Lưu lượng dự báo tăng >10% so với hiện tại";
+      return `GTI (${trend.gti?.toFixed(1)}%) cao hơn hiện tại (${trend.current_ratio?.toFixed(1)}%) → chênh lệch +${d}%`;
     case "decreasing":
-      return "Lưu lượng dự báo giảm >10% so với hiện tại";
+      return `GTI (${trend.gti?.toFixed(1)}%) thấp hơn hiện tại (${trend.current_ratio?.toFixed(1)}%) → chênh lệch ${d}%`;
     case "stable":
-      return "Lưu lượng dự báo thay đổi <10% (ổn định)";
+      return `GTI (${trend.gti?.toFixed(1)}%) ổn định so với hiện tại (${trend.current_ratio?.toFixed(1)}%)`;
     default:
       return "Không có dữ liệu xu hướng";
   }
@@ -179,13 +186,9 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
   },
   {
     accessorKey: "shortId",
-    header: () => <div className="hidden sm:block">Mã Camera</div>,
-    cell: ({ row }) => (
-      <div className="hidden sm:block">
-        <TableCellViewer item={row.original} />
-      </div>
-    ),
-    enableHiding: false,
+    header: () => null,
+    cell: () => null,
+    enableHiding: true,
   },
   {
     accessorKey: "name",
@@ -218,61 +221,47 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     accessorKey: "status",
     header: "Trạng Thái",
     cell: ({ row }) => {
-      const statusObj = row.original.status;
-      
-      // Helper function để render badge
-      const renderStatusBadge = (status: string, label: string) => {
-        let badgeClass = "bg-gray-500/10 text-gray-600";
-        let statusText = "Không rõ";
-        let icon = <LoaderIcon className="size-3" />;
-
-        switch (status) {
-          case "free_flow":
-            badgeClass = "bg-green-500/10 text-green-600";
-            statusText = "Thông thoáng";
-            icon = <CheckCircle2Icon className="size-3" />;
-            break;
-          case "smooth":
-            badgeClass = "bg-blue-500/10 text-blue-600";
-            statusText = "Ổn định";
-            icon = <CheckCircle2Icon className="size-3" />;
-            break;
-          case "moderate":
-            badgeClass = "bg-yellow-500/10 text-yellow-600";
-            statusText = "Trung bình";
-            icon = <LoaderIcon className="size-3" />;
-            break;
-          case "heavy":
-            badgeClass = "bg-orange-500/10 text-orange-600";
-            statusText = "Nặng";
-            icon = <LoaderIcon className="size-3" />;
-            break;
-          case "congested":
-            badgeClass = "bg-red-500/10 text-red-600";
-            statusText = "Ùn tắc";
-            icon = <LoaderIcon className="size-3" />;
-            break;
-        }
-
-        return (
-          <div className="flex flex-col gap-0.5">
-            <span className="text-[10px] text-muted-foreground">{label}</span>
-            <Badge
-              variant="outline"
-              className={`flex gap-1 px-2 py-1 ${badgeClass}`}
-            >
-              {icon}
-              {statusText}
-            </Badge>
-          </div>
-        );
-      };
-
+      const status = row.original.status.current;
+      let badgeClass = "bg-gray-500/10 text-gray-600 dark:text-gray-400";
+      let statusText = "Không rõ";
+      let icon = <LoaderIcon className="size-3" />;
+      switch (status) {
+        case "free_flow":  badgeClass = "bg-green-500/10 text-green-600 dark:text-green-400";  statusText = "Thông thoáng"; icon = <CheckCircle2Icon className="size-3" />; break;
+        case "smooth":    badgeClass = "bg-blue-500/10 text-blue-600 dark:text-blue-400";    statusText = "Ổn định";      icon = <CheckCircle2Icon className="size-3" />; break;
+        case "moderate":  badgeClass = "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"; statusText = "Trung bình";  break;
+        case "heavy":     badgeClass = "bg-orange-500/10 text-orange-600 dark:text-orange-400"; statusText = "Nặng";        break;
+        case "congested": badgeClass = "bg-red-500/10 text-red-600 dark:text-red-400";     statusText = "Ùn tắc";      break;
+      }
       return (
-        <div className="flex flex-col gap-2">
-          {renderStatusBadge(statusObj.current, "Hiện tại")}
-          {renderStatusBadge(statusObj.forecast, "Dự báo 5p")}
-        </div>
+        <Badge variant="outline" className={`flex gap-1 px-2 py-1 ${badgeClass}`}>
+          {icon}{statusText}
+        </Badge>
+      );
+    },
+    filterFn: (row, _columnId, filterValue) => {
+      if (!filterValue) return true;
+      return row.original.status.current === filterValue;
+    },
+  },
+  {
+    id: "status_forecast",
+    header: "Dự Báo 5p",
+    cell: ({ row }) => {
+      const status = row.original.status.forecast;
+      let badgeClass = "bg-gray-500/10 text-gray-500 dark:text-gray-400";
+      let statusText = "Không rõ";
+      let icon = <LoaderIcon className="size-3" />;
+      switch (status) {
+        case "free_flow":  badgeClass = "bg-green-500/10 text-green-600 dark:text-green-400";  statusText = "Thông thoáng"; icon = <CheckCircle2Icon className="size-3" />; break;
+        case "smooth":    badgeClass = "bg-blue-500/10 text-blue-600 dark:text-blue-400";    statusText = "Ổn định";      icon = <CheckCircle2Icon className="size-3" />; break;
+        case "moderate":  badgeClass = "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"; statusText = "Trung bình";  break;
+        case "heavy":     badgeClass = "bg-orange-500/10 text-orange-600 dark:text-orange-400"; statusText = "Nặng";        break;
+        case "congested": badgeClass = "bg-red-500/10 text-red-600 dark:text-red-400";     statusText = "Ùn tắc";      break;
+      }
+      return (
+        <Badge variant="outline" className={`flex gap-1 px-2 py-1 ${badgeClass}`}>
+          {icon}{statusText}
+        </Badge>
       );
     },
   },
@@ -285,11 +274,11 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
       let trendClass = "text-gray-600";
       let icon = null;
 
-      if (trend === "increasing") {
+      if (trend.direction === "increasing") {
         trendText = "Tăng";
         trendClass = "text-orange-600";
         icon = <TrendingUpIcon className="size-3" />;
-      } else if (trend === "decreasing") {
+      } else if (trend.direction === "decreasing") {
         trendText = "Giảm";
         trendClass = "text-green-600";
         icon = <TrendingDownIcon className="size-3" />;
@@ -603,7 +592,7 @@ export function DataTable({
             id={sortableId}
           >
             <Table>
-              <TableHeader className="sticky top-0 z-10 bg-muted">
+              <TableHeader className="sticky top-0 z-[1] bg-muted">
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>
                     {headerGroup.headers.map((header) => {
@@ -928,12 +917,12 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
               <div className="flex items-center justify-between">
                 <Label className="text-xs text-muted-foreground">Xu hướng</Label>
                 <Badge variant="outline" className="flex gap-1">
-                  {item.trend === "increasing" ? (
+                  {item.trend.direction === "increasing" ? (
                     <TrendingUpIcon className="size-3 text-orange-500" />
-                  ) : item.trend === "decreasing" ? (
+                  ) : item.trend.direction === "decreasing" ? (
                     <TrendingDownIcon className="size-3 text-green-500" />
                   ) : null}
-                  {item.trend === "increasing" ? "Tăng" : item.trend === "decreasing" ? "Giảm" : "Ổn định"}
+                  {item.trend.direction === "increasing" ? "Tăng" : item.trend.direction === "decreasing" ? "Giảm" : "Ổn định"}
                 </Badge>
               </div>
               <div className="text-[10px] text-muted-foreground bg-blue-50 dark:bg-blue-950/20 rounded px-2 py-1.5 border border-blue-200 dark:border-blue-800">
@@ -1159,12 +1148,12 @@ function TableCellViewerModal({ item, open, onOpenChange }: { item: z.infer<type
               <div className="flex items-center justify-between">
                 <Label className="text-xs text-muted-foreground">Xu hướng</Label>
                 <Badge variant="outline" className="flex gap-1">
-                  {item.trend === "increasing" ? (
+                  {item.trend.direction === "increasing" ? (
                     <TrendingUpIcon className="size-3 text-orange-500" />
-                  ) : item.trend === "decreasing" ? (
+                  ) : item.trend.direction === "decreasing" ? (
                     <TrendingDownIcon className="size-3 text-green-500" />
                   ) : null}
-                  {item.trend === "increasing" ? "Tăng" : item.trend === "decreasing" ? "Giảm" : "Ổn định"}
+                  {item.trend.direction === "increasing" ? "Tăng" : item.trend.direction === "decreasing" ? "Giảm" : "Ổn định"}
                 </Badge>
               </div>
               <div className="text-[10px] text-muted-foreground bg-blue-50 dark:bg-blue-950/20 rounded px-2 py-1.5 border border-blue-200 dark:border-blue-800">

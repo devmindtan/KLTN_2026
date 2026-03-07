@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useLocation } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -144,6 +145,15 @@ export default function PredictiveAnalytics() {
   const [isLoading, setIsLoading] = React.useState<boolean>(true);
   const [errorMessage, setErrorMessage] = React.useState<string>("");
   const [isExplanationOpen, setIsExplanationOpen] = React.useState<boolean>(false);
+  const location = useLocation();
+
+  // Scroll tới anchor khi data đã tải xong
+  React.useEffect(() => {
+    if (!isLoading && location.hash) {
+      const el = document.getElementById(location.hash.slice(1));
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [isLoading, location.hash]);
 
   React.useEffect(() => {
     /**
@@ -435,7 +445,7 @@ export default function PredictiveAnalytics() {
             </div>
           )}
 
-          <Card>
+          <Card id="horizon-comparison">
             <CardHeader>
               <CardTitle>So sánh theo các mốc</CardTitle>
               <CardDescription>

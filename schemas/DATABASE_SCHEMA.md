@@ -1,3 +1,5 @@
+<!-- Last Updated: 07/03/2026 | 10 tables total -->
+
 -- Tạo bảng lưu trữ kết quả phân tích từ camera
 CREATE TABLE IF NOT EXISTS camera_detections (
     id SERIAL PRIMARY KEY,                    -- Khóa chính tự tăng
@@ -114,6 +116,7 @@ CREATE TABLE IF NOT EXISTS ml_model_metadata (
     training_duration_hours FLOAT,             -- Thời gian train (giờ)
     metrics JSONB,                             -- Metrics: {"mae": 2.5, "rmse": 3.2, "r2": 0.85, ...}
     is_active BOOLEAN DEFAULT FALSE,           -- Model này có đang active không
+    activated_at TIMESTAMPTZ,                  -- Thời điểm được activate (dùng ORDER BY activated_at DESC để lấy model mới nhất)
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(model_type, model_version)
 );
@@ -250,3 +253,72 @@ INSERT INTO camera_data (cam_id, location, display_name) VALUES
 ('5a8241105058170011f6eaa6', '[10.7919218604929, 106.695785522461]', 'Đinh Tiên Hoàng - Võ Thị Sáu 2'),
 ('662b7f9f1afb9c00172dca50', '[10.7904674636287, 106.701471805573]', 'Nguyễn Đình Chiểu - Nguyễn Bỉnh Khiêm'),
 ('587ed91db807da0011e33d4e', '[10.8024818353159, 106.697963476181]', 'Phan Đăng Lưu - Đinh Tiên Hoàng 2');
+
+
+-- ============================================
+-- JWT AUTH & USER MANAGEMENT (Added 03/03/26)
+-- ============================================
+-- Bảng tài khoản kỹ thuật viên (role: technician)
+-- Viewer role là anonymous JWT, không cần tài khoản
+CREATE TABLE IF NOT EXISTS technician_accounts (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,       -- bcrypt hash
+    full_name VARCHAR(255),
+    role VARCHAR(50) DEFAULT 'technician',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Bảng ghi log hoạt động của kỹ thuật viên
+CREATE TABLE IF NOT EXISTS activity_logs (
+    id BIGSERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES technician_accounts(id),
+    action VARCHAR(100) NOT NULL,              -- 'TRAIN_MODEL', 'ACTIVATE_MODEL', ...
+    resource VARCHAR(255),                     -- Entity bị tác động (model_type, camera_id, ...)
+    ip_address VARCHAR(50),
+    user_agent TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_activity_logs_user ON activity_logs(user_id, created_at DESC);
+
+-- Seed admin account (chạy 1 lần):
+-- npx ts-node backend/server/src/migrations/seed-admin.ts
+
+
+-- ============================================
+-- DATA LIBRARY (Added 03/07/26 - entry 080)
+-- ============================================
+-- Bảng collections: nhóm dữ liệu (traffic_data, forecast, external, ...)
+CREATE TABLE IF NOT EXISTS data_library_collections (
+    collection_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    data_type VARCHAR(50),                     -- 'traffic_data', 'forecast', 'external', ...
+    source VARCHAR(50) NOT NULL,               -- 'internal' (auto by CronJob) or 'external' (user import)
+    entry_count INTEGER DEFAULT 0,             -- Denormalized count (updated on insert/delete)
+    last_snapshot_date DATE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Bảng entries: từng snapshot ngày của 1 collection
+CREATE TABLE IF NOT EXISTS data_library_entries (
+    entry_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    collection_id UUID REFERENCES data_library_collections(collection_id) ON DELETE CASCADE,
+    snapshot_date DATE NOT NULL,
+    minio_keys JSONB NOT NULL DEFAULT '{}',    -- {"detections": "data-library/detections/2026-03-06.csv.gz", ...}
+    row_count INTEGER,                         -- Số dòng trong file (optional)
+    file_size_bytes BIGINT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(collection_id, snapshot_date)
+);
+
+CREATE INDEX idx_entries_collection ON data_library_entries(collection_id, snapshot_date DESC);
+
+-- MinIO bucket: 'data-library'
+-- Key pattern: data-library/{data_type}/{YYYY-MM-DD}.csv.gz
+-- Example: data-library/detections/2026-03-06.csv.gz
+-- CronJob: data-export service (daily 01:00 UTC = 08:00 ICT), export D-1 data

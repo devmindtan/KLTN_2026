@@ -11,7 +11,9 @@ import modelMetricsApi from "./routes/model-metrics.api";
 import modelApi from "./routes/model.api";
 import authApi from "./routes/auth.api";
 import dataLibraryApi from "./routes/data-library.api";
+import trafficPatternApi from "./routes/traffic-pattern.api";
 import { requireAuth } from "./middleware/auth.middleware";
+import { ensureTrafficPatternMV, startTrafficPatternRefresh } from "./controllers/traffic-pattern.controller";
 
 dotenv.config();
 const app = express();
@@ -61,13 +63,20 @@ app.use("/api/models", requireAuth, modelApi);
 // Data Library routes – GET requireAuth, write operations requireTechnician (xử lý trong route file)
 app.use("/api/data-library", requireAuth, dataLibraryApi);
 
+// Traffic Pattern routes – lấy dữ liệu phân bố mật độ giao thông (direct query)
+app.use("/api/traffic", requireAuth, trafficPatternApi);
+
 // Legacy test route
 app.use("/", testControllerApi);
 
-// PostgreSQL connection test
+// PostgreSQL connection + auto-migration
 pool
   .query("SELECT NOW()")
-  .then(() => console.log("PostgreSQL connected ✅"))
+  .then(async () => {
+    console.log("PostgreSQL connected ✅");
+    await ensureTrafficPatternMV(pool);
+    startTrafficPatternRefresh(pool);
+  })
   .catch((err) => console.error("PostgreSQL connection error:", err));
 
 app.listen(PORT, () => {

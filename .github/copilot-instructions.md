@@ -4,6 +4,7 @@
 - **Dynamic Path**: Các đường dẫn đến `commands/` phải luôn được tính từ Root của Workspace đang mở.
 - **Project Isolation**: Không áp dụng logic của dự án này sang dự án khác nếu Workspace thay đổi.
 - **Backend Structure (Updated 25/02/26)**: Backend services đã restructure từ `backend/src/` → `backend/services/` với structure mới: `services/{service-name}/app/` (thay vì `src/{service-name}/src/`). Shared utilities nằm tại `backend/services/shared/`. Container structure: `/app/` (flat, không nested `/app/app/`).
+- **Frontend Structure (Updated 07/03/26)**: Frontend source đã chuyển từ `web/web-user/src/` → `web/src/`. Path đúng hiện tại: `web/src/pages/`, `web/src/components/`, `web/src/contexts/`, `web/src/services/`. FUNCTION_LIST entries cũ (trước 07/03/26) còn dùng `web/web-user/src/` là historical.
 - **Exceptions (DO NOT TOUCH)**: Tuyệt đối không tự ý thay đổi nội dung trong các thư mục: `k8s-configs/`, `assets/` đến khi tôi cho phép.
 - **Scope coding**: Dự án được phát triển trên máy cá nhân không phải master node nên những hành động nào liên quan đến thực hiện đến k3s phải ghi ra câu lệnh rồi tôi thực hiện và gửi bạn kết quả. Không được tự ý thực hiện trên máy cá nhân vì không hoạt động được
 
@@ -91,6 +92,14 @@
 # Post-Task Protocol (Quy trình sau nhiệm vụ)
 
 ## Khi nào cần update documentation:
+
+### LUÔN update `schemas/*.md` khi:
+
+- Thêm/xóa table hoặc column trong PostgreSQL → cập nhật `schemas/DATABASE_SCHEMA.md`
+- Thay đổi attribute hoặc format trong FIWARE Orion entity → cập nhật `schemas/FIWARE_ORION_DATA_TEMPLATE.md`
+- Thêm bucket, thay đổi key pattern hoặc logic chọn model active trong MinIO → cập nhật `schemas/MINIO_STORAGE_SCHEMA.md`
+- Thay đổi kiểu dữ liệu, format timestamp, hoặc CameraData interface → cập nhật file schema tương ứng
+- **KHÔNG** để code và schema lệch nhau quá 1 task – schema là "single source of truth" cho DB, FIWARE, và Storage
 
 ### LUÔN update AGENT_LOG.md khi:
 

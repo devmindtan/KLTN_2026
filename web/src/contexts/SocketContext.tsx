@@ -82,7 +82,13 @@ interface NGSILDCamera {
             vc_ratio: number;          // Tỉ lệ V/C (0.00-1.00+)
           };
         };
-        trend: string;
+        trend: {
+          direction: string;      // increasing | decreasing | stable
+          gti_state: string;      // free_flow | normal | congestion_start | congestion_risk
+          gti: number;            // GTI (%)
+          current_ratio: number;  // current/capacity×100 (%)
+          diff: number;           // GTI - current_ratio (%)
+        };
       };
       type: string;
       modDate: number;
@@ -94,6 +100,15 @@ interface NGSILDCamera {
     };
   };
   modDate: number;
+}
+
+// GTI Trend object từ predict_realtime (cập nhật 07/03/26)
+export interface TrendInfo {
+  direction: string;      // increasing | decreasing | stable
+  gti_state: string;      // free_flow | normal | congestion_start | congestion_risk
+  gti: number;            // GTI (%)
+  current_ratio: number;  // current/capacity×100 (%)
+  diff: number;           // GTI - current_ratio (%)
 }
 
 // Interface cho processed camera data
@@ -110,7 +125,7 @@ export interface CameraData {
     current: string;  // Trạng thái hiện tại
     forecast: string; // Trạng thái dự báo 5 phút sau
   };
-  trend: string;
+  trend: TrendInfo;
   forecasts: {
     "5m": number;
     "10m": number;
@@ -118,6 +133,7 @@ export interface CameraData {
     "30m": number;
     "60m": number;
   };
+  inputValue?: number;  // Giá trị trung bình 5p dùng làm input cho model (avg_objects)
   lastPredicted: string;
   calculation?: {   // Thông tin tính toán prediction (dự báo 5p)
     predicted_volume: number;  // Giá trị dự đoán 5p (vehicles/5min)
@@ -302,7 +318,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
                 status: {
                   forecast: "unknown"
                 },
-                trend: "stable",
+                trend: {
+                  direction: "stable",
+                  gti_state: "free_flow",
+                  gti: 0,
+                  current_ratio: 0,
+                  diff: 0,
+                },
               },
               type: "StructuredValue",
               modDate: now,
@@ -477,7 +499,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     // Cleanup khi component unmount
     return () => {
-      console.log("🧹 Cleaning up socket connection");
+      logger.log("🧹 Cleaning up socket connection");
       socketInstance.off("connect");
       socketInstance.off("disconnect");
       socketInstance.off("CAMERA_UPDATED");
@@ -541,7 +563,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
           current: cam.attrs.status?.value?.current ?? "unknown",  // Từ image-process (real-time)
           forecast: cam.attrs.prediction?.value?.status?.forecast ?? "unknown"  // Từ predict_realtime (cronjob 5p)
         },
-        trend: cam.attrs.prediction?.value?.trend ?? "stable",
+        trend: cam.attrs.prediction?.value?.trend ?? {
+          direction: "stable",
+          gti_state: "free_flow",
+          gti: 0,
+          current_ratio: 0,
+          diff: 0,
+        },
         forecasts: predictionAttr?.forecasts ?? {
           "5m": 0,
           "10m": 0,
@@ -549,6 +577,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
           "30m": 0,
           "60m": 0,
         },
+        inputValue: predictionAttr?.input_value ?? undefined,
         lastPredicted: rawLastPredicted ? String(rawLastPredicted) : "",
         calculation: cam.attrs.prediction?.value?.status?.calculation,  // Thông tin tính toán prediction (dự báo 5p)
         realtimeData: cam.attrs.status?.value?.realtime,  // Thông tin chi tiết real-time detection

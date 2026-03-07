@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import logger from "@/lib/logger"
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts"
+import { Area, AreaChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts"
 
 // import { useIsMobile } from "@/hooks/use-mobile"
 import {
@@ -34,6 +34,8 @@ interface CameraData {
   id: string;
   name: string;
   shortId: string;
+  totalObjects: number;
+  inputValue?: number;  // Giá trị trung bình 5p thực sự dùng làm input dự đoán
   forecasts: {
     "5m": number;
     "10m": number;
@@ -55,6 +57,23 @@ const chartConfig = {
     color: "hsl(var(--chart-1))",
   },
 } satisfies ChartConfig
+
+/**
+ * Component nhãn % thay đổi — đặt ngoài component chính để reference ổn định, tránh memory leak do Recharts re-mount
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const PctChangeLabel = (props: any) => {
+  const { x, y, value } = props;
+  if (value === undefined || value === null) return null;
+  const pct = value as number;
+  const color = pct > 0 ? "#f97316" : pct < 0 ? "#22c55e" : "#9ca3af";
+  const sign = pct > 0 ? "+" : "";
+  return (
+    <text x={Number(x)} y={Number(y) - 6} textAnchor="middle" fill={color} fontSize={11} fontWeight={600}>
+      {sign}{pct}%
+    </text>
+  );
+};
 
 export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
   const [selectedCamera, setSelectedCamera] = React.useState<string>("all")
@@ -88,16 +107,23 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
 
     // If "all" is selected, calculate average forecast
     if (selectedCamera === "all") {
+      const hasInputData = cameras.some(cam => cam.inputValue !== undefined);
+      const currentBase = hasInputData
+        ? cameras.reduce((sum, cam) => sum + (cam.inputValue ?? 0), 0) / cameras.filter(cam => cam.inputValue !== undefined).length
+        : null;
       const timeframes = ["5m", "10m", "15m", "30m", "60m"] as const;
       const chartData = timeframes.map((timeframe) => {
         const avgVehicles = cameras.reduce(
           (sum, cam) => sum + (cam.forecasts[timeframe] || 0),
           0
         ) / cameras.length;
-
+        const vehicles = Math.round(avgVehicles);
         return {
           time: timeframe,
-          vehicles: Math.round(avgVehicles),
+          vehicles,
+          pctChange: (currentBase !== null && currentBase > 0)
+            ? Math.round(((vehicles - currentBase) / currentBase) * 100)
+            : null,
           label: timeframe === "5m" ? "5 phút" :
             timeframe === "10m" ? "10 phút" :
               timeframe === "15m" ? "15 phút" :
@@ -118,21 +144,27 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
 
     // console.log(`📈 [Chart] Specific camera ${camera.shortId} selected`);
 
+    const currentBase = camera.inputValue !== undefined ? camera.inputValue : null;
     const timeframes = ["5m", "10m", "15m", "30m", "60m"] as const;
-    const chartData = timeframes.map((timeframe) => ({
-      time: timeframe,
-      vehicles: Math.round(camera.forecasts[timeframe] || 0),
-      label: timeframe === "5m" ? "5 phút" :
-        timeframe === "10m" ? "10 phút" :
-          timeframe === "15m" ? "15 phút" :
-            timeframe === "30m" ? "30 phút" : "60 phút",
-    }));
+    const chartData = timeframes.map((timeframe) => {
+      const vehicles = Math.round(camera.forecasts[timeframe] || 0);
+      return {
+        time: timeframe,
+        vehicles,
+        pctChange: (currentBase !== null && currentBase > 0)
+          ? Math.round(((vehicles - currentBase) / currentBase) * 100)
+          : null,
+        label: timeframe === "5m" ? "5 phút" :
+          timeframe === "10m" ? "10 phút" :
+            timeframe === "15m" ? "15 phút" :
+              timeframe === "30m" ? "30 phút" : "60 phút",
+      };
+    });
 
     // console.log("📈 [Chart] Specific camera forecast data:", chartData);
     return chartData;
   }, [cameras, selectedCamera])
 
-  const filteredData = chartData;
   return (
     <Card className="@container/card">
       <CardHeader className="relative">
@@ -184,7 +216,7 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
         </div>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-        {filteredData.length === 0 ? (
+        {chartData.length === 0 ? (
           <div className="flex h-[250px] items-center justify-center text-muted-foreground">
             <div className="text-center">
               <p className="text-lg font-medium">Không có dữ liệu dự đoán nào</p>
@@ -196,7 +228,7 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
             config={chartConfig}
             className="aspect-auto h-[250px] w-full"
           >
-            <AreaChart data={filteredData}>
+            <AreaChart data={chartData} margin={{ top: 28, right: 36, left: 10, bottom: 0 }}>
               <defs>
                 <linearGradient id="fillVehicles" x1="0" y1="0" x2="0" y2="1">
                   <stop
@@ -222,7 +254,7 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
-                label={{ value: 'Phương tiện', angle: -90, position: 'insideLeft' }}
+                label={{ value: 'Phương tiện', angle: -90, position: 'insideLeft', offset: 10 }}
               />
               <ChartTooltip
                 cursor={false}
@@ -238,7 +270,9 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
                 type="monotone"
                 fill="url(#fillVehicles)"
                 stroke="var(--color-vehicles)"
-              />
+              >
+                <LabelList dataKey="pctChange" content={PctChangeLabel} />
+              </Area>
             </AreaChart>
           </ChartContainer>
         )}

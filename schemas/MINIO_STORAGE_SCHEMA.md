@@ -1,4 +1,5 @@
 # MinIO Storage Schema
+<!-- Last Updated: 07/03/2026 | 3 buckets total -->
 
 ## Bucket Structure
 
@@ -23,6 +24,10 @@ ml-models/
         ├── random-forest_20260227_30m.joblib
         ├── random-forest_20260227_60m.joblib
         └── random-forest_20260227_encoder.joblib
+data-library/                        (Added entry 080, 07/03/26)
+└── {data_type}/
+    └── {YYYY-MM-DD}.csv.gz
+    └── 2026-03-06.csv.gz
 ```
 
 ## Path Patterns
@@ -38,7 +43,14 @@ ml-models/
 - **Example**: `ml-models/yolo/v1/yolo_20260227_best.pt`
 - **Service**: image-process (YOLO), image-predict (Random Forest)
 - **Version**: v1, v2, v3... (major versions)
-- **Latest**: File với LastModified mới nhất = Production model
+- **Active Model**: Xác định qua `is_active = TRUE` trong bảng `ml_model_metadata` (DB), không dựa vào LastModified (có thể bị latch khi upload cú)
+
+### Data Library (Added entry 080)
+- **Pattern**: `data-library/{data_type}/{YYYY-MM-DD}.csv.gz`
+- **Example**: `data-library/detections/2026-03-06.csv.gz`
+- **Service**: data-export (CronJob daily 01:00 UTC)
+- **Purpose**: Lưu trữ bản snapshot hàng ngày của dữ liệu camera (đỞ nén gzip)
+- **Metadata**: Key path lưu trong `data_library_entries.minio_keys` (JSONB) – link tới bản ghi DB
 
 ## Model Types
 
@@ -48,15 +60,26 @@ ml-models/
 | random-forest | v1 | random-forest_{date}_{horizon}.joblib | .joblib |
 | random-forest | v1 | random-forest_{date}_encoder.joblib | .joblib |
 
+### Active model query:
+```sql
+SELECT minio_key FROM ml_model_metadata
+WHERE model_type = 'random_forest_5m' AND is_active = TRUE
+ORDER BY activated_at DESC LIMIT 1;
+```
+
 ## Access Patterns
 
 ### Upload (image-process, image-predict)
 ```python
-# Images
-minio_key = f"{camera_id}/{timestamp}.jpg"
+# Images (key includes 'images/' prefix – stored as-is in FIWARE minio_key attr)
+minio_key = f"images/{camera_id}/{timestamp}.jpg"
+presigned_url = f"{MINIO_URL}/{minio_key}"
 
 # Models
 minio_key = f"ml-models/{model_type}/{version}/{model_type}_{date}_{name}.ext"
+
+# Data Library snapshots
+minio_key = f"data-library/{data_type}/{snapshot_date}.csv.gz"
 ```
 
 ### Download (Dockerfile)

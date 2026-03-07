@@ -100,7 +100,7 @@ export default function TrafficMonitoring() {
       const matchesStatus = statusFilter === "all" || camera.status.current === statusFilter;
 
       // Trend filter
-      const matchesTrend = trendFilter === "all" || camera.trend === trendFilter;
+      const matchesTrend = trendFilter === "all" || camera.trend.direction === trendFilter;
 
       return matchesSearch && matchesStatus && matchesTrend;
     });
@@ -322,7 +322,7 @@ export default function TrafficMonitoring() {
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">Xu hướng:</span>
-                      <span className="text-sm capitalize">{camera.trend === "increasing" ? "Tăng" : camera.trend === "decreasing" ? "Giảm" : "Ổn định"}</span>
+                      <span className="text-sm capitalize">{camera.trend.direction === "increasing" ? "Tăng" : camera.trend.direction === "decreasing" ? "Giảm" : "Ổn định"}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground flex items-center gap-1">
@@ -496,20 +496,20 @@ function CameraDetailDialog({ camera }: { camera: CameraData }) {
               <div className="flex items-center justify-between">
                 <Label className="text-xs text-muted-foreground">Xu hướng</Label>
                 <Badge variant="outline" className="flex gap-1">
-                  {camera.trend === "increasing" ? (
+                  {camera.trend.direction === "increasing" ? (
                     <TrendingUpIcon className="size-3 text-orange-500" />
-                  ) : camera.trend === "decreasing" ? (
+                  ) : camera.trend.direction === "decreasing" ? (
                     <TrendingDownIcon className="size-3 text-green-500" />
                   ) : null}
-                  {camera.trend === "increasing" ? "Tăng" : camera.trend === "decreasing" ? "Giảm" : "Ổn định"}
+                  {camera.trend.direction === "increasing" ? "Tăng" : camera.trend.direction === "decreasing" ? "Giảm" : "Ổn định"}
                 </Badge>
               </div>
               <div className="text-[10px] text-muted-foreground bg-blue-50 dark:bg-blue-950/20 rounded px-2 py-1.5 border border-blue-200 dark:border-blue-800">
-                💡 {camera.trend === "increasing" 
-                  ? "Lưu lượng dự báo tăng >10% so với hiện tại"
-                  : camera.trend === "decreasing"
-                  ? "Lưu lượng dự báo giảm >10% so với hiện tại"
-                  : "Lưu lượng dự báo thay đổi <10% (ổn định)"}
+                💡 {camera.trend.direction === "increasing" 
+                  ? `GTI (${camera.trend.gti?.toFixed(1)}%) cao hơn hiện tại (${camera.trend.current_ratio?.toFixed(1)}%) → xu hướng tăng`
+                  : camera.trend.direction === "decreasing"
+                  ? `GTI (${camera.trend.gti?.toFixed(1)}%) thấp hơn hiện tại (${camera.trend.current_ratio?.toFixed(1)}%) → xu hướng giảm`
+                  : `GTI (${camera.trend.gti?.toFixed(1)}%) ổn định so với hiện tại (${camera.trend.current_ratio?.toFixed(1)}%)`}
               </div>
             </div>
             <div className="flex items-center justify-between">

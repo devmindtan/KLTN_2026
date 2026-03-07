@@ -217,6 +217,7 @@ async def update_fiware(session, camera_id, total_objects, forecasts, capacity):
         "prediction": {
             "type": "StructuredValue",
             "value": {
+                "input_value": round(float(total_objects), 1),  # Giá trị trung bình 5p dùng làm input cho model
                 "forecasts": {
                     "5m": forecasts.get("5m"),
                     "10m": forecasts.get("10m"),

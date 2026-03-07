@@ -20,6 +20,28 @@ LOS_THRESHOLDS = {
     # "congested": >= 1.0 # LOS F: >= 100% capacity
 }
 
+# -------------------------------------------------------
+# GTI – General Trend Index
+# -------------------------------------------------------
+
+# Trọng số cho từng mốc dự đoán (tổng = 1.0)
+# Ưu tiên mốc gần (5m) vì có tác động thực tế cao hơn
+GTI_WEIGHTS: Dict[str, float] = {
+    "5m":  0.35,
+    "10m": 0.25,
+    "15m": 0.20,
+    "30m": 0.15,
+    "60m": 0.05,
+}
+
+# Ngưỡng phân loại trạng thái theo GTI (%)
+GTI_STATE_THRESHOLDS = {
+    "free_flow":         30,   # GTI 0–30 %  : Thông thoáng
+    "normal":            60,   # GTI 31–60 % : Bình thường
+    "congestion_start":  85,   # GTI 61–85 % : Bắt đầu tắc nghẽ
+    # GTI > 85 %: congestion_risk
+}
+
 
 def get_camera_max_realtime_capacity(lookback_days: int = 7, camera_list=None) -> Dict[str, float]:
     """
@@ -193,3 +215,119 @@ def calculate_los_status(volume: float, capacity: float) -> str:
         return "heavy"          # LOS E
     else:
         return "congested"      # LOS F
+
+
+def calculate_gti(forecasts: Dict[str, float], capacity: float) -> Dict:
+    """
+    Tính General Trend Index (GTI) – chỉ số xu hướng tổng hợp đa mốc thời gian.
+
+    GTI = (Σ P_i × w_i / Max) × 100
+
+    Args:
+        forecasts: Dict dự đoán theo horizon {"5m": x, "10m": x, "15m": x, "30m": x, "60m": x}
+        capacity: Năng lực tối đa của camera (vehicles/5min, lấy MAX 7 ngày)
+
+    Returns:
+        Dict {
+            "gti": GTI theo % (0–100+),
+            "weighted_sum": tổng có trọng số,
+            "current_ratio": tỉ lệ current/capacity (được tính riêng khi gọi)
+        }
+    """
+    if capacity <= 0:
+        return {"gti": 0.0, "weighted_sum": 0.0}
+
+    weighted_sum = sum(
+        forecasts.get(horizon, 0) * weight
+        for horizon, weight in GTI_WEIGHTS.items()
+    )
+    gti = (weighted_sum / capacity) * 100
+
+    return {
+        "gti": round(gti, 2),
+        "weighted_sum": round(weighted_sum, 2),
+    }
+
+
+def classify_gti_state(gti: float) -> str:
+    """
+    Phân loại trạng thái giao thông dựa trên giá trị GTI (%).
+
+    Args:
+        gti: Giá trị GTI tính bằng % (từ calculate_gti)
+
+    Returns:
+        State string: "free_flow" | "normal" | "congestion_start" | "congestion_risk"
+    """
+    if gti <= GTI_STATE_THRESHOLDS["free_flow"]:
+        return "free_flow"          # 0–30%
+    elif gti <= GTI_STATE_THRESHOLDS["normal"]:
+        return "normal"             # 31–60%
+    elif gti <= GTI_STATE_THRESHOLDS["congestion_start"]:
+        return "congestion_start"   # 61–85%
+    else:
+        return "congestion_risk"    # > 85%
+
+
+def calculate_trend_by_gti(
+    current: float,
+    capacity: float,
+    forecasts: Dict[str, float],
+    threshold: float = 5.0,
+) -> Dict:
+    """
+    Tính xu hướng giao thông dựa trên GTI so với Current Ratio.
+
+    Rules:
+        GTI > current_ratio + threshold  → "increasing"
+        GTI < current_ratio - threshold  → "decreasing"
+        else                             → "stable"
+
+    Args:
+        current: Giá trị lưu lượng hiện tại (vehicles/5min)
+        capacity: Năng lực tối đa của camera
+        forecasts: Dict dự đoán {"5m": x, "10m": x, "15m": x, "30m": x, "60m": x}
+        threshold: Ngưỡng % xác định xu hướng đáng kể (default 5%)
+
+    Returns:
+        Dict {
+            "direction": "increasing" | "decreasing" | "stable",
+            "gti": GTI (%),
+            "current_ratio": tỉ lệ current/capacity (%),
+            "diff": GTI - current_ratio (%),
+            "gti_state": kết quả classify_gti_state
+        }
+    """
+    if capacity <= 0:
+        return {
+            "direction": "stable",
+            "gti": 0.0,
+            "current_ratio": 0.0,
+            "diff": 0.0,
+            "gti_state": "free_flow",
+        }
+
+    gti_result = calculate_gti(forecasts, capacity)
+    gti = gti_result["gti"]
+    current_ratio = round((current / capacity) * 100, 2)
+    diff = round(gti - current_ratio, 2)
+
+    if diff > threshold:
+        direction = "increasing"
+    elif diff < -threshold:
+        direction = "decreasing"
+    else:
+        direction = "stable"
+
+    logger.debug(
+        f"GTI trend: current_ratio={current_ratio:.1f}%, gti={gti:.1f}%, "
+        f"diff={diff:+.1f}% → {direction}"
+    )
+
+    return {
+        "direction": direction,
+        "gti": gti,
+        "current_ratio": current_ratio,
+        "diff": diff,
+        "gti_state": classify_gti_state(gti),
+    }

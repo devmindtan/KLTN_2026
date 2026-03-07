@@ -5,6 +5,7 @@ from db_queries import (
 from shared.monitor_performance import monitor_performance
 from shared.los_utils import (
     calculate_los_status,
+    calculate_trend_by_gti,
     DEFAULT_CAPACITY,
     get_camera_capacity_map,
 )
@@ -156,33 +157,8 @@ def ensure_models_ready():
     return True
 
 
-def calculate_trend(current_val: float, predicted_val: float, threshold_percent: float = 10.0) -> str:
-    """
-    Tính toán xu hướng giao thông dựa trên % thay đổi giữa hiện tại và dự đoán
-    Args:
-        current_val: Giá trị hiện tại
-        predicted_val: Giá trị dự đoán
-        threshold_percent: Ngưỡng % để xác định thay đổi đáng kể (default 10%)
-    Returns:
-        Trend string: "increasing", "decreasing", "stable"
-    """
-    # Tránh chia cho 0, nếu current_val = 0 thì dùng giá trị tuyệt đối
-    if current_val == 0:
-        return "increasing" if predicted_val > 0 else "stable"
-
-    # Tính % thay đổi
-    percent_change = ((predicted_val - current_val) / current_val) * 100
-
-    # Log để debug (comment sau khi xác minh)
-    logger.debug(
-        f"Trend calc: current={current_val:.1f}, pred={predicted_val:.1f}, change={percent_change:.1f}%")
-
-    if abs(percent_change) < threshold_percent:
-        return "stable"
-    elif percent_change > 0:
-        return "increasing"
-    else:
-        return "decreasing"
+# calculate_trend() cũ đã được thay thế bởi calculate_trend_by_gti() từ shared/los_utils.py
+# Hàm mới dùng GTI (General Trend Index) tổng hợp 5 mốc dự đoán thay vì chỉ so sánh 5m
 
 
 @monitor_performance
@@ -199,16 +175,19 @@ async def update_fiware(session, camera_id, total_objects, forecasts, capacity):
     """
     entity_id = f"urn:ngsi-ld:Camera:{camera_id}"
 
-    # Tính toán trạng thái giao thông theo Level of Service (LOS)
-    current_val = total_objects
+    # ── LOS: dùng dự đoán 5m để tính trạng thái ngay kế tiếp ──────────────────
     next_val = forecasts.get("5m", 0)
-
-    # Dùng giá trị DỰ ĐOÁN 5 phút sau để tính status_forecast (thể hiện xu hướng tương lai)
     status_forecast = calculate_los_status(next_val, capacity)
-    trend = calculate_trend(current_val, next_val)
-
-    # Tính tỉ lệ Volume/Capacity
     vc_ratio = round(next_val / capacity, 2) if capacity > 0 else 0
+
+    # ── GTI: tổng hợp xu hướng từ TẤT CẢ 5 mốc dự đoán ──────────────────────
+    # Trả về dict: direction, gti, current_ratio, diff, gti_state
+    gti_info = calculate_trend_by_gti(
+        current=total_objects,
+        capacity=capacity,
+        forecasts=forecasts,
+        threshold=5.0,
+    )
 
     # Payload linh hoạt theo dữ liệu truyền vào
     payload = {
@@ -226,16 +205,21 @@ async def update_fiware(session, camera_id, total_objects, forecasts, capacity):
                     "60m": forecasts.get("60m"),
                 },
                 "status": {
-                    "forecast": status_forecast,  # Trạng thái dự báo 5 phút sau
+                    "forecast": status_forecast,  # Trạng thái LOS dự báo 5 phút sau
                     "calculation": {
-                        # Giá trị dự đoán 5p
-                        "predicted_volume": round(next_val, 1),
-                        # Capacity của camera (MAX 7 ngày)
-                        "capacity": round(capacity, 1),
-                        "vc_ratio": vc_ratio,  # Tỉ lệ Volume/Capacity
-                    }
+                        "predicted_volume": round(next_val, 1),  # Giá trị dự đoán 5p
+                        "capacity": round(capacity, 1),           # Capacity camera (MAX 7 ngày)
+                        "vc_ratio": vc_ratio,                     # Tỉ lệ Volume/Capacity
+                    },
                 },
-                "trend": trend,
+                # GTI-based trend: với đầy đủ metrics tổng hợp từ 5 mốc (5m→60m)
+                "trend": {
+                    "direction": gti_info["direction"],       # increasing | decreasing | stable
+                    "gti_state": gti_info["gti_state"],       # free_flow | normal | congestion_start | congestion_risk
+                    "gti": gti_info["gti"],                   # GTI (%) = Σ(P_i×w_i)/Max×100
+                    "current_ratio": gti_info["current_ratio"], # current/capacity×100 (%)
+                    "diff": gti_info["diff"],                 # GTI - current_ratio (%)
+                },
             },
         },
         "last_predicted": {"type": "DateTime", "value": datetime.utcnow().isoformat()},

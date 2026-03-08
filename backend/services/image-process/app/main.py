@@ -352,10 +352,32 @@ async def fetch_camera(session, camera_id):
         logger.error(f"Cam {camera_id} lỗi kết nối: {e}")
 
 
+async def camera_loop(session, camera_id: str, interval: float = 10.0):
+    """
+    Vòng lặp độc lập cho từng camera — đảm bảo mỗi camera được fetch đúng 10s/lần.
+    Đo thời gian xử lý thực tế rồi sleep phần còn lại để đạt đúng `interval`.
+    Args:
+        session: aiohttp ClientSession dùng chung
+        camera_id: ID camera
+        interval: Khoảng cách tối thiểu giữa 2 lần fetch (giây), mặc định 10s
+    """
+    while True:
+        start = time.time()
+        # Refresh capacity map nếu cần (hàm tự kiểm tra threshold 6h bên trong)
+        refresh_capacity_map_if_needed()
+        await fetch_camera(session, camera_id)
+        elapsed = time.time() - start
+        wait = max(0.0, interval - elapsed)
+        if wait > 0:
+            await asyncio.sleep(wait)
+        else:
+            logger.warning(f"[{camera_id}] Xử lý mất {elapsed:.1f}s > {interval}s interval")
+
+
 async def main():
     """
     Vòng lặp chính xử lý tất cả cameras
-    Khởi tạo cookie và chạy async fetch cho tất cả 20 cameras
+    Mỗi camera chạy vòng lặp độc lập với interval 10s tính từ lúc bắt đầu fetch.
     """
     # Load capacity map lần đầu
     logger.info("📊 Loading capacity map...")
@@ -369,24 +391,9 @@ async def main():
             headers={"User-Agent": "Mozilla/5.0"},
         )
 
-        while True:
-            # Refresh capacity map nếu cần (mỗi 6 giờ)
-            refresh_capacity_map_if_needed()
-
-            start_time = time.time()
-
-            # Tạo danh sách các task chạy song song
-            tasks = [fetch_camera(session, cid) for cid in CAMERA_LIST]
-
-            # Chờ tất cả camera hoàn thành chu kỳ này
-            await asyncio.gather(*tasks)
-
-            logger.info(
-                f"--- Hoàn thành chu kỳ trong {time.time() - start_time:.2f} giây ---"
-            )
-
-            # Đợi 5 giây trước khi bắt đầu chu kỳ tiếp theo
-            await asyncio.sleep(3)
+        # Mỗi camera chạy vòng lặp riêng — không bị block bởi camera khác
+        tasks = [camera_loop(session, cid, interval=10.0) for cid in CAMERA_LIST]
+        await asyncio.gather(*tasks)
 
 
 if __name__ == "__main__":

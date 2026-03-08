@@ -3,6 +3,7 @@
 import * as React from "react"
 import logger from "@/lib/logger"
 import { Area, AreaChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts"
+import { type TrendInfo } from "@/contexts/SocketContext"
 
 // import { useIsMobile } from "@/hooks/use-mobile"
 import {
@@ -43,7 +44,7 @@ interface CameraData {
     "30m": number;
     "60m": number;
   };
-  trend: string;
+  trend: TrendInfo;
 }
 
 interface ChartAreaInteractiveProps {

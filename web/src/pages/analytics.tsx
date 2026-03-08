@@ -156,6 +156,8 @@ export default function PredictiveAnalytics() {
   }, [isLoading, location.hash]);
 
   React.useEffect(() => {
+    let isMounted = true;
+
     /**
      * Tải dữ liệu metrics mới nhất và lịch sử cho trang analytics
      */
@@ -170,6 +172,7 @@ export default function PredictiveAnalytics() {
           getAllCameras(),
         ]);
 
+        if (!isMounted) return;
         setLatestMetrics(latest);
         setHistoryMetrics(history);
 
@@ -181,13 +184,14 @@ export default function PredictiveAnalytics() {
           setCameraNameMap(nextMap);
         }
       } catch {
-        setErrorMessage("Không thể tải dữ liệu phân tích từ backend");
+        if (isMounted) setErrorMessage("Không thể tải dữ liệu phân tích từ backend");
       } finally {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     }
 
     loadAnalyticsData();
+    return () => { isMounted = false; };
   }, []);
 
   const overall = latestMetrics?.overall;

@@ -5,7 +5,7 @@ import {AppSidebar} from "@/components/app-sidebar";
 import Dashboard from "@/pages/dashboard.tsx";
 import Setting from "@/pages/setting.tsx";
 import DataLibrary from "@/pages/data-library.tsx";
-import Lifecycle from "@/pages/lifecycle.tsx";
+import Monitoring from "@/pages/monitoring.tsx";
 import Analytics from "@/pages/analytics.tsx";
 import Projects from "@/pages/projects.tsx";
 import Models from "@/pages/models.tsx";
@@ -63,7 +63,7 @@ const router = createBrowserRouter([
     children: [
       {index: true, element: <Navigate to="dashboard" replace />},
       {path: "dashboard", element: <Dashboard/>},
-      {path: "lifecycle", element: <Lifecycle/>},
+      {path: "monitoring", element: <Monitoring/>},
       {path: "analytics", element: <Analytics/>},
       {path: "projects", element: <Projects/>},
       {path: "models", element: <Models/>},

@@ -1,5 +1,6 @@
 -- Migration 001: Tạo bảng xác thực và log hoạt động
--- Chạy: psql $DATABASE_URL -f src/migrations/001_auth_tables.sql
+-- Tất cả dùng IF NOT EXISTS — idempotent, an toàn khi chạy lại nhiều lần
+-- KHÔNG chứa INSERT / seed data (dùng seed-admin.ts chạy thủ công 1 lần)
 
 -- Bảng tài khoản kỹ thuật viên
 CREATE TABLE IF NOT EXISTS technician_accounts (
@@ -31,10 +32,10 @@ CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created
 -- Seed: tài khoản technician mẫu (password: Admin@123)
 -- Hash được tạo bằng bcrypt rounds=12
 -- Đổi email và chạy script seed-admin.ts để tạo hash mới
-INSERT INTO technician_accounts (email, password_hash, full_name)
-VALUES (
-  'admin@traffic.com',
-  'Admin@123',
-  'Quản trị viên'
-)
-ON CONFLICT (email) DO NOTHING;
+-- INSERT INTO technician_accounts (email, password_hash, full_name)
+-- VALUES (
+--   'admin@traffic.com',
+--   'Admin@123',
+--   'Quản trị viên'
+-- )
+-- ON CONFLICT (email) DO NOTHING;

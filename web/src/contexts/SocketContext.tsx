@@ -89,6 +89,7 @@ interface NGSILDCamera {
           current_ratio: number;  // current/capacity×100 (%)
           diff: number;           // GTI - current_ratio (%)
         };
+        input_value?: number;    // Giá trị avg_objects dùng làm input model
       };
       type: string;
       modDate: number;

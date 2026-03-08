@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -999,6 +999,14 @@ export default function ModelsPage() {
   const [trainModalMode, setTrainModalMode] = useState<'new' | 'view'>('new');
 
   const isTrainingRunning = trainingJob?.status === 'running';
+  const activateSuccessTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup timer khi component unmount
+  useEffect(() => {
+    return () => {
+      if (activateSuccessTimerRef.current) clearTimeout(activateSuccessTimerRef.current);
+    };
+  }, []);
 
   const fetchModels = () => {
     setLoading(true);
@@ -1095,7 +1103,8 @@ export default function ModelsPage() {
       : `Đã kích hoạt phiên bản ${version.slice(-13)} — chưa thể kết nối tới image-predict`;
     setActivateSuccess(msg);
     fetchModels(); // refresh grid
-    setTimeout(() => setActivateSuccess(null), 7000);
+    if (activateSuccessTimerRef.current) clearTimeout(activateSuccessTimerRef.current);
+    activateSuccessTimerRef.current = setTimeout(() => setActivateSuccess(null), 7000);
   };
 
   return (

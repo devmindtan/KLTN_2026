@@ -309,9 +309,15 @@ export default function TrafficMonitoring() {
                 <CardContent>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Tổng phương tiện:</span>
+                      <span className="text-sm text-muted-foreground">Tổng phương tiện hiện tại:</span>
                       <span className="font-semibold">{camera.totalObjects} xe</span>
                     </div>
+                    {camera.inputValue !== undefined && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Trung bình 5p trước:</span>
+                        <span className="text-sm text-muted-foreground">{camera.inputValue}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">Ô tô:</span>
                       <span className="text-sm">{camera.carCount} xe</span>
@@ -393,8 +399,14 @@ function CameraDetailDialog({ camera }: { camera: CameraData }) {
           {/* Current Status */}
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1">
-              <Label className="text-xs text-muted-foreground">Tổng phương tiện</Label>
-              <div className="text-2xl font-bold tabular-nums">{camera.totalObjects}</div>
+              <Label className="text-xs text-muted-foreground">Tổng phương tiện hiện tại</Label>
+              <div className="text-xl font-bold tabular-nums">{camera.totalObjects}</div>
+              {camera.inputValue !== undefined && (
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-muted-foreground">Trung bình 5p trước:</span>
+                  <span className="text-xl font-bold tabular-nums">{camera.inputValue}</span>
+                </div>
+              )}
             </div>
             <div className="flex flex-col gap-2">
               <Label className="text-xs text-muted-foreground">Trạng thái</Label>

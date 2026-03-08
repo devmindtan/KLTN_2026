@@ -45,7 +45,7 @@ import { cn } from "@/lib/utils"
 // ─── Nav data factory ───────────────────────────────────────────────────────
 function buildNavMain(p: string) { return [
   { title: "Bảng điều khiển", url: `/${p}/dashboard`, icon: IconDashboard },
-  { title: "Giám sát",        url: `/${p}/lifecycle`,  icon: IconListDetails },
+  { title: "Giám sát",        url: `/${p}/monitoring`,  icon: IconListDetails },
   { title: "Phân tích",       url: `/${p}/analytics`,  icon: IconChartBar },
   { title: "Mô hình ML",      url: `/${p}/models`,     icon: IconFolder },
 ]}

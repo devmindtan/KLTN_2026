@@ -47,17 +47,17 @@ GROUP BY dimension_value, camera_id;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_dow ON mv_traffic_by_dow (dimension_value, camera_id);
 REFRESH MATERIALIZED VIEW mv_traffic_by_dow;
 
--- MV 3: Theo TUẦN trong tháng — scope: đầu tháng 6:00 VN → hôm qua 24:00 VN
+-- MV 3: Theo TUẦN ISO — scope: đầu năm 6:00 VN → hôm qua 24:00 VN
 CREATE MATERIALIZED VIEW IF NOT EXISTS mv_traffic_by_week_of_month AS
 SELECT
-  CEIL(EXTRACT(DAY FROM (created_at + INTERVAL '7 hours')) / 7.0)::INT AS dimension_value,
+  EXTRACT(WEEK FROM (created_at + INTERVAL '7 hours'))::INT AS dimension_value,
   camera_id,
   ROUND(AVG(total_objects)::NUMERIC, 2) AS avg_vehicles,
   MAX(total_objects)::INT               AS max_vehicles,
   COUNT(*)::INT                         AS sample_count
 FROM camera_detections
-WHERE created_at >= DATE_TRUNC('month', NOW() + INTERVAL '7 hours') - INTERVAL '1 hour'
-  AND created_at <  DATE_TRUNC('day',   NOW() + INTERVAL '7 hours') - INTERVAL '7 hours'
+WHERE created_at >= DATE_TRUNC('year', NOW() + INTERVAL '7 hours') - INTERVAL '1 hour'
+  AND created_at <  DATE_TRUNC('day',  NOW() + INTERVAL '7 hours') - INTERVAL '7 hours'
   AND EXTRACT(HOUR FROM (created_at + INTERVAL '7 hours')) BETWEEN 6 AND 23
 GROUP BY dimension_value, camera_id;
 

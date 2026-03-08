@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts";
 
 import {
   Card,
@@ -47,31 +47,38 @@ const TAB_TO_API: Record<TabKey, PatternType> = {
 const EMPTY_PATTERN: PatternData = { hour: [], dow: [], week: [], month: [] };
 
 const TAB_CONFIG: Record<TabKey, { label: string; note: string }> = {
-  hour:  { label: "Theo Giờ",   note: "Hôm nay từ 6:00 · Từng giờ đã hoàn thành" },
-  dow:   { label: "Theo Ngày",  note: "Tuần này (T2 → hôm qua) · Theo ngày trong tuần" },
-  week:  { label: "Theo Tuần",  note: "Tháng này · Theo tuần trong tháng" },
-  month: { label: "Theo Tháng", note: "Năm nay (T1 → tháng trước) · Theo tháng" },
+  hour:  { label: "Giờ trong ngày",   note: "Hôm nay từ 6:00 · Từng giờ đã hoàn thành" },
+  dow:   { label: "Thứ trong tuần",  note: "Tuần này (T2 → hôm qua) · Theo ngày trong tuần" },
+  week:  { label: "Tuần trong tháng",  note: "Năm nay · Theo tuần (ngày khởi đầu tuần)" },
+  month: { label: "Tháng trong năm", note: "Năm nay (T1 → tháng trước) · Theo tháng" },
 };
 
 const chartConfig = {
   avg_vehicles: {
     label: "TB xe / 5 phút",
-    color: "hsl(var(--chart-2))",
+    color: "var(--chart-1)",
   },
   max_vehicles: {
     label: "Max xe",
-    color: "hsl(var(--chart-1))",
+    color: "var(--chart-2)",
   },
 } satisfies ChartConfig;
 
 // ─── Sub-component: một BarChart cho 1 tab ───────────────────────────────────
 
+/** Bỏ số 0 đứng đầu trong label "dd/mm" → "d/m" */
+function stripLeadingZeros(label: string): string {
+  return label.replace(/\b0(\d)/g, "$1");
+}
+
 function PatternBarChart({
   data,
+  tab,
   isLoading,
   error,
 }: {
   data: TrafficPatternPoint[];
+  tab: TabKey;
   isLoading: boolean;
   error: string | null;
 }) {
@@ -99,9 +106,14 @@ function PatternBarChart({
     );
   }
 
+  // Chuyển đổi label cho tab "week": "02/03" → "2/3"
+  const chartData = tab === "week"
+    ? data.map((d) => ({ ...d, label: stripLeadingZeros(d.label) }))
+    : data;
+
   return (
     <ChartContainer config={chartConfig} className="aspect-auto h-[280px] w-full">
-      <BarChart data={data} barGap={2}>
+      <BarChart data={chartData} barGap={2}>
         <CartesianGrid vertical={false} strokeDasharray="3 3" />
         <XAxis
           dataKey="label"
@@ -116,7 +128,7 @@ function PatternBarChart({
           tickMargin={8}
           tick={{ fontSize: 11 }}
           label={{
-            value: "Xe TB",
+            value: "",
             angle: -90,
             position: "insideLeft",
             offset: 10,
@@ -129,7 +141,7 @@ function PatternBarChart({
             <ChartTooltipContent
               labelFormatter={(value) => `${value}`}
               formatter={(value, name) => [
-                `${value} xe`,
+                `${value} `,
                 name === "avg_vehicles" ? "Trung bình" : "Cao nhất",
               ]}
             />
@@ -137,16 +149,23 @@ function PatternBarChart({
         />
         <Bar
           dataKey="avg_vehicles"
-          fill="hsl(var(--chart-2))"
+          fill="var(--chart-1)"
           radius={[4, 4, 0, 0]}
           maxBarSize={48}
-        />
+        >
+          <LabelList
+            dataKey="sample_count"
+            position="top"
+            style={{ fontSize: 9, fill: "hsl(var(--muted-foreground))", fontWeight: 500 }}
+            formatter={(v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v))}
+          />
+        </Bar>
         <Bar
           dataKey="max_vehicles"
-          fill="hsl(var(--chart-1))"
+          fill="var(--chart-2)"
           radius={[4, 4, 0, 0]}
           maxBarSize={48}
-          opacity={0.35}
+          opacity={0.45}
         />
       </BarChart>
     </ChartContainer>
@@ -193,6 +212,7 @@ export function TrafficDensityChart() {
         ]);
         if (!cancelled) {
           setPatternData({ hour: hour.data, dow: dow.data, week: week.data, month: month.data });
+          // time_range từ backend đã là VN local time (UTC+7) cho mọi tab
           setTimeRanges({
             hour:  hour.time_range,
             dow:   dow.time_range,
@@ -222,11 +242,11 @@ export function TrafficDensityChart() {
   return (
     <Card className="@container/card">
       <CardHeader className="relative">
-        <CardTitle>Giao động Mật độ Giao thông</CardTitle>
+        <CardTitle>Giao động mật độ giao thông</CardTitle>
         <CardDescription>
           Phân tích lưu lượng trung bình theo chu kỳ thời gian ·{" "}
-          <span className="text-chart-1 font-medium">■</span> Cao nhất &nbsp;
-          <span className="text-chart-2 font-medium">■</span> Trung bình
+          <span className="text-chart-1 font-medium">■</span> Trung bình &nbsp;
+          <span className="text-chart-2 font-medium">■</span> Cao nhất
         </CardDescription>
 
         {/* Camera Selector */}
@@ -285,6 +305,7 @@ export function TrafficDensityChart() {
             <TabsContent key={key} value={key}>
               <PatternBarChart
                 data={patternData[key]}
+                tab={key}
                 isLoading={isLoading}
                 error={error}
               />

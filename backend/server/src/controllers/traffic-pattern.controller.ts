@@ -1,7 +1,4 @@
 import { Request, Response } from "express";
-import { Pool } from "pg";
-import * as fs from "fs";
-import * as path from "path";
 import pool from "../config/database";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -17,84 +14,127 @@ const VIEW_MAP: Record<PatternType, string> = {
   month:         "mv_traffic_by_month",
 };
 
-const MV_NAMES = Object.values(VIEW_MAP) as string[];
-
 // ─── Label Maps ───────────────────────────────────────────────────────────────
 
 const DOW_LABELS   = ["", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "CN"];
-const WEEK_LABELS  = ["", "Tuần 1", "Tuần 2", "Tuần 3", "Tuần 4", "Tuần 5"];
 const MONTH_LABELS = ["", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"];
 
-/** Map dimension_value sang label hiển thị (dimension đã tính theo UTC+7) */
-function buildDimLabel(dimValue: number, type: PatternType): string {
+/** Tính ngày Thứ 2 của ISO week W năm Y, trả về đối tượng Date */
+function isoWeekMondayDate(week: number, year: number): Date {
+  const jan4    = new Date(Date.UTC(year, 0, 4));
+  const jan4Dow = jan4.getUTCDay() || 7;
+  const week1Mon = new Date(jan4.getTime() - (jan4Dow - 1) * 86400000);
+  return new Date(week1Mon.getTime() + (week - 1) * 7 * 86400000);
+}
+
+/** Map dimension_value sang label hiển thị */
+function buildDimLabel(dimValue: number, type: PatternType, year?: number): string {
   if (type === "hour")          return `${String(dimValue).padStart(2, "0")}:00`;
   if (type === "dow")           return DOW_LABELS[dimValue]   || String(dimValue);
-  if (type === "week_of_month") return WEEK_LABELS[dimValue]  || String(dimValue);
+  if (type === "week_of_month") {
+    if (!year) return `Tuần ${dimValue}`;
+    const monday = isoWeekMondayDate(dimValue, year);
+    const sunday = new Date(monday.getTime() + 6 * 86400000);
+    const strip = (d: number) => String(d); // bỏ 0 đứng đầu
+    const monStr = `${strip(monday.getUTCDate())}/${strip(monday.getUTCMonth() + 1)}`;
+    const sunStr = `${strip(sunday.getUTCDate())}/${strip(sunday.getUTCMonth() + 1)}`;
+    return `${monStr}-${sunStr}`;
+  }
   if (type === "month")         return MONTH_LABELS[dimValue] || String(dimValue);
   return String(dimValue);
 }
 
 // ─── Timezone / Label Helpers ─────────────────────────────────────────────────
 
-/** Format UTC Date → chuỗi local "HH:mm DD/MM/YYYY" */
-function fmtLocal(utcDate: Date, tzMs: number): string {
-  const local = new Date(utcDate.getTime() + tzMs);
-  const hh = String(local.getUTCHours()).padStart(2, "0");
-  const mn = String(local.getUTCMinutes()).padStart(2, "0");
-  const dd = String(local.getUTCDate()).padStart(2, "0");
-  const mo = String(local.getUTCMonth() + 1).padStart(2, "0");
-  return `${hh}:${mn} ${dd}/${mo}/${local.getUTCFullYear()}`;
+/** Format UTC Date → chuỗi UTC "HH:mm DD/MM/YYYY" */
+function fmtUtc(date: Date): string {
+  const hh = String(date.getUTCHours()).padStart(2, "0");
+  const mn = String(date.getUTCMinutes()).padStart(2, "0");
+  const dd = String(date.getUTCDate()).padStart(2, "0");
+  const mo = String(date.getUTCMonth() + 1).padStart(2, "0");
+  return `${hh}:${mn} ${dd}/${mo}/${date.getUTCFullYear()}`;
 }
 
-/** Format bound kết thúc: nếu là nửa đêm (00:00) → hiển thị "24:00 DD-1" */
-function fmtToLabel(utcDate: Date, tzMs: number): string {
-  const local = new Date(utcDate.getTime() + tzMs);
-  if (local.getUTCHours() === 0 && local.getUTCMinutes() === 0) {
-    const prev = new Date(local.getTime() - 24 * 60 * 60 * 1000);
+/** Format bound kết thúc: nếu nửa đêm UTC (00:00) → hiển thị "24:00 DD-1" */
+function fmtToUtc(date: Date): string {
+  if (date.getUTCHours() === 0 && date.getUTCMinutes() === 0) {
+    const prev = new Date(date.getTime() - 86400000);
     const dd = String(prev.getUTCDate()).padStart(2, "0");
     const mo = String(prev.getUTCMonth() + 1).padStart(2, "0");
     return `24:00 ${dd}/${mo}/${prev.getUTCFullYear()}`;
   }
-  return fmtLocal(utcDate, tzMs);
+  return fmtUtc(date);
 }
 
 /**
- * Tính time_range label cho từng tab theo chu kỳ hiện tại (chỉ dùng để hiển thị UI)
- * tzMinutes = new Date().getTimezoneOffset() từ frontend (vd: -420 = UTC+7)
+ * Tính time_range label cho tab hour/dow theo chu kỳ hiện tại.
+ * dimension_value trong MV là giờ/ngày VN (UTC+7), nên time_range cũng phải theo VN local.
  */
-function getTimeRange(type: PatternType, tzMinutes: number): { from: string; to: string } {
-  const tzMs     = -tzMinutes * 60 * 1000;
-  const now      = new Date();
-  const localNow = new Date(now.getTime() + tzMs);
-
-  const Y = localNow.getUTCFullYear();
-  const M = localNow.getUTCMonth();
-  const D = localNow.getUTCDate();
-  const H = localNow.getUTCHours();
+function getTimeRange(type: PatternType): { from: string; to: string } {
+  const now = new Date();
+  // Chuyển sang giờ VN (UTC+7) để căn chỉnh với dimension_value trong MV
+  const vnNow = new Date(now.getTime() + 7 * 3600 * 1000);
+  const Y = vnNow.getUTCFullYear();
+  const M = vnNow.getUTCMonth();
+  const D = vnNow.getUTCDate();
+  const H = vnNow.getUTCHours(); // giờ VN hiện tại
 
   let fromUtc: Date;
   let toUtc: Date;
 
   if (type === "hour") {
-    fromUtc = new Date(Date.UTC(Y, M, D, 6, 0, 0) - tzMs);
-    toUtc   = new Date(Date.UTC(Y, M, D, H, 0, 0) - tzMs);
+    // từ 06:00 VN hôm nay → giờ VN hiện tại (exclusive = giờ cuối đã hoàn thành)
+    fromUtc = new Date(Date.UTC(Y, M, D, 6, 0, 0));
+    toUtc   = new Date(Date.UTC(Y, M, D, H, 0, 0));
   } else if (type === "dow") {
-    const dow         = localNow.getUTCDay();
+    const dow         = vnNow.getUTCDay();
     const daysFromMon = dow === 0 ? 6 : dow - 1;
-    fromUtc = new Date(Date.UTC(Y, M, D - daysFromMon, 6, 0, 0) - tzMs);
-    toUtc   = new Date(Date.UTC(Y, M, D, 0, 0, 0)               - tzMs);
-  } else if (type === "week_of_month") {
-    fromUtc = new Date(Date.UTC(Y, M, 1, 6, 0, 0) - tzMs);
-    toUtc   = new Date(Date.UTC(Y, M, D, 0, 0, 0) - tzMs);
+    fromUtc = new Date(Date.UTC(Y, M, D - daysFromMon, 6, 0, 0));
+    toUtc   = new Date(Date.UTC(Y, M, D, 0, 0, 0));
   } else {
-    fromUtc = new Date(Date.UTC(Y, 0, 1, 6, 0, 0) - tzMs);
-    toUtc   = new Date(Date.UTC(Y, M, 1, 0, 0, 0) - tzMs);
+    fromUtc = new Date(Date.UTC(Y, 0, 1, 6, 0, 0));
+    toUtc   = new Date(Date.UTC(Y, M, 1, 0, 0, 0));
   }
 
-  return {
-    from: fmtLocal(fromUtc, tzMs),
-    to:   fmtToLabel(toUtc, tzMs),
-  };
+  return { from: fmtUtc(fromUtc), to: fmtToUtc(toUtc) };
+}
+
+/**
+ * Tính label time_range từ data thực tế cho tab week và month (UTC, không cộng offset)
+ */
+function buildDataRangeLabel(
+  type: PatternType,
+  dimValues: number[]
+): { from: string; to: string } | undefined {
+  if (dimValues.length === 0) return undefined;
+
+  const now  = new Date();
+  const Y    = now.getUTCFullYear();
+  const minDim = Math.min(...dimValues);
+  const maxDim = Math.max(...dimValues);
+
+  if (type === "week_of_month") {
+    // Monday của tuần đầu tiên có data → 24:00 hôm qua UTC
+    const fromDate = isoWeekMondayDate(minDim, Y);
+    const fdd = String(fromDate.getUTCDate()).padStart(2, "0");
+    const fmo = String(fromDate.getUTCMonth() + 1).padStart(2, "0");
+    const fyr = fromDate.getUTCFullYear();
+    const todayMidnight = new Date(Date.UTC(Y, now.getUTCMonth(), now.getUTCDate()));
+    const prevDay = new Date(todayMidnight.getTime() - 86400000);
+    const pdd = String(prevDay.getUTCDate()).padStart(2, "0");
+    const pmo = String(prevDay.getUTCMonth() + 1).padStart(2, "0");
+    const pyr = prevDay.getUTCFullYear();
+    return {
+      from: `06:00 ${fdd}/${fmo}/${fyr}`,
+      to:   `24:00 ${pdd}/${pmo}/${pyr}`,
+    };
+  }
+  if (type === "month") {
+    const fromLbl = MONTH_LABELS[minDim] ?? `T${minDim}`;
+    const toLbl   = MONTH_LABELS[maxDim] ?? `T${maxDim}`;
+    return { from: fromLbl, to: `${toLbl} · ${Y}` };
+  }
+  return undefined;
 }
 
 // ─── Controller ───────────────────────────────────────────────────────────────
@@ -122,7 +162,8 @@ export const getTrafficPatterns = async (req: Request, res: Response) => {
     const patternType = type as PatternType;
     const tzMinutes   = parseInt(tz, 10) || 0;
     const viewName    = VIEW_MAP[patternType];
-    const timeRange   = getTimeRange(patternType, tzMinutes);
+    // MV hardcoded UTC+7 — luôn dùng năm VN (không phụ thuộc vào tz param)
+    const localYear   = new Date(new Date().getTime() + 7 * 3600 * 1000).getUTCFullYear();
 
     type RawRow = {
       dimension_value: string;
@@ -161,11 +202,23 @@ export const getTrafficPatterns = async (req: Request, res: Response) => {
     }
 
     const data = rawRows.map((row) => ({
-      label:        buildDimLabel(Number(row.dimension_value), patternType),
+      label:        buildDimLabel(Number(row.dimension_value), patternType, localYear),
       avg_vehicles: parseFloat(row.avg_vehicles),
       max_vehicles: parseInt(row.max_vehicles, 10),
       sample_count: parseInt(row.sample_count, 10),
     }));
+
+    // month + week: label từ data thực tế (tránh hiển thị 1/1 khi data bắt đầu muộn hơn)
+    // hour/dow: label từ getTimeRange() (chu kỳ lý thuyết hiện tại)
+    let timeRange: { from: string; to: string } | undefined;
+    if (patternType === "month" || patternType === "week_of_month") {
+      timeRange = buildDataRangeLabel(
+        patternType,
+        rawRows.map((r) => Number(r.dimension_value))
+      );
+    } else {
+      timeRange = getTimeRange(patternType);
+    }
 
     return res.status(200).json({
       success: true,
@@ -186,48 +239,6 @@ export const getTrafficPatterns = async (req: Request, res: Response) => {
   }
 };
 
-// ─── Startup + Refresh ────────────────────────────────────────────────────────
-
-/**
- * Kiểm tra MV tồn tại, tạo mới nếu chưa có (bao gồm initial REFRESH)
- * Gọi tại server startup — không crash server nếu lỗi, chỉ log
- */
-export async function ensureTrafficPatternMV(dbPool: Pool): Promise<void> {
-  try {
-    const { rows } = await dbPool.query(
-      `SELECT matviewname FROM pg_matviews WHERE matviewname = 'mv_traffic_by_hour'`
-    );
-    if (rows.length === 0) {
-      const sqlPath = path.join(__dirname, "..", "migrations", "002_traffic_pattern_views.sql");
-      const sql     = fs.readFileSync(sqlPath, "utf8");
-      await dbPool.query(sql);
-      console.log("[traffic-pattern] Materialized views created + initial refresh done ✅");
-    } else {
-      console.log("[traffic-pattern] Materialized views already exist ✅");
-    }
-  } catch (err) {
-    console.error("[traffic-pattern] Failed to ensure MV:", err);
-  }
-}
-
-/**
- * Bắt đầu Node.js timer tự động REFRESH MV mỗi 30 phút (thay thế k8s CronJob)
- * Dùng CONCURRENTLY để không block read queries trong lúc refresh
- */
-export function startTrafficPatternRefresh(dbPool: Pool): void {
-  const INTERVAL_MS = 30 * 60 * 1000;
-
-  setInterval(async () => {
-    const start = Date.now();
-    try {
-      for (const mv of MV_NAMES) {
-        await dbPool.query(`REFRESH MATERIALIZED VIEW CONCURRENTLY ${mv}`);
-      }
-      console.log(`[traffic-pattern] Views refreshed in ${Date.now() - start}ms`);
-    } catch (err) {
-      console.error("[traffic-pattern] Refresh failed:", err);
-    }
-  }, INTERVAL_MS);
-
-  console.log("[traffic-pattern] Auto-refresh every 30 min started ⏱️");
-}
+// ─── Startup: xem migrations/runner.ts ───────────────────────────────────────
+// Kiểm tra + tạo Materialized Views được quản lý tập trung bởi runMigrations()
+// Controller chỉ đảm nhiệm query — không có logic startup ở đây

@@ -70,6 +70,36 @@ const options: swaggerJsdoc.Options = {
             created_at: { type: "string", format: "date-time" },
           },
         },
+        Collection: {
+          type: "object",
+          properties: {
+            id:          { type: "string", format: "uuid" },
+            title:       { type: "string" },
+            data_type:   { type: "string" },
+            description: { type: "string" },
+            tags:        { type: "array", items: { type: "string" } },
+            created_by:  { type: "string", format: "uuid" },
+            created_at:  { type: "string", format: "date-time" },
+            updated_at:  { type: "string", format: "date-time" },
+            entries:     { type: "array", items: { $ref: "#/components/schemas/Entry" } },
+          },
+        },
+        Entry: {
+          type: "object",
+          properties: {
+            id:            { type: "string", format: "uuid" },
+            collection_id: { type: "string", format: "uuid" },
+            title:         { type: "string" },
+            data_type:     { type: "string" },
+            description:   { type: "string" },
+            snapshot_date: { type: "string", format: "date" },
+            file_size:     { type: "integer" },
+            row_count:     { type: "integer" },
+            minio_keys:    { type: "array", items: { type: "string" } },
+            created_by:    { type: "string", format: "uuid" },
+            created_at:    { type: "string", format: "date-time" },
+          },
+        },
         Error: {
           type: "object",
           properties: {
@@ -80,10 +110,12 @@ const options: swaggerJsdoc.Options = {
     },
     security: [{ BearerAuth: [] }],
     tags: [
-      { name: "Auth", description: "Xác thực và phân quyền" },
-      { name: "Cameras", description: "Quản lý camera giám sát" },
-      { name: "Models", description: "Quản lý model ML" },
-      { name: "Model Metrics", description: "Chỉ số hiệu suất model" },
+      { name: "Auth",           description: "Xác thực và phân quyền" },
+      { name: "Cameras",        description: "Quản lý camera giám sát" },
+      { name: "Models",         description: "Quản lý model ML" },
+      { name: "Model Metrics",  description: "Chỉ số hiệu suất model" },
+      { name: "Data Library",   description: "Thư viện dữ liệu (collections & entries)" },
+      { name: "Traffic",        description: "Phân tích mật độ giao thông" },
     ],
     paths: {
       // ── AUTH ──────────────────────────────────────────────────────
@@ -433,6 +465,310 @@ const options: swaggerJsdoc.Options = {
               description: "Danh sách versions",
               content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/Model" } } } },
             },
+          },
+        },
+      },
+
+      // ── MODEL METRICS ────────────────────────────────────────────
+      "/api/model-metrics/latest": {
+        get: {
+          tags: ["Model Metrics"],
+          summary: "Lấy snapshot metrics model mới nhất",
+          responses: {
+            200: {
+              description: "Snapshot metrics mới nhất",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      success: { type: "boolean" },
+                      data: {
+                        type: "object",
+                        properties: {
+                          id: { type: "integer" },
+                          generated_at: { type: "string", format: "date-time" },
+                          period_days: { type: "integer" },
+                          overall: { type: "object" },
+                          by_horizon: { type: "object" },
+                          camera_ranking: { type: "object" },
+                          data_coverage: { type: "object" },
+                          trend_accuracy: { type: "object" },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            404: { description: "Chưa có dữ liệu metrics" },
+            401: { description: "Thiếu JWT token" },
+          },
+        },
+      },
+      "/api/model-metrics/history": {
+        get: {
+          tags: ["Model Metrics"],
+          summary: "Lấy lịch sử metrics model theo thời gian",
+          parameters: [
+            { name: "limit",      in: "query", schema: { type: "integer", default: 50, minimum: 1, maximum: 500 } },
+            { name: "offset",     in: "query", schema: { type: "integer", default: 0, minimum: 0 } },
+            { name: "period_days",in: "query", schema: { type: "integer", minimum: 1, maximum: 365 }, description: "Lọc theo số ngày đánh giá" },
+            { name: "from",       in: "query", schema: { type: "string", format: "date-time" }, description: "Lọc từ thời điểm (ISO 8601)" },
+            { name: "to",         in: "query", schema: { type: "string", format: "date-time" }, description: "Lọc đến thời điểm (ISO 8601)" },
+          ],
+          responses: {
+            200: {
+              description: "Danh sách snapshot metrics",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      success: { type: "boolean" },
+                      pagination: {
+                        type: "object",
+                        properties: {
+                          total: { type: "integer" },
+                          limit: { type: "integer" },
+                          offset: { type: "integer" },
+                        },
+                      },
+                      data: { type: "array", items: { type: "object" } },
+                    },
+                  },
+                },
+              },
+            },
+            400: { description: "Query params không hợp lệ" },
+            401: { description: "Thiếu JWT token" },
+          },
+        },
+      },
+
+      // ── DATA LIBRARY ───────────────────────────────────────────
+      "/api/data-library/collections": {
+        get: {
+          tags: ["Data Library"],
+          summary: "Lấy danh sách collections",
+          responses: {
+            200: {
+              description: "Danh sách collections",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      success: { type: "boolean" },
+                      data: { type: "array", items: { $ref: "#/components/schemas/Collection" } },
+                    },
+                  },
+                },
+              },
+            },
+            401: { description: "Thiếu JWT token" },
+          },
+        },
+        post: {
+          tags: ["Data Library"],
+          summary: "Tạo collection mới (technician only)",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["title", "data_type"],
+                  properties: {
+                    title:       { type: "string", maxLength: 255, example: "Dữ liệu phát hiện tốc độ" },
+                    data_type:   { type: "string", maxLength: 50, example: "traffic_data" },
+                    description: { type: "string" },
+                    tags:        { type: "array", items: { type: "string" } },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            201: { description: "Collection đã được tạo" },
+            400: { description: "Dữ liệu không hợp lệ" },
+            403: { description: "Không đủ quyền" },
+          },
+        },
+      },
+      "/api/data-library/collections/{id}": {
+        get: {
+          tags: ["Data Library"],
+          summary: "Lấy chi tiết collection kèm danh sách entries",
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          ],
+          responses: {
+            200: { description: "Chi tiết collection", content: { "application/json": { schema: { $ref: "#/components/schemas/Collection" } } } },
+            404: { description: "Không tìm thấy" },
+          },
+        },
+        put: {
+          tags: ["Data Library"],
+          summary: "Cập nhật thông tin collection (technician only)",
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    title:       { type: "string" },
+                    description: { type: "string" },
+                    data_type:   { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: { description: "Cập nhật thành công" },
+            403: { description: "Không đủ quyền" },
+            404: { description: "Không tìm thấy" },
+          },
+        },
+        delete: {
+          tags: ["Data Library"],
+          summary: "Xóa collection và toàn bộ entries (technician only)",
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          ],
+          responses: {
+            200: { description: "Xóa thành công" },
+            403: { description: "Không đủ quyền" },
+            404: { description: "Không tìm thấy" },
+          },
+        },
+      },
+      "/api/data-library/entries/{id}/download": {
+        get: {
+          tags: ["Data Library"],
+          summary: "Tải file entry (CSV.gz hoặc ZIP nếu nhiều file)",
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" }, description: "Entry ID" },
+            { name: "key", in: "query", schema: { type: "string" }, description: "MinIO key cụ thể — nếu bỏ qua thì ZIP toàn bộ" },
+          ],
+          responses: {
+            200: { description: "File nhị phân (application/gzip hoặc application/zip)" },
+            404: { description: "Không tìm thấy entry" },
+          },
+        },
+      },
+      "/api/data-library/entries": {
+        post: {
+          tags: ["Data Library"],
+          summary: "Import entry từ file upload (technician only)",
+          requestBody: {
+            required: true,
+            content: {
+              "multipart/form-data": {
+                schema: {
+                  type: "object",
+                  required: ["file", "collection_id", "snapshot_date"],
+                  properties: {
+                    file:          { type: "string", format: "binary", description: "File .csv hoặc .json (tối đa 50MB)" },
+                    collection_id: { type: "string", description: "UUID của collection nhân file, hoặc 'new' để tạo mới" },
+                    snapshot_date: { type: "string", format: "date", example: "2026-03-06" },
+                    new_title:     { type: "string", description: "Bắt buộc nếu collection_id='new'" },
+                    data_type:     { type: "string", description: "Bắt buộc nếu collection_id='new'" },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            201: { description: "Entry đã được import" },
+            400: { description: "Dữ liệu không hợp lệ" },
+            403: { description: "Không đủ quyền" },
+          },
+        },
+      },
+      "/api/data-library/entries/{id}": {
+        delete: {
+          tags: ["Data Library"],
+          summary: "Xóa entry và file trên MinIO (technician only)",
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          ],
+          responses: {
+            200: { description: "Xóa thành công" },
+            403: { description: "Không đủ quyền" },
+            404: { description: "Không tìm thấy" },
+          },
+        },
+      },
+
+      // ── TRAFFIC PATTERN ───────────────────────────────────────────
+      "/api/traffic/patterns": {
+        get: {
+          tags: ["Traffic"],
+          summary: "Lấy phân bố mật độ giao thông theo chiều thời gian",
+          parameters: [
+            {
+              name: "type", in: "query", required: true,
+              schema: { type: "string", enum: ["hour", "dow", "week_of_month", "month"] },
+              description: "Chiều thời gian: hour=theo giờ, dow=theo ngày trong tuần, week_of_month=theo tuần ISO, month=theo tháng",
+            },
+            {
+              name: "camera_id", in: "query",
+              schema: { type: "string", default: "all" },
+              description: "Camera ID, hoặc 'all' để lấy trung bình toàn hệ thống",
+            },
+            {
+              name: "tz", in: "query",
+              schema: { type: "integer", default: 0 },
+              description: "Timezone offset (phút) — luôn gửi 0 (UTC)",
+            },
+          ],
+          responses: {
+            200: {
+              description: "Dữ liệu phân bố mật độ",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      success: { type: "boolean" },
+                      type:     { type: "string" },
+                      camera_id:{ type: "string" },
+                      time_range: {
+                        type: "object",
+                        properties: {
+                          from: { type: "string", example: "06:00 08/03/2026" },
+                          to:   { type: "string", example: "24:00 08/03/2026" },
+                        },
+                      },
+                      data: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            label:        { type: "string", example: "06:00" },
+                            avg_vehicles: { type: "number" },
+                            max_vehicles: { type: "integer" },
+                            sample_count: { type: "integer" },
+                          },
+                        },
+                      },
+                      meta: {
+                        type: "object",
+                        properties: { total_cameras: { type: "integer" } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            400: { description: "type không hợp lệ" },
+            401: { description: "Thiếu JWT token" },
           },
         },
       },

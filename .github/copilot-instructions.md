@@ -62,6 +62,42 @@
   - Database TIMESTAMPTZ columns nhận UTC input
   - Frontend convert UTC → local time khi display
 
+# Backend Server (Node.js) Rules
+
+## Startup Migration — Trách nhiệm cố định của server
+
+Mỗi lần server khởi động, `runMigrations()` (trong `backend/server/src/migrations/runner.ts`) PHẢI được gọi **trước khi** server bắt đầu nhận request. Logic:
+
+1. Chạy tuần tự các file SQL migrations trong thư mục `src/migrations/` theo thứ tự:
+   - `000_core_tables.sql` — camera_data, camera_detections, camera_forecasts, model_metrics_history, ml_model_metadata, backup_logs
+   - `001_auth_tables.sql` — technician_accounts, activity_logs
+   - `003_data_library.sql` — data_library_collections, data_library_entries
+   - `002_traffic_pattern_views.sql` — Materialized Views (chỉ chạy nếu MV chưa tồn tại, để không làm blocking REFRESH mỗi startup)
+2. Tất cả SQL files đều dùng `IF NOT EXISTS` → idempotent, không gây lỗi khi bảng đã có sẵn.
+3. **KHÔNG chứa INSERT hoặc seed data** trong migration files. Seed dữ liệu (ví dụ: camera_data, admin account) phải chạy thủ công qua script riêng (ví dụ: `seed-admin.ts`).
+4. Lỗi trong migration chỉ được log, **không được throw** để tránh crash toàn bộ server.
+
+## Migration File Rules
+
+- **Thêm bảng mới** → tạo file `0NN_<tên>.sql` mới, cập nhật `PLAIN_MIGRATIONS` array trong `runner.ts`.
+- **Cấu trúc tên file**: `000`, `001`, `002`, `003` (tăng dần để đảm bảo thứ tự phụ thuộc).
+- **TUYỆT ĐỐI KHÔNG** bỏ `IF NOT EXISTS` khỏi bất kỳ `CREATE TABLE` nào trong migration.
+- Migrations là declarative — không chứa business logic, chỉ chứa DDL.
+
+## Controller Rules
+
+- Controllers chỉ thực hiện **query/read/write** dữ liệu — **không** chứa logic tạo bảng hay migration.
+- Nếu cần bảng mới, thêm vào migration SQL rồi đăng ký trong runner, không inline `CREATE TABLE` trong controller.
+
+## Swagger Documentation Rules
+
+- **BẮT BUỘC**: Mọi API route mới (GET/POST/PUT/PATCH/DELETE) PHẢI được bổ sung vào `backend/server/src/config/swagger.ts` ngay trong cùng task tạo route đó.
+- **Tag**: Mỗi nhóm route cần có tag tương ứng trong mảng `tags` ở đầu spec.
+- **Schema**: Nếu request body hoặc response có cấu trúc phức tạp, khai báo trong `components.schemas` và dùng `$ref`.
+- **Security**: Route public (không cần JWT) phải khai báo `security: []` để override global `security`.
+- **Không dùng JSDoc scan** (`apis: []`) — spec khai báo tập trung trong object `paths` duy nhất.
+- Sau khi thêm route mới, luôn verify Swagger UI tại `GET /api/docs` hiển thị đúng.
+
 # Context Reference Strategy
 
 - **Smart Reading Priority**:

@@ -13,7 +13,7 @@ import authApi from "./routes/auth.api";
 import dataLibraryApi from "./routes/data-library.api";
 import trafficPatternApi from "./routes/traffic-pattern.api";
 import { requireAuth } from "./middleware/auth.middleware";
-import { ensureTrafficPatternMV, startTrafficPatternRefresh } from "./controllers/traffic-pattern.controller";
+import { runMigrations } from "./migrations/runner";
 
 dotenv.config();
 const app = express();
@@ -74,8 +74,7 @@ pool
   .query("SELECT NOW()")
   .then(async () => {
     console.log("PostgreSQL connected ✅");
-    await ensureTrafficPatternMV(pool);
-    startTrafficPatternRefresh(pool);
+    await runMigrations(pool);
   })
   .catch((err) => console.error("PostgreSQL connection error:", err));
 

@@ -25,6 +25,7 @@ jobs:
       app-route: ${{ steps.changes.outputs.app-route }}
       sync-actual: ${{ steps.changes.outputs.sync-actual }}
       backup-postgres: ${{ steps.changes.outputs.backup-postgres }}
+      data-export: ${{ steps.changes.outputs.data-export }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,7 +35,7 @@ jobs:
         id: changes
         run: |
           # Detect changes in each service folder
-          for service in image-process image-predict model-performance app-route sync-actual backup-postgres; do
+          for service in image-process image-predict model-performance app-route sync-actual backup-postgres data-export; do
             if git diff --name-only HEAD~1 HEAD | grep -q "backend/services/$service/"; then
               echo "$service=true" >> $GITHUB_OUTPUT
             else
@@ -505,5 +506,79 @@ jobs:
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/${{ steps.version.outputs.repo }}:backup-postgres-${{ steps.version.outputs.new }}
             ${{ secrets.DOCKER_USERNAME }}/${{ steps.version.outputs.repo }}:backup-postgres-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-data-export:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.data-export == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get and bump version
+        id: version
+        run: |
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            REPO_NAME="pro-repo"
+          else
+            REPO_NAME="dev-repo"
+          fi
+
+          SERVICE_NAME="data-export"
+
+          LATEST_VERSION=$(curl -s "https://registry.hub.docker.com/v2/repositories/${{ secrets.DOCKER_USERNAME }}/${REPO_NAME}/tags/?page_size=100" | \
+            jq -r '.results[].name' | \
+            grep "^${SERVICE_NAME}-v" | \
+            sed 's/^'"${SERVICE_NAME}"'-v//' | \
+            sort -V | \
+            tail -1)
+
+          if [ -z "$LATEST_VERSION" ]; then
+            NEW_VERSION="v1.0.0"
+          else
+            IFS='.' read -r -a parts <<< "$LATEST_VERSION"
+            MAJOR="${parts[0]}"
+            MINOR="${parts[1]}"
+            PATCH="${parts[2]}"
+
+            PATCH=$((PATCH + 1))
+
+            if [ $PATCH -ge 10 ]; then
+              PATCH=0
+              MINOR=$((MINOR + 1))
+            fi
+
+            if [ $MINOR -ge 10 ]; then
+              MINOR=0
+              MAJOR=$((MAJOR + 1))
+            fi
+
+            NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          fi
+
+          echo "new=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "repo=$REPO_NAME" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend/services
+          file: ./backend/services/data-export/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/${{ steps.version.outputs.repo }}:data-export-${{ steps.version.outputs.new }}
+            ${{ secrets.DOCKER_USERNAME }}/${{ steps.version.outputs.repo }}:data-export-latest
           cache-from: type=gha
           cache-to: type=gha,mode=max

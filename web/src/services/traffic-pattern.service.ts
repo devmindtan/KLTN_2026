@@ -1,6 +1,6 @@
 /**
  * Traffic Pattern Service - Lấy dữ liệu phân bố mật độ giao thông (direct query, chu kỳ hiện tại)
- * Tương tác với /api/traffic/patterns, truyền tz offset để backend tính đúng khung 6:00–24:00 địa phương
+ * Tương tác với /api/traffic/patterns, luôn dùng UTC (tz=0) để thống nhất với dữ liệu lưu trữ
  */
 import { apiFetch } from "@/lib/apiFetch";
 import logger from "@/lib/logger";
@@ -46,8 +46,7 @@ export async function getTrafficPattern(
   type: PatternType,
   cameraId = "all"
 ): Promise<TrafficPatternResponse> {
-  const tz = new Date().getTimezoneOffset(); // -420 khi máy đặt UTC+7
-  const params = new URLSearchParams({ type, camera_id: cameraId, tz: String(tz) });
+  const params = new URLSearchParams({ type, camera_id: cameraId, tz: "0" });
 
   const response = await apiFetch(
     `${BACKEND_API_URL}/api/traffic/patterns?${params}`,

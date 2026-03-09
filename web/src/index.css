@@ -146,37 +146,6 @@
     }
 }
 
-/* ── Theme transition – smooth khi switch dark/light ─────────────── */
-/*
- * Áp dụng transition ngắn trên background-color, color, border-color để tránh
- * nháy / abrupt flash khi toggleTheme(). KHÔNG dùng 'all' để tránh delay hover.
- * fill/stroke cho SVG Recharts charts.
- */
-@layer base {
-    /* border-color dùng * để bắt hết mọi element (property nhẹ, không gây lag) */
-    *, *::before, *::after {
-        transition-property: border-color;
-        transition-duration: 120ms;
-        transition-timing-function: ease;
-    }
-
-    /* color + background-color chỉ áp cho semantic elements để tránh lag */
-    html, body, main, header, footer, nav, aside, section, article,
-    div, button, a, input, select, textarea, label,
-    span, p, h1, h2, h3, h4, h5, h6, li, td, th {
-        transition-property: color, background-color;
-        transition-duration: 120ms;
-        transition-timing-function: ease;
-    }
-
-    /* SVG – fill/stroke riêng */
-    svg, path, circle, rect, line, polyline, polygon, text {
-        transition-property: fill, stroke;
-        transition-duration: 120ms;
-        transition-timing-function: ease;
-    }
-}
-
 /* ── Custom scrollbar ────────────────────────────────────────────── */
 /*
  * Class .scrollbar: scrollbar nhỏ gọn, dùng thay cho scrollbar mặc định trình duyệt.

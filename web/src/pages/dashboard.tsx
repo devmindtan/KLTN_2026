@@ -97,7 +97,9 @@ export default function Dashboard() {
           <div className="px-4 lg:px-6">
             <TrafficDensityChart />
           </div>
-          <DataTable data={processedCameras} />
+          <div className="px-4 lg:px-6">
+            <DataTable data={processedCameras} />
+          </div>
         </div>
       </div>
     </div>

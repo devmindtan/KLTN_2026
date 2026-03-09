@@ -47,7 +47,7 @@
 
 :root {
     --radius: 0.625rem;
-    --background: oklch(1 0 0);
+    --background: oklch(98.511% 0.00011 271.152);
     --foreground: oklch(0.145 0 0);
     --card: oklch(1 0 0);
     --card-foreground: oklch(0.145 0 0);
@@ -70,7 +70,7 @@
     --chart-3: oklch(0.398 0.07 227.392);
     --chart-4: oklch(0.828 0.189 84.429);
     --chart-5: oklch(0.769 0.188 70.08);
-    --sidebar: oklch(0.985 0 0);
+    --sidebar: oklch(100% 0.00011 271.152);
     --sidebar-foreground: oklch(0.145 0 0);
     --sidebar-primary: oklch(0.205 0 0);
     --sidebar-primary-foreground: oklch(0.985 0 0);
@@ -143,6 +143,37 @@
         [data-state="collapsed"] + [data-slot="sidebar-inset"] {
             margin-left: 0;
         }
+    }
+}
+
+/* ── Theme transition – smooth khi switch dark/light ─────────────── */
+/*
+ * Áp dụng transition ngắn trên background-color, color, border-color để tránh
+ * nháy / abrupt flash khi toggleTheme(). KHÔNG dùng 'all' để tránh delay hover.
+ * fill/stroke cho SVG Recharts charts.
+ */
+@layer base {
+    /* border-color dùng * để bắt hết mọi element (property nhẹ, không gây lag) */
+    *, *::before, *::after {
+        transition-property: border-color;
+        transition-duration: 120ms;
+        transition-timing-function: ease;
+    }
+
+    /* color + background-color chỉ áp cho semantic elements để tránh lag */
+    html, body, main, header, footer, nav, aside, section, article,
+    div, button, a, input, select, textarea, label,
+    span, p, h1, h2, h3, h4, h5, h6, li, td, th {
+        transition-property: color, background-color;
+        transition-duration: 120ms;
+        transition-timing-function: ease;
+    }
+
+    /* SVG – fill/stroke riêng */
+    svg, path, circle, rect, line, polyline, polygon, text {
+        transition-property: fill, stroke;
+        transition-duration: 120ms;
+        transition-timing-function: ease;
     }
 }
 

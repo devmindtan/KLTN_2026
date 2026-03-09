@@ -45,6 +45,10 @@ interface CameraData {
     "60m": number;
   };
   trend: TrendInfo;
+  calculation?: {
+    capacity: number;    // Capacity camera (để tính vcPct)
+    vc_ratio: number;
+  };
 }
 
 interface ChartAreaInteractiveProps {
@@ -56,6 +60,10 @@ const chartConfig = {
   vehicles: {
     label: "Phương tiện",
     color: "hsl(var(--chart-1))",
+  },
+  vcPct: {
+    label: "Mức tải (%)",
+    color: "hsl(var(--chart-2))",
   },
 } satisfies ChartConfig
 
@@ -70,7 +78,7 @@ const PctChangeLabel = (props: any) => {
   const color = pct > 0 ? "#f97316" : pct < 0 ? "#22c55e" : "#9ca3af";
   const sign = pct > 0 ? "+" : "";
   return (
-    <text x={Number(x)} y={Number(y) - 6} textAnchor="middle" fill={color} fontSize={11} fontWeight={600}>
+    <text x={Number(x)} y={Math.max(Number(y) - 6, 14)} textAnchor="middle" fill={color} fontSize={11} fontWeight={600}>
       {sign}{pct}%
     </text>
   );
@@ -101,11 +109,6 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
       return [];
     }
 
-    // Log forecasts của tất cả cameras
-    // cameras.forEach(cam => {
-    //   console.log(`🔮 [Chart] Camera ${cam.shortId} forecasts:`, cam.forecasts);
-    // });
-
     // If "all" is selected, calculate average forecast
     if (selectedCamera === "all") {
       const hasInputData = cameras.some(cam => cam.inputValue !== undefined);
@@ -122,6 +125,7 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
         return {
           time: timeframe,
           vehicles,
+          vcPct: null as number | null,
           pctChange: (currentBase !== null && currentBase > 0)
             ? Math.round(((vehicles - currentBase) / currentBase) * 100)
             : null,
@@ -132,26 +136,22 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
         };
       });
 
-      // console.log("📈 [Chart] Average forecast data:", chartData);
       return chartData;
     }
 
     // If specific camera is selected
     const camera = cameras.find((cam) => cam.id === selectedCamera);
-    if (!camera) {
-      // console.log("⚠️ [Chart] Selected camera not found:", selectedCamera);
-      return [];
-    }
-
-    // console.log(`📈 [Chart] Specific camera ${camera.shortId} selected`);
+    if (!camera) return [];
 
     const currentBase = camera.inputValue !== undefined ? camera.inputValue : null;
+    const camCapacity = camera.calculation?.capacity ?? 0;
     const timeframes = ["5m", "10m", "15m", "30m", "60m"] as const;
     const chartData = timeframes.map((timeframe) => {
       const vehicles = Math.round(camera.forecasts[timeframe] || 0);
       return {
         time: timeframe,
         vehicles,
+        vcPct: camCapacity > 0 ? Math.round(vehicles / camCapacity * 100) : null,
         pctChange: (currentBase !== null && currentBase > 0)
           ? Math.round(((vehicles - currentBase) / currentBase) * 100)
           : null,
@@ -162,14 +162,13 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
       };
     });
 
-    // console.log("📈 [Chart] Specific camera forecast data:", chartData);
     return chartData;
   }, [cameras, selectedCamera])
 
   return (
     <Card className="@container/card">
       <CardHeader className="relative">
-        <CardTitle>Dự báo giao thông</CardTitle>
+        <CardTitle>Dự báo lưu lượng giao thông</CardTitle>
         <CardDescription>
           <span className="@[540px]/card:block hidden">
             Dự đoán số lượng phương tiện trong các mốc 5/10/15/30/60 phút
@@ -216,7 +215,7 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
           </Select>
         </div>
       </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
+      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-4">
         {chartData.length === 0 ? (
           <div className="flex h-[250px] items-center justify-center text-muted-foreground">
             <div className="text-center">
@@ -227,35 +226,33 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
         ) : (
           <ChartContainer
             config={chartConfig}
-            className="aspect-auto h-[250px] w-full"
+            className="aspect-auto h-[300px] w-full"
           >
-            <AreaChart data={chartData} margin={{ top: 28, right: 36, left: 10, bottom: 0 }}>
+            <AreaChart data={chartData} margin={{ top: 28, right: -10, left: 5, bottom: 0 }}>
               <defs>
                 <linearGradient id="fillVehicles" x1="0" y1="0" x2="0" y2="1">
-                  <stop
-                    offset="5%"
-                    stopColor="var(--color-vehicles)"
-                    stopOpacity={0.8}
-                  />
-                  <stop
-                    offset="95%"
-                    stopColor="var(--color-vehicles)"
-                    stopOpacity={0.1}
-                  />
+                  <stop offset="5%" stopColor="var(--color-vehicles)" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="var(--color-vehicles)" stopOpacity={0.1} />
                 </linearGradient>
               </defs>
               <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="label"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-              />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
               <YAxis
+                yAxisId="left"
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
                 label={{ value: 'Phương tiện', angle: -90, position: 'insideLeft', offset: 10 }}
+              />
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                tick={{ fontSize: 10 }}
+                tickFormatter={(v) => `${v}%`}
+                domain={[0, 100]}
               />
               <ChartTooltip
                 cursor={false}
@@ -263,10 +260,16 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
                   <ChartTooltipContent
                     labelFormatter={(value) => `Mốc: ${value}`}
                     indicator="dot"
+                    formatter={(value, name) =>
+                      name === "vcPct"
+                        ? [`${value}%`, " mức tải"]
+                        : [`${value}`, " phương tiện"]
+                    }
                   />
                 }
               />
               <Area
+                yAxisId="left"
                 dataKey="vehicles"
                 type="monotone"
                 fill="url(#fillVehicles)"
@@ -274,6 +277,17 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
               >
                 <LabelList dataKey="pctChange" content={PctChangeLabel} />
               </Area>
+              {chartData.some((d) => d.vcPct !== null) && (
+                <Area
+                  yAxisId="right"
+                  dataKey="vcPct"
+                  type="monotone"
+                  fill="var(--color-vcPct)"
+                  fillOpacity={0.15}
+                  stroke="var(--color-vcPct)"
+                  strokeDasharray="4 2"
+                />
+              )}
             </AreaChart>
           </ChartContainer>
         )}

@@ -87,9 +87,8 @@ function getTimeRange(type: PatternType): { from: string; to: string } {
     fromUtc = new Date(Date.UTC(Y, M, D, 6, 0, 0));
     toUtc   = new Date(Date.UTC(Y, M, D, H, 0, 0));
   } else if (type === "dow") {
-    const dow         = vnNow.getUTCDay();
-    const daysFromMon = dow === 0 ? 6 : dow - 1;
-    fromUtc = new Date(Date.UTC(Y, M, D - daysFromMon, 6, 0, 0));
+    // Rolling 7 ngày hoàn chỉnh gần nhất (không reset theo tuần), mỗi ngày từ 6:00 VN
+    fromUtc = new Date(Date.UTC(Y, M, D - 7, 6, 0, 0));
     toUtc   = new Date(Date.UTC(Y, M, D, 0, 0, 0));
   } else {
     fromUtc = new Date(Date.UTC(Y, 0, 1, 6, 0, 0));

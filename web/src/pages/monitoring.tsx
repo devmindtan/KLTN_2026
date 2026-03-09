@@ -31,7 +31,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 /**
@@ -57,10 +57,29 @@ const getStatusBadge = (status: string) => {
 // Chart config for forecast
 const forecastChartConfig = {
   vehicles: {
-    label: "Vehicles",
+    label: "Phương tiện (xe)",
     color: "var(--primary)",
   },
+  vcPct: {
+    label: "Mức tải (%)",
+    color: "var(--chart-2)",
+  },
 } satisfies ChartConfig;
+
+/** Nhãn % thay đổi so với baseline – module-level để tránh Recharts re-mount */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const PctForecastLabel = (props: any) => {
+  const { x, y, value } = props;
+  if (value === null || value === undefined) return null;
+  const pct = value as number;
+  const color = pct > 0 ? "#f97316" : pct < 0 ? "#22c55e" : "#9ca3af";
+  const sign = pct > 0 ? "+" : "";
+  return (
+    <text x={Number(x)} y={Math.max(Number(y) - 8, 14)} textAnchor="middle" fill={color} fontSize={10} fontWeight={700}>
+      {sign}{pct}%
+    </text>
+  );
+};
 
 export default function TrafficMonitoring() {
   const { processedCameras, isConnected } = useSocket();
@@ -354,13 +373,15 @@ export default function TrafficMonitoring() {
 function CameraDetailDialog({ camera }: { camera: CameraData }) {
   const isMobile = useIsMobile();
 
-  // Transform forecasts to chart data
+  // Transform forecasts to chart data (pctChange vs baseline + vcPct V/C ratio)
+  const capacity = camera.calculation?.capacity ?? 0;
+  const baseline = camera.inputValue ?? camera.totalObjects;
   const forecastData = [
-    { time: "5 min", vehicles: Math.round(camera.forecasts["5m"]) },
-    { time: "10 min", vehicles: Math.round(camera.forecasts["10m"]) },
-    { time: "15 min", vehicles: Math.round(camera.forecasts["15m"]) },
-    { time: "30 min", vehicles: Math.round(camera.forecasts["30m"]) },
-    { time: "60 min", vehicles: Math.round(camera.forecasts["60m"]) },
+    { time: "5 phút",  vehicles: Math.round(camera.forecasts["5m"]),  vcPct: capacity > 0 ? Math.round(camera.forecasts["5m"]  / capacity * 100) : 0, pctChange: baseline > 0 ? Math.round((camera.forecasts["5m"]  - baseline) / baseline * 100) : null },
+    { time: "10 phút", vehicles: Math.round(camera.forecasts["10m"]), vcPct: capacity > 0 ? Math.round(camera.forecasts["10m"] / capacity * 100) : 0, pctChange: baseline > 0 ? Math.round((camera.forecasts["10m"] - baseline) / baseline * 100) : null },
+    { time: "15 phút", vehicles: Math.round(camera.forecasts["15m"]), vcPct: capacity > 0 ? Math.round(camera.forecasts["15m"] / capacity * 100) : 0, pctChange: baseline > 0 ? Math.round((camera.forecasts["15m"] - baseline) / baseline * 100) : null },
+    { time: "30 phút", vehicles: Math.round(camera.forecasts["30m"]), vcPct: capacity > 0 ? Math.round(camera.forecasts["30m"] / capacity * 100) : 0, pctChange: baseline > 0 ? Math.round((camera.forecasts["30m"] - baseline) / baseline * 100) : null },
+    { time: "60 phút", vehicles: Math.round(camera.forecasts["60m"]), vcPct: capacity > 0 ? Math.round(camera.forecasts["60m"] / capacity * 100) : 0, pctChange: baseline > 0 ? Math.round((camera.forecasts["60m"] - baseline) / baseline * 100) : null },
   ];
 
 
@@ -450,11 +471,11 @@ function CameraDetailDialog({ camera }: { camera: CameraData }) {
             <>
               <div className="flex flex-col gap-2">
                 <Label className="text-sm font-medium">Dự báo lưu lượng giao thông</Label>
-                <ChartContainer config={forecastChartConfig} className="h-[200px]">
+                <ChartContainer config={forecastChartConfig} className="h-[260px]">
                   <AreaChart
                     accessibilityLayer
                     data={forecastData}
-                    margin={{ left: 0, right: 0, top: 10, bottom: 0 }}
+                    margin={{ left: -30, right: -20, top: 28, bottom: 0 }}
                   >
                     <CartesianGrid vertical={false} />
                     <XAxis
@@ -463,17 +484,57 @@ function CameraDetailDialog({ camera }: { camera: CameraData }) {
                       axisLine={false}
                       tickMargin={8}
                     />
+                    <YAxis
+                      yAxisId="left"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                      tick={{ fontSize: 10 }}
+                    />
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={(v) => `${v}%`}
+                      domain={[0, 100]}
+                    />
                     <ChartTooltip
                       cursor={false}
-                      content={<ChartTooltipContent indicator="dot" />}
+                      content={
+                        <ChartTooltipContent
+                          indicator="dot"
+                          formatter={(value, name) =>
+                            name === "vcPct"
+                              ? [`${value}%`, " mức tải"]
+                              : [`${value}`, " phương tiện"]
+                          }
+                        />
+                      }
                     />
                     <Area
+                      yAxisId="left"
                       dataKey="vehicles"
                       type="monotone"
                       fill="var(--color-vehicles)"
                       fillOpacity={0.4}
                       stroke="var(--color-vehicles)"
-                    />
+                    >
+                      <LabelList dataKey="pctChange" content={PctForecastLabel} />
+                    </Area>
+                    {capacity > 0 && (
+                      <Area
+                        yAxisId="right"
+                        dataKey="vcPct"
+                        type="monotone"
+                        fill="var(--color-vcPct)"
+                        fillOpacity={0.15}
+                        stroke="var(--color-vcPct)"
+                        strokeDasharray="4 2"
+                      />
+                    )}
                   </AreaChart>
                 </ChartContainer>
               </div>
@@ -488,14 +549,17 @@ function CameraDetailDialog({ camera }: { camera: CameraData }) {
               <div className="flex flex-col gap-1 rounded-md border p-2">
                 <span className="text-xs text-muted-foreground">5 phút</span>
                 <span className="text-lg font-semibold tabular-nums">{Math.round(camera.forecasts["5m"])}</span>
+                {capacity > 0 && <span className="text-xs text-muted-foreground">{Math.round(camera.forecasts["5m"] / capacity * 100)}% mức tải</span>}
               </div>
               <div className="flex flex-col gap-1 rounded-md border p-2">
                 <span className="text-xs text-muted-foreground">15 phút</span>
                 <span className="text-lg font-semibold tabular-nums">{Math.round(camera.forecasts["15m"])}</span>
+                {capacity > 0 && <span className="text-xs text-muted-foreground">{Math.round(camera.forecasts["15m"] / capacity * 100)}% mức tải</span>}
               </div>
               <div className="flex flex-col gap-1 rounded-md border p-2">
                 <span className="text-xs text-muted-foreground">60 phút</span>
                 <span className="text-lg font-semibold tabular-nums">{Math.round(camera.forecasts["60m"])}</span>
+                {capacity > 0 && <span className="text-xs text-muted-foreground">{Math.round(camera.forecasts["60m"] / capacity * 100)}% mức tải</span>}
               </div>
             </div>
           </div>

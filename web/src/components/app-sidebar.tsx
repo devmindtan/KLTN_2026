@@ -45,21 +45,21 @@ import { cn } from "@/lib/utils"
 // ─── Nav data factory ───────────────────────────────────────────────────────
 function buildNavMain(p: string) { return [
   { title: "Bảng điều khiển", url: `/${p}/dashboard`, icon: IconDashboard },
-  { title: "Giám sát",        url: `/${p}/monitoring`,  icon: IconListDetails },
-  { title: "Phân tích",       url: `/${p}/analytics`,  icon: IconChartBar },
-  { title: "Mô hình ML",      url: `/${p}/models`,     icon: IconFolder },
+  { title: "Giám sát lưu lượng",        url: `/${p}/monitoring`,  icon: IconListDetails },
+  { title: "Phân tích mô hình",       url: `/${p}/analytics`,  icon: IconChartBar },
+  { title: "Danh sách mô hình",      url: `/${p}/models`,     icon: IconFolder },
 ]}
 function buildNavTechnician(p: string) { return [
   { title: "Đội ngũ phát triển", url: `/${p}/team`, icon: IconUsers },
 ]}
 function buildNavDocuments(p: string) { return [
-  { name: "Dữ liệu",  url: `/${p}/data-library`,  icon: IconDatabase },
+  { name: "Dữ liệu giao thông",  url: `/${p}/data-library`,  icon: IconDatabase },
   { name: "Báo cáo",  url: `/${p}/reports`,        icon: IconReport },
-  { name: "Hỗ trợ",   url: `/${p}/word-assistant`, icon: IconFileWord },
+  { name: "Hỗ trợ ra quyết định",   url: `/${p}/assistant`, icon: IconFileWord },
 ]}
 function buildNavSecondary(p: string) { return [
   { title: "Cài đặt",  url: `/${p}/settings`, icon: IconSettings },
-  { title: "Liên hệ",  url: `/${p}/help`,     icon: IconHelp },
+  { title: "Liên hệ & Hướng dẫn",  url: `/${p}/help`,     icon: IconHelp },
   { title: "Tìm kiếm", url: `/${p}/search`,   icon: IconSearch },
 ]}
 

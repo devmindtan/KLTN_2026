@@ -70,7 +70,7 @@ const router = createBrowserRouter([
       {path: "team", element: <Team/>},
       {path: "data-library", element: <DataLibrary/>},
       {path: "reports", element: <Reports/>},
-      {path: "word-assistant", element: <WordAssistant/>},
+      {path: "assistant", element: <WordAssistant/>},
       {path: "settings", element: <Setting/>},
       {path: "help", element: <Help/>},
       {path: "search", element: <Search/>},

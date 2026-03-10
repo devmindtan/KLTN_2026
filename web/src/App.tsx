@@ -1,4 +1,5 @@
 "use client"
+import React from "react";
 import {createBrowserRouter, RouterProvider, Outlet, Navigate} from "react-router-dom";
 import {CustomSidebarProvider, SidebarInset} from "@/components/custom-sidebar";
 import {AppSidebar} from "@/components/app-sidebar";
@@ -19,9 +20,25 @@ import Login from "@/pages/login.tsx";
 import {SiteHeader} from "@/components/site-header";
 import {SocketProvider} from "@/contexts/SocketContext";
 import {ThemeProvider} from "@/contexts/ThemeContext";
-import {AuthProvider} from "@/contexts/AuthContext";
+import {AuthProvider, useAuth} from "@/contexts/AuthContext";
 import {ScrollToTop} from "@/components/scroll-to-top";
 import {Toaster} from "@/components/ui/sonner";
+
+/**
+ * Chặn render nội dung trang cho đến khi AuthContext hoàn thành init (có token).
+ * Tránh race condition: page components gọi API trước khi guest token được lưu vào localStorage.
+ */
+const AuthGate = ({ children }: { children: React.ReactNode }) => {
+  const { isLoading } = useAuth();
+  if (isLoading) {
+    return (
+      <div className="flex flex-1 items-center justify-center min-h-screen">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
+      </div>
+    );
+  }
+  return <>{children}</>;
+};
 
 const RootLayout = () => (
   <ThemeProvider>
@@ -32,7 +49,9 @@ const RootLayout = () => (
           <SidebarInset>
             <SiteHeader/>
             <main className="flex flex-1 flex-col">
-              <Outlet/>
+              <AuthGate>
+                <Outlet/>
+              </AuthGate>
             </main>
           </SidebarInset>
         </CustomSidebarProvider>

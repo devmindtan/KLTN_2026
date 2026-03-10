@@ -43,10 +43,52 @@
   - **Tooltip – hover-only**: Tất cả tooltip PHẢI chỉ hiện khi hover (không hiện khi focus). Base `tooltip.tsx` đã handle qua pointer tracking context. `TooltipProvider` dùng `delayDuration={200}` (sidebar standard). Không dùng native `title=""` attribute – luôn dùng Radix `<Tooltip>`.
   - **Text overflow – main pages**: Mọi text có thể dài hơn container ở trang giao diện chính (card title, badge, label, tên...) PHẢI dùng `truncate` (= `overflow-hidden text-ellipsis whitespace-nowrap`) + `max-w-*` phù hợp. Không để text tràn layout.
   - **Scroll cho list / overflow**: Mọi danh sách dữ liệu hoặc vùng content có thể vượt quá viewport PHẢI có `overflow-y-auto` (hoặc `overflow-auto`). Sheet/Dialog chứa danh sách dài dùng `max-h-[X] overflow-y-auto`. Không dùng `overflow-hidden` ở container chứa danh sách.
+  - **Chart Tooltip – chuẩn thiết kế**: Tất cả tooltips của Recharts PHẢI dùng custom `content` render function theo cấu trúc chuẩn sau (KHÔNG dùng `<ChartTooltipContent>` mặc định):
+    ```tsx
+    <ChartTooltip
+      cursor={false} // AreaChart; dùng {{ fill: "hsl(var(--foreground))", opacity: 0.05 }} cho BarChart
+      content={({ active, payload, label }) => {
+        if (!active || !payload?.length) return null;
+        return (
+          <div className="rounded-lg border bg-background px-3 py-2 shadow-md text-sm min-w-[140px]">
+            <p className="font-medium mb-1.5">{label}</p>
+            {payload.map((p) => (
+              <div
+                key={String(p.dataKey)}
+                className="flex items-center justify-between gap-3"
+              >
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className="size-2 rounded-full shrink-0"
+                    style={{ background: p.color }}
+                  />
+                  <span className="text-muted-foreground">
+                    {/* tên hiển thị theo dataKey */}
+                  </span>
+                </div>
+                <span className="font-semibold tabular-nums">
+                  {/* giá trị, thêm đơn vị nếu cần */}
+                </span>
+              </div>
+            ))}
+            {/* Footer section (nếu có metadata bổ sung): */}
+            {/* <div className="mt-1.5 pt-1.5 border-t text-xs flex items-center justify-between gap-3"> */}
+          </div>
+        );
+      }}
+    />
+    ```
+
+    - **BarChart**: `cursor={{ fill: "hsl(var(--foreground))", opacity: 0.05 }}`
+    - **AreaChart / LineChart**: `cursor={false}`
+    - Mỗi row dùng `flex items-center justify-between gap-3` — label trái, giá trị phải
+    - Dấu màu: `size-2 rounded-full` inline `background: p.color`
+    - Footer metadata (nếu cần): `border-t mt-1.5 pt-1.5 text-xs`
+    - `min-w-[140px]` để tránh tooltip quá hẹp
   - **Custom scrollbar**: Tuyệt đối KHÔNG dùng scrollbar mặc định của trình duyệt. Mọi container có `overflow-y-auto` / `overflow-auto` PHẢI kèm class `scrollbar` (định nghĩa trong `index.css`). Scrollbar custom: 4px, bo tròn, dùng `--muted-foreground` 25% opacity, hover 50%. Áp dụng cả base components (dialog, select, dropdown, sheet).
   - **Theme (dark/light) – quy tắc bắt buộc**:
     - **FOUC prevention**: `index.html` PHẢI có inline `<script>` trong `<head>` đọc `localStorage.getItem('theme')` và apply class `dark`/`light` lên `<html>` TRƯỚC khi React render. KHÔNG được xoá script này.
-    - **Smooth transition**: `index.css` PHẢI có global `transition-property: color, background-color, border-color, fill, stroke` với `duration: 150ms` trên `*` để tránh abrupt flash khi toggle theme. KHÔNG dùng `transition: all`.
+    - **Smooth transition**: KHÔNG dùng CSS transition thường xuyên trên `*` hoặc semantic elements — gây lag mọi hover/scroll. Thay vào đó, `ThemeContext.tsx` tạm thêm class `theme-switching` vào `<html>` trong 200ms khi toggle, CSS chỉ apply `transition` khi `html.theme-switching *` active. Xem `index.css` và `ThemeContext.tsx`.
     - **CSS var trong Recharts SVG**: Recharts SVG `style={{ fill: "hsl(var(--...))" }}` KHÔNG tự update khi class `.dark` thay đổi. PHẢI dùng `useTheme()` từ `@/contexts/ThemeContext` để lấy `theme === "dark"` rồi gán giá trị màu thực tế (ví dụ: `oklch(0.985 0 0)` cho dark, `oklch(0.145 0 0)` cho light). Không bao giờ dùng CSS variable string làm `fill` trong Recharts custom tick/label components.
     - **Standalone sections**: Mọi section lớn render trực tiếp trong page (không nằm trong `<Card>`) PHẢI có `bg-card rounded-xl border` hoặc tương đương để có background riêng thay vì trong suốt.
     - **useTheme hook**: Luôn import từ `@/contexts/ThemeContext` (custom hook), KHÔNG từ `next-themes`.

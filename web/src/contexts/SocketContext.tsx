@@ -364,9 +364,11 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       transports: ["websocket"],
       upgrade: false,
       reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      timeout: 10000,
+      reconnectionAttempts: Infinity, // Không giới hạn – luôn thử lại
+      reconnectionDelay: 2000,        // Delay ban đầu 2s
+      reconnectionDelayMax: 15000,    // Cap tối đa 15s (exponential backoff)
+      randomizationFactor: 0.3,       // Jitter để tránh thundering herd
+      timeout: 20000,
     });
 
     setSocket(socketInstance);
@@ -498,8 +500,18 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     //   console.log("🔔 Socket event:", eventName, args);
     // });
 
+    // Reconnect khi tab trở lại foreground (Page Visibility API)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && !socketInstance.connected) {
+        logger.log("👁️ Tab visible – reconnecting socket...");
+        socketInstance.connect();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     // Cleanup khi component unmount
     return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       logger.log("🧹 Cleaning up socket connection");
       socketInstance.off("connect");
       socketInstance.off("disconnect");

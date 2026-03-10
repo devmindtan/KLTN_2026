@@ -1,7 +1,7 @@
 /**
  * Data Library Service - API calls cho collections và entries
  */
-import { apiFetch } from "@/lib/apiFetch";
+import { apiFetch, clearApiCache } from "@/lib/apiFetch";
 
 const BASE = import.meta.env.VITE_BACKEND_URL;
 
@@ -97,6 +97,7 @@ export async function createCollection(payload: {
   });
   if (!res.ok) throw new Error("Không thể tạo bộ dữ liệu");
   const json = await res.json();
+  clearApiCache(/\/api\/data-library\/collections/);
   return json.data;
 }
 
@@ -114,6 +115,7 @@ export async function updateCollection(
   });
   if (!res.ok) throw new Error("Không thể cập nhật bộ dữ liệu");
   const json = await res.json();
+  clearApiCache(/\/api\/data-library\/collections/);
   return json.data;
 }
 
@@ -124,6 +126,7 @@ export async function updateCollection(
 export async function deleteCollection(id: string): Promise<void> {
   const res = await apiFetch(`${BASE}/api/data-library/collections/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Không thể xóa bộ dữ liệu");
+  clearApiCache(/\/api\/data-library\/collections/);
 }
 
 /**
@@ -155,6 +158,7 @@ export async function importEntry(payload: {
   });
   if (!res.ok) throw new Error("Import thất bại");
   const json = await res.json();
+  clearApiCache(/\/api\/data-library\/collections/);
   return json.data;
 }
 
@@ -165,6 +169,7 @@ export async function importEntry(payload: {
 export async function deleteEntry(id: string): Promise<void> {
   const res = await apiFetch(`${BASE}/api/data-library/entries/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Không thể xóa snapshot");
+  clearApiCache(/\/api\/data-library\/collections/);
 }
 
 /**

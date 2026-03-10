@@ -1,7 +1,7 @@
 /**
  * Trang Thư viện Dữ liệu - hiển thị danh sách collections và cho phép tải / import
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge }  from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -229,7 +229,16 @@ export default function TrafficDataLibrary() {
   const [loading,         setLoading]         = useState(true);
   const [filterSource,    setFilterSource]    = useState<string>("all");
   const [filterType,      setFilterType]      = useState<string>("all");
-  const [search,          setSearch]          = useState("");
+  const [searchInput,     setSearchInput]     = useState("");   // điều khiển input (mỗi ký tự)
+  const [search,          setSearch]          = useState("");   // debounced → trigger API
+
+  // Debounce: chỉ cập nhật `search` sau 400ms kể từ lần gõ cuối
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleSearchChange = (val: string) => {
+    setSearchInput(val);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setSearch(val), 400);
+  };
 
   // Sheet state
   const [sheetOpen,       setSheetOpen]       = useState(false);
@@ -352,8 +361,8 @@ export default function TrafficDataLibrary() {
           <Input
             className="pl-8 h-9"
             placeholder="Tìm kiếm bộ dữ liệu..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={searchInput}
+            onChange={(e) => handleSearchChange(e.target.value)}
           />
         </div>
         <Select value={filterSource} onValueChange={setFilterSource}>

@@ -29,7 +29,6 @@ import {
   type ChartConfig,
   ChartContainer,
   ChartTooltip,
-  ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Area, AreaChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -175,10 +174,15 @@ export default function TrafficMonitoring() {
         title="Giám sát lưu lượng thời gian thực"
         description="Theo dõi lưu lượng giao thông tại các điểm quan trọng trong thành phố"
       >
-        <Badge variant={isConnected ? "default" : "destructive"} className="gap-1">
-          <IconActivity className="w-3 h-3" />
-          {isConnected ? "Đã Kết nối" : "Mất kết nối"}
-        </Badge>
+        <Badge
+              variant="outline"
+              className={`flex items-center gap-1 rounded-lg text-xs whitespace-nowrap shrink-0 ${
+                isConnected ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"
+              }`}
+            >
+              <IconActivity className="size-3 shrink-0" />
+              {isConnected ? "Trực tiếp" : "Mất kết nối"}
+            </Badge>
         <Button
           variant="outline"
           size="sm"
@@ -503,16 +507,27 @@ function CameraDetailDialog({ camera }: { camera: CameraData }) {
                     />
                     <ChartTooltip
                       cursor={false}
-                      content={
-                        <ChartTooltipContent
-                          indicator="dot"
-                          formatter={(value, name) =>
-                            name === "vcPct"
-                              ? [`${value}%`, " mức tải"]
-                              : [`${value}`, " phương tiện"]
-                          }
-                        />
-                      }
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload?.length) return null;
+                        const visibleRows = payload.filter((p) => p.value !== null && p.value !== undefined && p.value !== 0 || p.dataKey === "vehicles");
+                        const labelMap: Record<string, string> = { vehicles: "Phương tiện", vcPct: "Mức tải" };
+                        return (
+                          <div className="rounded-lg border bg-background px-3 py-2 shadow-md text-sm min-w-[140px]">
+                            <p className="font-medium mb-1.5">{label}</p>
+                            {visibleRows.map((p) => (
+                              <div key={String(p.dataKey)} className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="size-2 rounded-full shrink-0" style={{ background: p.color }} />
+                                  <span className="text-muted-foreground">{labelMap[String(p.dataKey)] ?? String(p.dataKey)}</span>
+                                </div>
+                                <span className="font-semibold tabular-nums">
+                                  {p.dataKey === "vcPct" ? `${p.value}%` : p.value}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      }}
                     />
                     <Area
                       yAxisId="left"

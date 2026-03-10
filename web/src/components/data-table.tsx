@@ -62,7 +62,6 @@ import {
   type ChartConfig,
   ChartContainer,
   ChartTooltip,
-  ChartTooltipContent,
 } from "@/components/ui/chart"
 import {
   DropdownMenu,
@@ -194,7 +193,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     accessorKey: "name",
     header: "Vị Trí",
     cell: ({ row }) => (
-      <div className="max-w-[250px] text-sm">
+      <div className="sm:max-w-[250px] text-sm min-w-0">
         <div className="font-medium">{row.original.name}</div>
         <div className="text-xs text-muted-foreground sm:hidden">ID: {row.original.shortId}</div>
       </div>
@@ -219,7 +218,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
   },
   {
     accessorKey: "status",
-    header: "Trạng Thái",
+    header: () => <div className="hidden sm:block">Trạng Thái</div>,
     cell: ({ row }) => {
       const status = row.original.status.current;
       let badgeClass = "bg-gray-500/10 text-gray-600 dark:text-gray-400";
@@ -233,9 +232,11 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
         case "congested": badgeClass = "bg-red-500/10 text-red-600 dark:text-red-400";     statusText = "Ùn tắc";      break;
       }
       return (
-        <Badge variant="outline" className={`flex gap-1 px-2 py-1 ${badgeClass}`}>
-          {icon}{statusText}
-        </Badge>
+        <div className="hidden sm:block">
+          <Badge variant="outline" className={`flex gap-1 px-2 py-1 ${badgeClass}`}>
+            {icon}{statusText}
+          </Badge>
+        </div>
       );
     },
     filterFn: (row, _columnId, filterValue) => {
@@ -245,7 +246,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
   },
   {
     id: "status_forecast",
-    header: "Dự Báo 5p",
+    header: () => <div className="hidden sm:block">Dự Báo 5p</div>,
     cell: ({ row }) => {
       const status = row.original.status.forecast;
       let badgeClass = "bg-gray-500/10 text-gray-500 dark:text-gray-400";
@@ -259,15 +260,17 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
         case "congested": badgeClass = "bg-red-500/10 text-red-600 dark:text-red-400";     statusText = "Ùn tắc";      break;
       }
       return (
-        <Badge variant="outline" className={`flex gap-1 px-2 py-1 ${badgeClass}`}>
-          {icon}{statusText}
-        </Badge>
+        <div className="hidden sm:block">
+          <Badge variant="outline" className={`flex gap-1 px-2 py-1 ${badgeClass}`}>
+            {icon}{statusText}
+          </Badge>
+        </div>
       );
     },
   },
   {
     accessorKey: "trend",
-    header: "Xu Hướng",
+    header: () => <div className="hidden sm:block">Xu Hướng</div>,
     cell: ({ row }) => {
       const trend = row.original.trend;
       let trendText = "Ổn định";
@@ -285,21 +288,23 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
       }
 
       return (
-        <Badge
-          variant="outline"
-          className={`flex gap-1 px-2 ${trendClass}`}
-        >
-          {icon}
-          {trendText}
-        </Badge>
+        <div className="hidden sm:block">
+          <Badge
+            variant="outline"
+            className={`flex gap-1 px-2 ${trendClass}`}
+          >
+            {icon}
+            {trendText}
+          </Badge>
+        </div>
       );
     },
   },
   {
     accessorKey: "forecasts.5m",
-    header: () => <div className="w-full text-center">Dự Báo 5'</div>,
+    header: () => <div className="hidden sm:block w-full text-center">Dự Báo 5'</div>,
     cell: ({ row }) => (
-      <div className="text-center font-semibold tabular-nums">
+      <div className="hidden sm:block text-center font-semibold tabular-nums">
         {Math.round(row.original.forecasts["5m"])}
       </div>
     ),
@@ -915,16 +920,27 @@ function TableCellViewerModal({ item, open, onOpenChange }: { item: z.infer<type
                     />
                     <ChartTooltip
                       cursor={false}
-                      content={
-                        <ChartTooltipContent
-                          indicator="dot"
-                          formatter={(value, name) =>
-                            name === "vcPct"
-                              ? [`${value}%`, " mức tải"]
-                              : [`${value}`, " phương tiện"]
-                          }
-                        />
-                      }
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload?.length) return null;
+                        const visibleRows = payload.filter((p) => p.value !== null && p.value !== undefined && p.value !== 0 || p.dataKey === "vehicles");
+                        const labelMap: Record<string, string> = { vehicles: "Phương tiện", vcPct: "Mức tải" };
+                        return (
+                          <div className="rounded-lg border bg-background px-3 py-2 shadow-md text-sm min-w-[140px]">
+                            <p className="font-medium mb-1.5">{label}</p>
+                            {visibleRows.map((p) => (
+                              <div key={String(p.dataKey)} className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="size-2 rounded-full shrink-0" style={{ background: p.color }} />
+                                  <span className="text-muted-foreground">{labelMap[String(p.dataKey)] ?? String(p.dataKey)}</span>
+                                </div>
+                                <span className="font-semibold tabular-nums">
+                                  {p.dataKey === "vcPct" ? `${p.value}%` : p.value}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      }}
                     />
                     <Area
                       yAxisId="left"

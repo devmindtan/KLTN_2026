@@ -17,7 +17,6 @@ import {
   type ChartConfig,
   ChartContainer,
   ChartTooltip,
-  ChartTooltipContent,
 } from "@/components/ui/chart"
 import {
   Select,
@@ -59,11 +58,11 @@ interface ChartAreaInteractiveProps {
 const chartConfig = {
   vehicles: {
     label: "Phương tiện",
-    color: "hsl(var(--chart-1))",
+    color: "var(--primary)",
   },
   vcPct: {
     label: "Mức tải (%)",
-    color: "hsl(var(--chart-2))",
+    color: "var(--chart-2)",
   },
 } satisfies ChartConfig
 
@@ -167,18 +166,21 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
 
   return (
     <Card className="@container/card">
-      <CardHeader className="relative">
-        <CardTitle>Dự báo lưu lượng giao thông</CardTitle>
-        <CardDescription>
-          <span className="@[540px]/card:block hidden">
-            Dự đoán số lượng phương tiện trong các mốc 5/10/15/30/60 phút
-          </span>
-          <span className="@[540px]/card:hidden">Giờ dự đoán tiếp theo</span>
-        </CardDescription>
-        <div className="absolute right-4 top-4">
+      <CardHeader>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+          <div className="min-w-0">
+            <CardTitle className="pt-1 pb-2">Dự báo lưu lượng giao thông</CardTitle>
+            <CardDescription>
+              <span className="@[540px]/card:block hidden">
+                Dự đoán số lượng phương tiện trong các mốc 5/10/15/30/60 phút
+              </span>
+              <span className="@[540px]/card:hidden">Giờ dự đoán tiếp theo</span>
+            </CardDescription>
+          </div>
+          <div className="shrink-0">
           <Select value={selectedCamera} onValueChange={setSelectedCamera}>
             <SelectTrigger
-              className="w-65"
+              className="w-full sm:w-65"
               aria-label="Select camera"
             >
               <SelectValue placeholder="All Cameras" />
@@ -213,6 +215,7 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
               </div>
             </SelectContent>
           </Select>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-4">
@@ -228,13 +231,7 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
             config={chartConfig}
             className="aspect-auto h-[300px] w-full"
           >
-            <AreaChart data={chartData} margin={{ top: 28, right: -10, left: 5, bottom: 0 }}>
-              <defs>
-                <linearGradient id="fillVehicles" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--color-vehicles)" stopOpacity={0.8} />
-                  <stop offset="95%" stopColor="var(--color-vehicles)" stopOpacity={0.1} />
-                </linearGradient>
-              </defs>
+            <AreaChart data={chartData} margin={{ top: 28, right: -20, left: -30, bottom: 0 }}>
               <CartesianGrid vertical={false} />
               <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
               <YAxis
@@ -242,7 +239,7 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
-                label={{ value: 'Phương tiện', angle: -90, position: 'insideLeft', offset: 10 }}
+                tick={{ fontSize: 10 }}
               />
               <YAxis
                 yAxisId="right"
@@ -256,23 +253,34 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
               />
               <ChartTooltip
                 cursor={false}
-                content={
-                  <ChartTooltipContent
-                    labelFormatter={(value) => `Mốc: ${value}`}
-                    indicator="dot"
-                    formatter={(value, name) =>
-                      name === "vcPct"
-                        ? [`${value}%`, " mức tải"]
-                        : [`${value}`, " phương tiện"]
-                    }
-                  />
-                }
+                content={({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null;
+                  const visibleRows = payload.filter((p) => p.value !== null && p.value !== undefined && p.value !== 0 || p.dataKey === "vehicles");
+                  const labelMap: Record<string, string> = { vehicles: "Phương tiện", vcPct: "Mức tải" };
+                  return (
+                    <div className="rounded-lg border bg-background px-3 py-2 shadow-md text-sm min-w-[140px]">
+                      <p className="font-medium mb-1.5">{label}</p>
+                      {visibleRows.map((p) => (
+                        <div key={String(p.dataKey)} className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-1.5">
+                            <span className="size-2 rounded-full shrink-0" style={{ background: p.color }} />
+                            <span className="text-muted-foreground">{labelMap[String(p.dataKey)] ?? String(p.dataKey)}</span>
+                          </div>
+                          <span className="font-semibold tabular-nums">
+                            {p.dataKey === "vcPct" ? `${p.value}%` : p.value}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }}
               />
               <Area
                 yAxisId="left"
                 dataKey="vehicles"
                 type="monotone"
-                fill="url(#fillVehicles)"
+                fill="var(--color-vehicles)"
+                fillOpacity={0.4}
                 stroke="var(--color-vehicles)"
               >
                 <LabelList dataKey="pctChange" content={PctChangeLabel} />

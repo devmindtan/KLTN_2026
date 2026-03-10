@@ -27,7 +27,7 @@ export function PageHeader({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-4 pb-4 border-b",
+        "flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b",
         className
       )}
     >
@@ -39,18 +39,18 @@ export function PageHeader({
           </div>
         )}
         <div className="min-w-0">
-          <h1 className="text-lg font-semibold leading-snug">{title}</h1>
+          <h1 className="text-lg font-semibold leading-snug truncate">{title}</h1>
           {description && (
-            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed line-clamp-2">
               {description}
             </p>
           )}
         </div>
       </div>
 
-      {/* Right: actions / badges */}
+      {/* Right: actions / badges – full-width row on mobile, shrink on desktop */}
       {children && (
-        <div className="flex shrink-0 items-center gap-2">{children}</div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">{children}</div>
       )}
     </div>
   )

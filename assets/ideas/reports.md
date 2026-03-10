@@ -1,9 +1,7 @@
 ## Bản vá
-- Cải thiện lại responsive ở bản mobile:
-  - Dưới 950px thì sẽ ẩn thông số trên bar và trung bình sẽ được làm tròn khi hiển thị còn những chỗ khác giữ nguyên
-  - Và độ phủ mẫu % vẫn được hiển thị ở giao diện lớn hơn chứ không bỏ nó đi
-  
-
+- team.tsx khách cũng có thể xem được
+- Tiếp theo hãy lên kế hoạch và tạo file thiết kế cho page search.tsx hiện tại tôi chưa có ý tưởng gì bạn hãy đọc trang đó và tạo 1 file trong ideas để cho tôi thêm ý thưởng. 
+- Xem lại cách đánh tên version cho model cần bổ sung thêm tên loại model vào cách đánh version
 ## Không đụng
 
 - Chuyển đổi tiếng anh và tiếng việt

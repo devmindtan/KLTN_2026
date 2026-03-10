@@ -72,6 +72,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
+import { HighlightText } from "@/components/highlight-text"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -192,9 +193,11 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
   {
     accessorKey: "name",
     header: "Vị Trí",
-    cell: ({ row }) => (
+    cell: ({ row, column }) => (
       <div className="sm:max-w-[250px] text-sm min-w-0">
-        <div className="font-medium">{row.original.name}</div>
+        <div className="font-medium">
+          <HighlightText text={row.original.name} query={String(column.getFilterValue() ?? "")} />
+        </div>
         <div className="text-xs text-muted-foreground sm:hidden">ID: {row.original.shortId}</div>
       </div>
     ),

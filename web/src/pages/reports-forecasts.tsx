@@ -65,7 +65,7 @@ export default function TrafficReports() {
     <div className="flex flex-1 flex-col gap-4 p-4">
       <PageHeader
         icon={<IconFileText className="w-5 h-5" />}
-        title="Báo cáo giao thông"
+        title="Báo cáo và dự báo giao thông"
         description="Báo cáo và phân tích lưu lượng giao thông đô thị"
       >
         <Button>Tạo báo cáo mới</Button>

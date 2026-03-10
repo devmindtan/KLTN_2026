@@ -11,7 +11,7 @@ import Analytics from "@/pages/analytics.tsx";
 import Projects from "@/pages/projects.tsx";
 import Models from "@/pages/models.tsx";
 import Team from "@/pages/team.tsx";
-import Reports from "@/pages/reports.tsx";
+import Reports from "@/pages/reports-forecasts";
 import WordAssistant from "@/pages/word-assistant.tsx";
 import Help from "@/pages/help.tsx";
 import Search from "@/pages/search.tsx";
@@ -88,7 +88,7 @@ const router = createBrowserRouter([
       {path: "models", element: <Models/>},
       {path: "team", element: <Team/>},
       {path: "data-library", element: <DataLibrary/>},
-      {path: "reports", element: <Reports/>},
+      {path: "reports-forecasts", element: <Reports/>},
       {path: "assistant", element: <WordAssistant/>},
       {path: "settings", element: <Setting/>},
       {path: "help", element: <Help/>},

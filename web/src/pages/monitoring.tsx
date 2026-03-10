@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { IconMapPin, IconClock, IconAlertTriangle, IconCheck, IconActivity, IconInfoCircle, IconSearch, IconFilter, IconX, IconCar, IconMotorbike, IconLayoutGrid } from "@tabler/icons-react";
 import { PageHeader } from "@/components/page-header";
+import { HighlightText } from "@/components/highlight-text";
 import { CameraWallView } from "@/components/camera-wall-view";
 import { TrendingDownIcon, TrendingUpIcon } from "lucide-react";
 import { useSocket, type CameraData } from "@/contexts/SocketContext";
@@ -306,13 +307,15 @@ export default function TrafficMonitoring() {
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
                       <IconMapPin className="w-5 h-5 text-primary" />
-                      <CardTitle className="text-base">{camera.name}</CardTitle>
+                      <CardTitle className="text-base">
+                        <HighlightText text={camera.name} query={searchQuery} />
+                      </CardTitle>
                     </div>
                     <div className="flex flex-col gap-1 items-end">
                       {getStatusBadge(camera.status.current)}
                     </div>
                   </div>
-                  <CardDescription>Camera {camera.shortId}</CardDescription>
+                  <CardDescription>ID: <HighlightText text={camera.shortId} query={searchQuery} /></CardDescription>
                 </CardHeader>
                 {/* Camera Image */}
                 {camera.imageUrl && (

@@ -48,13 +48,12 @@ function buildNavMain(p: string) { return [
   { title: "Giám sát lưu lượng",        url: `/${p}/monitoring`,  icon: IconListDetails },
   { title: "Phân tích mô hình",       url: `/${p}/analytics`,  icon: IconChartBar },
   { title: "Danh sách mô hình",      url: `/${p}/models`,     icon: IconFolder },
-]}
-function buildNavTechnician(p: string) { return [
   { title: "Đội ngũ phát triển", url: `/${p}/team`, icon: IconUsers },
 ]}
+
 function buildNavDocuments(p: string) { return [
   { name: "Dữ liệu giao thông",  url: `/${p}/data-library`,  icon: IconDatabase },
-  { name: "Báo cáo",  url: `/${p}/reports`,        icon: IconReport },
+  { name: "Báo cáo & Dự báo",  url: `/${p}/reports-forecasts`,        icon: IconReport },
   { name: "Hỗ trợ ra quyết định",   url: `/${p}/assistant`, icon: IconFileWord },
 ]}
 function buildNavSecondary(p: string) { return [
@@ -145,12 +144,11 @@ function LogoButton({ prefix }: { prefix: string }) {
  */
 export function AppSidebar() {
   const { pathname } = useLocation()
-  const { role, routePrefix } = useAuth()
+  const { routePrefix } = useAuth()
   const p = routePrefix
 
   const mainItems = [
     ...buildNavMain(p),
-    ...(role === "technician" ? buildNavTechnician(p) : []),
   ]
 
   return (

@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { IconBrain, IconClockHour4, IconDatabase, IconRobot, IconSparkles, IconCheck, IconAlertTriangle, IconLoader2, IconCircleCheck, IconCircleX, IconArrowsSort, IconSortAscending, IconSortDescending, IconSearch } from "@tabler/icons-react";
 import { PageHeader } from "@/components/page-header";
+import { HighlightText } from "@/components/highlight-text";
 import {
   getActiveModels,
   getModelHistory,
@@ -345,10 +346,8 @@ function ModelDetailSheet({
                         );
                         return pagedHistory.map((v) => (
                         <TableRow key={v.id} className={v.is_active ? "bg-green-50/50 dark:bg-green-900/10" : ""}>
-                          <TableCell className="font-mono text-[11px]">
-                            {v.model_version.length > 15
-                              ? `…${v.model_version.slice(-13)}`
-                              : v.model_version}
+                          <TableCell className="font-mono text-[11px]" title={v.model_version}>
+                            <HighlightText text={v.model_version} query={historySearch} />
                           </TableCell>
                           <TableCell className="text-right text-xs">
                             {v.metrics?.mae != null ? (v.metrics.mae as number).toFixed(2) : "—"}

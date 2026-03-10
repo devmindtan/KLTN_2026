@@ -21,7 +21,7 @@ export default function Team() {
       role: "Fullstack",
       email: "devmind.tan@gmail.com",
       phone: "+84 942 510 317",
-      specialty: "Fullstack",
+      specialty: "Sinh viên",
       avatarUrl: avatarImage
     },
     {
@@ -46,7 +46,7 @@ export default function Team() {
           <Card key={idx}>
             <CardHeader>
               <div className="flex items-center gap-3">
-                <Avatar className="h-12 w-12">
+                <Avatar >
                   <AvatarImage src={member.avatarUrl} alt={member.name} />
                   <AvatarFallback className="bg-primary/10 text-primary font-semibold">
                     {getInitials(member.name)}

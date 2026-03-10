@@ -38,6 +38,7 @@ import {
   IconRefresh,
   IconCalendar,
 } from "@tabler/icons-react";
+import { HighlightText } from "@/components/highlight-text";
 import { PageHeader }   from "@/components/page-header";
 import { useAuth }      from "@/contexts/AuthContext";
 import { toast }        from "sonner";
@@ -90,13 +91,14 @@ function CollectionCardSkeleton() {
 interface CollectionCardProps {
   collection:   DataLibraryCollection;
   isTechnician: boolean;
+  highlight?:   string;
   onView:       (c: DataLibraryCollection) => void;
   onImport:     (id: string) => void;
   onDelete:     (id: string) => void;
   onEdit:       (c: DataLibraryCollection) => void;
 }
 
-function CollectionCard({ collection: c, isTechnician, onView, onImport, onDelete, onEdit }: CollectionCardProps) {
+function CollectionCard({ collection: c, isTechnician, highlight = "", onView, onImport, onDelete, onEdit }: CollectionCardProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -119,7 +121,9 @@ function CollectionCard({ collection: c, isTechnician, onView, onImport, onDelet
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
             <IconDatabase className="size-4 text-primary shrink-0" />
-            <CardTitle className="text-base leading-tight truncate max-w-[14rem]">{c.title}</CardTitle>
+            <CardTitle className="text-base leading-tight truncate max-w-[14rem]">
+              <HighlightText text={c.title} query={highlight} />
+            </CardTitle>
             {isTechnician && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -410,6 +414,7 @@ export default function TrafficDataLibrary() {
               key={c.id}
               collection={c}
               isTechnician={isTech}
+              highlight={searchInput}
               onView={handleViewCollection}
               onImport={handleImportClick}
               onDelete={handleCollectionDeleted}

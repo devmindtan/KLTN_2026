@@ -132,6 +132,9 @@ def refresh_cache_for_model_type(model_type: str) -> bool:
     except Exception as e:
         logger.error(f"❌ [CacheRefresh] Lỗi refresh cache cho {horizon}: {e}")
         return False
+
+
+def ensure_models_ready():
     """
     Kiểm tra và download models từ MinIO nếu chưa có local.
     - RF models (5m-60m): tải đúng phiên bản is_active=TRUE từ DB
@@ -567,10 +570,15 @@ def start_reload_server(port: int = 8080):
     """
     Khởi động HTTP server lắng nghe POST /reload trên port 8080.
     Chạy trong daemon thread riêng — không ảnh hưởng scheduler chính.
+    SO_REUSEADDR bật để tránh "Address already in use" khi restart nhanh.
     """
-    server = HTTPServer(("0.0.0.0", port), ReloadHandler)
-    logger.info(f"🔌 Reload server listening on port {port}")
-    server.serve_forever()
+    try:
+        HTTPServer.allow_reuse_address = True
+        server = HTTPServer(("0.0.0.0", port), ReloadHandler)
+        logger.info(f"🔌 Reload server listening on port {port}")
+        server.serve_forever()
+    except OSError as e:
+        logger.warning(f"⚠️ Reload server không thể bind port {port}: {e}. Scheduler vẫn chạy bình thường.")
 
 
 

@@ -1,24 +1,5 @@
 import * as React from "react"
 import {
-  DndContext,
-  KeyboardSensor,
-  MouseSensor,
-  TouchSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type UniqueIdentifier,
-} from "@dnd-kit/core"
-import { restrictToVerticalAxis } from "@dnd-kit/modifiers"
-import {
-  SortableContext,
-  arrayMove,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable"
-import { CSS } from "@dnd-kit/utilities"
-import {
   type ColumnDef,
   type ColumnFiltersState,
   type Row,
@@ -41,16 +22,16 @@ import {
   ChevronsLeftIcon,
   ChevronsRightIcon,
   ColumnsIcon,
-  GripVerticalIcon,
   LoaderIcon,
-  MoreVerticalIcon,
   TrendingUpIcon,
   TrendingDownIcon,
   SearchIcon,
   FilterIcon,
   XIcon,
+  MonitorIcon,
 } from "lucide-react"
 import { IconCar, IconMotorbike } from "@tabler/icons-react"
+import { CardSectionHeader } from "@/components/card-section-header"
 import { Area, AreaChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts"
 // import { toast } from "sonner"
 import { z } from "zod"
@@ -67,12 +48,11 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { HighlightText } from "@/components/highlight-text"
+import { useSocket } from "@/contexts/SocketContext"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -143,6 +123,30 @@ export const schema = z.object({
   }).optional(),
 })
 
+/** Trả về Tailwind class cho badge LOS (Level of Service) */
+const getLOSBadgeClass = (status: string): string => {
+  switch (status) {
+    case "free_flow": return "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400";
+    case "smooth":   return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400";
+    case "moderate": return "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950/30 dark:text-yellow-400";
+    case "heavy":    return "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-400";
+    case "congested":return "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-400";
+    default:         return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950/30 dark:text-gray-400";
+  }
+};
+
+/** Trả về nhãn tiếng Việt cho trạng thái LOS */
+const getLOSLabel = (status: string): string => {
+  switch (status) {
+    case "free_flow": return "Thông thoáng";
+    case "smooth":   return "Trôi chảy";
+    case "moderate": return "Trung bình";
+    case "heavy":    return "Nặng";
+    case "congested":return "Ùn tắc";
+    default:         return "Không rõ";
+  }
+};
+
 // Helper function to get trend explanation
 const getTrendExplanation = (trend: { direction: string; gti: number; current_ratio: number; diff: number }) => {
   const d = trend.diff?.toFixed(1) ?? "?";
@@ -158,32 +162,7 @@ const getTrendExplanation = (trend: { direction: string; gti: number; current_ra
   }
 };
 
-// Create a separate component for the drag handle
-function DragHandle({ id }: { id: string }) {
-  const { attributes, listeners } = useSortable({
-    id,
-  })
-
-  return (
-    <Button
-      {...attributes}
-      {...listeners}
-      variant="ghost"
-      size="icon"
-      className="size-7 text-muted-foreground hover:bg-transparent"
-    >
-      <GripVerticalIcon className="size-3 text-muted-foreground" />
-      <span className="sr-only">Drag to reorder</span>
-    </Button>
-  )
-}
-
 const columns: ColumnDef<z.infer<typeof schema>>[] = [
-  {
-    id: "drag",
-    header: () => <div className="hidden lg:block" />,
-    cell: ({ row }) => <div className="hidden lg:block"><DragHandle id={row.original.id} /></div>,
-  },
   {
     accessorKey: "shortId",
     header: () => null,
@@ -192,7 +171,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
   },
   {
     accessorKey: "name",
-    header: "Vị Trí",
+    header: "Tên đường",
     cell: ({ row, column }) => (
       <div className="sm:max-w-[250px] text-sm min-w-0">
         <div className="font-medium">
@@ -211,11 +190,14 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
         <span className="text-lg font-semibold tabular-nums">
           {row.original.totalObjects}
         </span>
-        <Badge variant="outline" className="px-1.5 text-xs flex items-center gap-1">
-          <IconCar className="size-3 text-blue-500 shrink-0" />{row.original.carCount}
-          <span className="mx-1 text-muted-foreground/50">•</span>
-          <IconMotorbike className="size-3 text-orange-500 shrink-0" />{row.original.motorbikeCount}
-        </Badge>
+        <div className="flex items-center gap-1 text-[11px]">
+          <Badge variant="outline" className="px-1.5 py-0 text-[10px] text-blue-700 border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:text-blue-400 flex items-center gap-0.5">
+            <IconCar className="size-3 shrink-0" />{row.original.carCount}
+          </Badge>
+          <Badge variant="outline" className="px-1.5 py-0 text-[10px] text-orange-700 border-orange-200 bg-orange-50 dark:bg-orange-950/30 dark:text-orange-400 flex items-center gap-0.5">
+            <IconMotorbike className="size-3 shrink-0" />{row.original.motorbikeCount}
+          </Badge>
+        </div>
       </div>
     ),
   },
@@ -224,20 +206,13 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     header: () => <div className="hidden sm:block">Trạng Thái</div>,
     cell: ({ row }) => {
       const status = row.original.status.current;
-      let badgeClass = "bg-gray-500/10 text-gray-600 dark:text-gray-400";
-      let statusText = "Không rõ";
-      let icon = <LoaderIcon className="size-3" />;
-      switch (status) {
-        case "free_flow":  badgeClass = "bg-green-500/10 text-green-600 dark:text-green-400";  statusText = "Thông thoáng"; icon = <CheckCircle2Icon className="size-3" />; break;
-        case "smooth":    badgeClass = "bg-blue-500/10 text-blue-600 dark:text-blue-400";    statusText = "Ổn định";      icon = <CheckCircle2Icon className="size-3" />; break;
-        case "moderate":  badgeClass = "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"; statusText = "Trung bình";  break;
-        case "heavy":     badgeClass = "bg-orange-500/10 text-orange-600 dark:text-orange-400"; statusText = "Nặng";        break;
-        case "congested": badgeClass = "bg-red-500/10 text-red-600 dark:text-red-400";     statusText = "Ùn tắc";      break;
-      }
+      const icon = status === "free_flow" || status === "smooth"
+        ? <CheckCircle2Icon className="size-3" />
+        : <LoaderIcon className="size-3" />;
       return (
         <div className="hidden sm:block">
-          <Badge variant="outline" className={`flex gap-1 px-2 py-1 ${badgeClass}`}>
-            {icon}{statusText}
+          <Badge variant="outline" className={`flex gap-1 px-2 py-1 ${getLOSBadgeClass(status)}`}>
+            {icon}{getLOSLabel(status)}
           </Badge>
         </div>
       );
@@ -252,20 +227,13 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     header: () => <div className="hidden sm:block">Dự Báo 5p</div>,
     cell: ({ row }) => {
       const status = row.original.status.forecast;
-      let badgeClass = "bg-gray-500/10 text-gray-500 dark:text-gray-400";
-      let statusText = "Không rõ";
-      let icon = <LoaderIcon className="size-3" />;
-      switch (status) {
-        case "free_flow":  badgeClass = "bg-green-500/10 text-green-600 dark:text-green-400";  statusText = "Thông thoáng"; icon = <CheckCircle2Icon className="size-3" />; break;
-        case "smooth":    badgeClass = "bg-blue-500/10 text-blue-600 dark:text-blue-400";    statusText = "Ổn định";      icon = <CheckCircle2Icon className="size-3" />; break;
-        case "moderate":  badgeClass = "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"; statusText = "Trung bình";  break;
-        case "heavy":     badgeClass = "bg-orange-500/10 text-orange-600 dark:text-orange-400"; statusText = "Nặng";        break;
-        case "congested": badgeClass = "bg-red-500/10 text-red-600 dark:text-red-400";     statusText = "Ùn tắc";      break;
-      }
+      const icon = status === "free_flow" || status === "smooth"
+        ? <CheckCircle2Icon className="size-3" />
+        : <LoaderIcon className="size-3" />;
       return (
         <div className="hidden sm:block">
-          <Badge variant="outline" className={`flex gap-1 px-2 py-1 ${badgeClass}`}>
-            {icon}{statusText}
+          <Badge variant="outline" className={`flex gap-1 px-2 py-1 ${getLOSBadgeClass(status)}`}>
+            {icon}{getLOSLabel(status)}
           </Badge>
         </div>
       );
@@ -276,31 +244,42 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     header: () => <div className="hidden sm:block">Xu Hướng</div>,
     cell: ({ row }) => {
       const trend = row.original.trend;
+      let trendClass = "text-gray-700 bg-gray-50 border-gray-200 dark:bg-gray-950/30 dark:text-gray-400";
       let trendText = "Ổn định";
-      let trendClass = "text-gray-600";
       let icon = null;
 
       if (trend.direction === "increasing") {
         trendText = "Tăng";
-        trendClass = "text-orange-600";
+        trendClass = "text-orange-700 bg-orange-50 border-orange-200 dark:bg-orange-950/30 dark:text-orange-400";
         icon = <TrendingUpIcon className="size-3" />;
       } else if (trend.direction === "decreasing") {
         trendText = "Giảm";
-        trendClass = "text-green-600";
+        trendClass = "text-green-700 bg-green-50 border-green-200 dark:bg-green-950/30 dark:text-green-400";
         icon = <TrendingDownIcon className="size-3" />;
       }
 
+      const diffSign = trend.diff > 0 ? "+" : "";
+
       return (
-        <div className="hidden sm:block">
+        <div className="hidden sm:flex items-center gap-1.5">
           <Badge
             variant="outline"
-            className={`flex gap-1 px-2 ${trendClass}`}
+            className={`flex gap-1 w-fit px-2 ${trendClass}`}
           >
             {icon}
             {trendText}
           </Badge>
+          {typeof trend.diff === "number" && (
+            <span className="text-[10px] text-muted-foreground tabular-nums">
+              {diffSign}{trend.diff.toFixed(1)}%
+            </span>
+          )}
         </div>
       );
+    },
+    filterFn: (row, _columnId, filterValue) => {
+      if (!filterValue) return true;
+      return row.original.trend.direction === filterValue;
     },
   },
   {
@@ -323,64 +302,33 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
       </div>
     ),
   },
-  {
-    id: "actions",
-    header: () => <div className="hidden lg:block" />,
-    cell: () => (
-      <div className="hidden lg:block">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="flex size-8 text-muted-foreground data-[state=open]:bg-muted"
-              size="icon"
-            >
-              <MoreVerticalIcon />
-              <span className="sr-only">Mở menu</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40">
-            <DropdownMenuItem>Xem Chi Tiết</DropdownMenuItem>
-            <DropdownMenuItem>Xem Lịch Sử</DropdownMenuItem>
-            <DropdownMenuItem>Tải Ảnh</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-red-600">Đặt Lại</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    ),
-  },
 ]
 
-function DraggableRow({ row, onRowClick }: { row: Row<z.infer<typeof schema>>, onRowClick: (item: z.infer<typeof schema>) => void }) {
-  const { transform, transition, setNodeRef, isDragging } = useSortable({
-    id: row.original.id,
-  })
-
+function ClickableRow({ row, onRowClick }: { row: Row<z.infer<typeof schema>>, onRowClick: (item: z.infer<typeof schema>) => void }) {
   return (
     <TableRow
       data-state={row.getIsSelected() && "selected"}
-      data-dragging={isDragging}
-      ref={setNodeRef}
-      className="relative z-0 data-[dragging=true]:z-10 data-[dragging=true]:opacity-80 cursor-pointer hover:bg-muted/50"
+      className="cursor-pointer hover:bg-accent/40 transition-colors"
       onClick={() => onRowClick(row.original)}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition: transition,
-      }}
     >
       {row.getVisibleCells().map((cell) => (
-        <TableCell key={cell.id} onClick={(e) => {
-          // Ngăn trigger row click khi click vào checkbox, actions, shortId, hoặc drag handle
-          if (cell.column.id === 'select' || cell.column.id === 'actions' || cell.column.id === 'shortId' || cell.column.id === 'drag') {
-            e.stopPropagation();
-          }
-        }}>
+        <TableCell key={cell.id}>
           {flexRender(cell.column.columnDef.cell, cell.getContext())}
         </TableCell>
       ))}
     </TableRow>
   )
+}
+
+// Nhãn tiếng Việt cho từng column id – dùng trong dropdown Tùy chỉnh cột
+const COLUMN_LABELS: Record<string, string> = {
+  shortId: "Mã Camera",
+  totalObjects: "Tổng Số Xe",
+  status: "Trạng Thái",
+  status_forecast: "Dự Báo 5p",
+  trend: "Xu Hướng",
+  forecasts: "Dự Báo 5'",
+  lastUpdated: "Cập Nhật Cuối",
 }
 
 export function DataTable({
@@ -404,22 +352,11 @@ export function DataTable({
   const [trendFilter, setTrendFilter] = React.useState("all")
   // Detail modal state
   const [selectedItem, setSelectedItem] = React.useState<z.infer<typeof schema> | null>(null)
-  const sortableId = React.useId()
-  const sensors = useSensors(
-    useSensor(MouseSensor, {}),
-    useSensor(TouchSensor, {}),
-    useSensor(KeyboardSensor, {})
-  )
 
   // Sync data với initialData khi props thay đổi (từ socket updates)
   React.useEffect(() => {
     setData(initialData)
   }, [initialData])
-
-  const dataIds = React.useMemo<UniqueIdentifier[]>(
-    () => data?.map(({ id }) => id) || [],
-    [data]
-  )
 
   const table = useReactTable({
     data,
@@ -446,36 +383,28 @@ export function DataTable({
     autoResetExpanded: false, // Giữ nguyên expanded state
   })
 
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event
-    if (active && over && active.id !== over.id) {
-      setData((data) => {
-        const oldIndex = dataIds.indexOf(active.id)
-        const newIndex = dataIds.indexOf(over.id)
-        return arrayMove(data, oldIndex, newIndex)
-      })
-    }
-  }
-
   return (
     <Tabs
       defaultValue="cameras"
       className="flex w-full flex-col justify-start gap-4 rounded-xl border bg-card py-4"
     >
       <div className="flex items-center justify-between px-4 lg:px-6">
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold">Nguồn camera trực tiếp</h2>
-          <Badge variant="secondary" className="flex h-5 items-center justify-center rounded-full px-2">
-            {table.getFilteredRowModel().rows.length} camera
-          </Badge>
-        </div>
-        <div className="flex items-center gap-2">
+        <CardSectionHeader
+          icon={MonitorIcon}
+          title="Nguồn camera trực tiếp"
+          description="Giám sát luồng giao thông thời gian thực"
+          badge={
+            <Badge variant="secondary" className="flex h-5 items-center justify-center rounded-full px-2 ml-0.5">
+              {table.getFilteredRowModel().rows.length} camera
+            </Badge>
+          }
+        />
+        <div className="hidden lg:flex items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
                 <ColumnsIcon />
-                <span className="hidden lg:inline">Tùy chỉnh cột</span>
-                <span className="lg:hidden">Cột</span>
+                <span>Tùy chỉnh cột</span>
                 <ChevronDownIcon />
               </Button>
             </DropdownMenuTrigger>
@@ -491,13 +420,12 @@ export function DataTable({
                   return (
                     <DropdownMenuCheckboxItem
                       key={column.id}
-                      className="capitalize"
                       checked={column.getIsVisible()}
                       onCheckedChange={(value) =>
                         column.toggleVisibility(!!value)
                       }
                     >
-                      {column.id}
+                      {COLUMN_LABELS[column.id] ?? column.id}
                     </DropdownMenuCheckboxItem>
                   )
                 })}
@@ -508,13 +436,12 @@ export function DataTable({
       
       {/* Search and Filters */}
       <div className="px-4 lg:px-6">
-        <div className="rounded-lg border bg-card p-4">
-          <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex flex-col lg:flex-row gap-3">
             {/* Search by name */}
             <div className="relative flex-1">
               <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Tìm kiếm theo tên hoặc vị trí..."
+                placeholder="Tìm kiếm theo tên đường..."
                 value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
                 onChange={(event) =>
                   table.getColumn("name")?.setFilterValue(event.target.value)
@@ -538,7 +465,7 @@ export function DataTable({
               <SelectContent>
                 <SelectItem value="all">Tất cả</SelectItem>
                 <SelectItem value="free_flow">Thông thoáng</SelectItem>
-                <SelectItem value="smooth">Ổn định</SelectItem>
+                <SelectItem value="smooth">Trôi chảy</SelectItem>
                 <SelectItem value="moderate">Trung bình</SelectItem>
                 <SelectItem value="heavy">Nặng</SelectItem>
                 <SelectItem value="congested">Ùn tắc</SelectItem>
@@ -584,23 +511,15 @@ export function DataTable({
               </Button>
             )}
           </div>
-        </div>
       </div>      
       
       <TabsContent
         value="cameras"
         className="relative flex flex-col gap-4 overflow-auto scrollbar px-4 lg:px-6"
       >
-        <div className="overflow-hidden rounded-lg border">
-          <DndContext
-            collisionDetection={closestCenter}
-            modifiers={[restrictToVerticalAxis]}
-            onDragEnd={handleDragEnd}
-            sensors={sensors}
-            id={sortableId}
-          >
+        <div>
             <Table>
-              <TableHeader className="sticky top-0 z-[1] bg-muted">
+              <TableHeader className="sticky top-0 z-[1] bg-muted/80 backdrop-blur-sm">
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>
                     {headerGroup.headers.map((header) => {
@@ -618,33 +537,31 @@ export function DataTable({
                   </TableRow>
                 ))}
               </TableHeader>
-              <TableBody className="**:data-[slot=table-cell]:first:w-8">
+              <TableBody>
                 {table.getRowModel().rows?.length ? (
-                  <SortableContext
-                    items={dataIds}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    {table.getRowModel().rows.map((row) => (
-                      <DraggableRow 
-                        key={row.id} 
-                        row={row} 
+                  table.getRowModel().rows.map((row) => (
+                      <ClickableRow
+                        key={row.id}
+                        row={row}
                         onRowClick={(item) => setSelectedItem(item)}
                       />
-                    ))}
-                  </SortableContext>
+                  ))
                 ) : (
                   <TableRow>
                     <TableCell
                       colSpan={columns.length}
-                      className="h-24 text-center"
+                      className="h-32 text-center"
                     >
-                      Không có kết quả.
+                      <div className="flex flex-col items-center justify-center py-6 text-center text-muted-foreground">
+                        <MonitorIcon className="size-8 mb-2 opacity-25" />
+                        <p className="text-sm font-medium">Không có kết quả</p>
+                        <p className="text-xs mt-1">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
-          </DndContext>
         </div>
         <div className="flex items-center justify-between px-4">
           <div className="hidden flex-1 lg:flex" />
@@ -763,6 +680,8 @@ const forecastChartConfig = {
 
 function TableCellViewerModal({ item, open, onOpenChange }: { item: z.infer<typeof schema>, open: boolean, onOpenChange: (open: boolean) => void }) {
   const isMobile = useIsMobile()
+  const { cameraInfoMap } = useSocket()
+  const cameraInfo = cameraInfoMap[item.shortId]
 
   // Transform forecasts to chart data (pctChange vs baseline + vcPct V/C ratio)
   const capacity = item.calculation?.capacity ?? 0;
@@ -803,86 +722,64 @@ function TableCellViewerModal({ item, open, onOpenChange }: { item: z.infer<type
 
           {/* Current Status */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs text-muted-foreground">Tổng phương tiện</Label>
-              <div className="text-xl font-bold tabular-nums">{item.totalObjects}</div>
-              {item.inputValue !== undefined && (
-                <div className="flex flex-col gap-1">
-                  <span className="text-xs text-muted-foreground">Trung bình 5p trước:</span>
-                  <span className="text-xl font-bold tabular-nums">{item.inputValue}</span>
-                </div>
-              )}
+            <div className="flex flex-col gap-0.5">
+              <p className="text-xs text-muted-foreground">Tổng phương tiện</p>
+              <p className="text-2xl font-bold tabular-nums">{item.totalObjects}</p>
+              <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <IconCar className="size-3.5 text-blue-500 shrink-0" />
+              <span className="text-sm font-semibold tabular-nums">{item.carCount}</span>
             </div>
-            <div className="flex flex-col gap-2">
-              <Label className="text-xs text-muted-foreground">Trạng Thái</Label>
-              <div className="flex flex-col gap-1.5">
-                <Badge
-                  variant="outline"
-                  className={`w-fit ${
-                    item.status.current === "free_flow" ? "bg-green-500/10 text-green-600" :
-                    item.status.current === "smooth" ? "bg-blue-500/10 text-blue-600" :
-                    item.status.current === "moderate" ? "bg-yellow-500/10 text-yellow-600" :
-                    item.status.current === "heavy" ? "bg-orange-500/10 text-orange-600" :
-                    item.status.current === "congested" ? "bg-red-500/10 text-red-600" :
-                    "bg-gray-500/10 text-gray-600"
-                  }`}
-                >
-                  {
-                    item.status.current === "free_flow" ? "Thông thoáng" :
-                    item.status.current === "smooth" ? "Ổn định" :
-                    item.status.current === "moderate" ? "Trung bình" :
-                    item.status.current === "heavy" ? "Nặng" :
-                    item.status.current === "congested" ? "Ùn tắc" : item.status.current
-                  }
-                </Badge>
-                <div className="text-[10px] text-muted-foreground border-t pt-1">Dự báo 5p:</div>
-                <Badge
-                  variant="outline"
-                  className={`w-fit ${
-                    item.status.forecast === "free_flow" ? "bg-green-500/10 text-green-600" :
-                    item.status.forecast === "smooth" ? "bg-blue-500/10 text-blue-600" :
-                    item.status.forecast === "moderate" ? "bg-yellow-500/10 text-yellow-600" :
-                    item.status.forecast === "heavy" ? "bg-orange-500/10 text-orange-600" :
-                    item.status.forecast === "congested" ? "bg-red-500/10 text-red-600" :
-                    "bg-gray-500/10 text-gray-600"
-                  }`}
-                >
-                  {
-                    item.status.forecast === "free_flow" ? "Thông thoáng" :
-                    item.status.forecast === "smooth" ? "Ổn định" :
-                    item.status.forecast === "moderate" ? "Trung bình" :
-                    item.status.forecast === "heavy" ? "Nặng" :
-                    item.status.forecast === "congested" ? "Ùn tắc" : item.status.forecast
-                  }
-                </Badge>
-                {item.calculation && (
-                  <div className="text-[10px] text-muted-foreground bg-muted/50 rounded px-2 py-1 mt-1">
-                    <div className="font-mono">
-                      {Math.round(item.calculation.predicted_volume)} / {Math.round(item.calculation.capacity)} xe
-                      <span className="ml-1">({Math.round(item.calculation.vc_ratio * 100)}%)</span>
-                    </div>
-                  </div>
-                )}
-              </div>
+            <div className="flex items-center gap-1.5">
+              <IconMotorbike className="size-3.5 text-orange-500 shrink-0" />
+              <span className="text-sm font-semibold tabular-nums">{item.motorbikeCount}</span>
             </div>
           </div>
+            </div>
+            {item.inputValue !== undefined && (
+              <div className="flex flex-col gap-0.5">
+                <p className="text-xs text-muted-foreground">Trung bình 5 phút trước</p>
+                <p className="text-2xl font-bold tabular-nums">{Math.round(item.inputValue)}</p>
+              </div>
+            )}
+          </div>
+        
+          <Separator />
 
+          {/* Status Section */}
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1">
-              <Label className="text-xs text-muted-foreground">Ô tô</Label>
-              <div className="flex items-center gap-1.5 text-xl font-semibold tabular-nums">
-                <IconCar className="size-5 text-blue-500 shrink-0" />
-                {item.carCount}
-              </div>
+              <Label className="text-xs text-muted-foreground">Trạng Thái Hiện Tại</Label>
+              <Badge variant="outline" className={`w-fit ${getLOSBadgeClass(item.status.current)}`}>
+                {getLOSLabel(item.status.current)}
+              </Badge>
             </div>
             <div className="flex flex-col gap-1">
-              <Label className="text-xs text-muted-foreground">Xe máy</Label>
-              <div className="flex items-center gap-1.5 text-xl font-semibold tabular-nums">
-                <IconMotorbike className="size-5 text-orange-500 shrink-0" />
-                {item.motorbikeCount}
-              </div>
+              <Label className="text-xs text-muted-foreground">Dự Báo 5 Phút</Label>
+              <Badge variant="outline" className={`w-fit ${getLOSBadgeClass(item.status.forecast)}`}>
+                {getLOSLabel(item.status.forecast)}
+              </Badge>
             </div>
           </div>
+          <Separator />
+
+          {item.calculation && (
+            <div className="rounded-lg border bg-muted/30 p-3 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Mức tải V/C</span>
+                <span className="text-xs font-semibold tabular-nums">
+                  {Math.round(item.calculation.predicted_volume)} / {Math.round(item.calculation.capacity)} xe
+                  <span className="ml-1 text-muted-foreground">({Math.round(item.calculation.vc_ratio * 100)}%)</span>
+                </span>
+              </div>
+              <div className="h-1.5 rounded-full overflow-hidden bg-muted">
+                <div
+                  className={`h-full rounded-full transition-all ${item.calculation.vc_ratio <= 0.5 ? "bg-green-500" : item.calculation.vc_ratio <= 0.8 ? "bg-yellow-400" : "bg-red-500"}`}
+                  style={{ width: `${Math.min(item.calculation.vc_ratio * 100, 100)}%` }}
+                />
+              </div>
+            </div>
+          )}
 
           <Separator />
 
@@ -1036,9 +933,15 @@ function TableCellViewerModal({ item, open, onOpenChange }: { item: z.infer<type
               <span className="font-mono text-xs">{item.shortId}</span>
             </div>
             <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground">Vị trí</Label>
-              <span className="text-xs">{item.name}</span>
+              <Label className="text-xs text-muted-foreground">Tên đường</Label>
+              <span className="text-xs text-right break-words max-w-[60%]">{item.name}</span>
             </div>
+            {cameraInfo?.location && (
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground">Tọa độ</Label>
+                <span className="text-xs text-right break-all font-mono max-w-[60%]">{cameraInfo.location}</span>
+              </div>
+            )}
           </div>
         </div>
         <SheetFooter className="mt-auto">

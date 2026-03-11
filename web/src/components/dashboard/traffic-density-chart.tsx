@@ -1,14 +1,14 @@
 "use client";
 
 import * as React from "react";
+import { IconChartHistogram } from "@tabler/icons-react";
 import { Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts";
+import { CardSectionHeader } from "@/components/card-section-header";
 
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   type ChartConfig,
@@ -404,12 +404,11 @@ export function TrafficDensityChart() {
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="min-w-0">
-            <CardTitle className="pt-1 pb-2">Giao động mật độ giao thông</CardTitle>
-            <CardDescription>
-              Phân tích lưu lượng trung bình theo chu kỳ thời gian ·{" "}
-              <span className="text-chart-1 font-medium">■</span> Trung bình &nbsp;
-              <span className="text-chart-2 font-medium">■</span> Cao nhất
-            </CardDescription>
+            <CardSectionHeader
+              icon={IconChartHistogram}
+              title="Giao động mật độ giao thông"
+              description="Phân tích lưu lượng trung bình theo chu kỳ thời gian"
+            />
           </div>
 
           {/* Camera Selector */}

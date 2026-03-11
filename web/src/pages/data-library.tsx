@@ -44,6 +44,7 @@ import { useAuth }      from "@/contexts/AuthContext";
 import { toast }        from "sonner";
 import type { DataLibraryCollection, CollectionDetail } from "@/services/data-library.service";
 import { getCollections, getCollectionById, deleteCollection } from "@/services/data-library.service";
+import { useLoading } from "@/contexts/LoadingContext";
 import { CollectionDetailSheet } from "@/components/data-library/collection-detail-sheet";
 import { ImportDialog }          from "@/components/data-library/import-dialog";
 import { EditCollectionDialog }  from "@/components/data-library/edit-collection-dialog";
@@ -257,9 +258,12 @@ export default function TrafficDataLibrary() {
   const [editOpen,        setEditOpen]        = useState(false);
   const [editTarget,      setEditTarget]      = useState<DataLibraryCollection | null>(null);
 
+  const { startLoading, stopLoading } = useLoading();
+
   /** Load danh sách collections với bộ lọc hiện tại */
   const loadCollections = useCallback(async () => {
     setLoading(true);
+    startLoading();
     try {
       const params: Record<string, string> = {};
       if (filterSource !== "all") params.source   = filterSource;
@@ -271,8 +275,9 @@ export default function TrafficDataLibrary() {
       toast.error("Không thể tải danh sách dữ liệu");
     } finally {
       setLoading(false);
+      stopLoading();
     }
-  }, [filterSource, filterType, search]);
+  }, [filterSource, filterType, search, startLoading, stopLoading]);
 
   useEffect(() => { loadCollections(); }, [loadCollections]);
 

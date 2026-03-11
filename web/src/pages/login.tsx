@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { IconEye, IconEyeOff, IconLock } from "@tabler/icons-react";
+import { IconEye, IconEyeOff, IconLock, IconLoader2 } from "@tabler/icons-react";
 import { toast } from "sonner";
 
 /**
@@ -98,7 +98,9 @@ export default function Login() {
           </div>
 
           <Button type="submit" className="w-full" disabled={submitting}>
-            {submitting ? "Đang đăng nhập..." : "Đăng nhập"}
+            {submitting ? (
+              <><IconLoader2 className="mr-2 h-4 w-4 animate-spin" />Đang đăng nhập...</>
+            ) : "Đăng nhập"}
           </Button>
         </form>
 

@@ -23,6 +23,23 @@ import {ThemeProvider} from "@/contexts/ThemeContext";
 import {AuthProvider, useAuth} from "@/contexts/AuthContext";
 import {ScrollToTop} from "@/components/scroll-to-top";
 import {Toaster} from "@/components/ui/sonner";
+import {LoadingProvider} from "@/contexts/LoadingContext";
+import {TopProgressBar} from "@/components/top-progress-bar";
+import {PageLoadingOverlay} from "@/components/page-loading-overlay";
+import {useLocation} from "react-router-dom";
+
+/**
+ * Reset scroll của #main-scroll-container về đầu trang mỗi khi chuyển route.
+ * React Router chỉ xử lý window.scrollY, không biết về custom scroll container.
+ */
+const RouteScrollReset = () => {
+  const { pathname } = useLocation();
+  React.useEffect(() => {
+    const container = document.getElementById("main-scroll-container");
+    if (container) container.scrollTop = 0;
+  }, [pathname]);
+  return null;
+};
 
 /**
  * Chặn render nội dung trang cho đến khi AuthContext hoàn thành init (có token).
@@ -43,21 +60,28 @@ const AuthGate = ({ children }: { children: React.ReactNode }) => {
 const RootLayout = () => (
   <ThemeProvider>
     <AuthProvider>
-      <SocketProvider>
-        <CustomSidebarProvider>
-          <AppSidebar/>
-          <SidebarInset>
-            <SiteHeader/>
-            <main className="flex flex-1 flex-col">
-              <AuthGate>
-                <Outlet/>
-              </AuthGate>
-            </main>
-          </SidebarInset>
-        </CustomSidebarProvider>
-        {/* ScrollToTop - Global component hiển thị ở mọi trang */}
-        <ScrollToTop />
-      </SocketProvider>
+      {/* TopProgressBar độc lập – tự theo dõi useNavigation(), không cần LoadingProvider */}
+      <TopProgressBar />
+      <LoadingProvider>
+        <SocketProvider>
+          <CustomSidebarProvider>
+            <AppSidebar/>
+            <SidebarInset>
+              <RouteScrollReset />
+              <SiteHeader/>
+              {/* relative để PageLoadingOverlay dùng absolute inset-0 */}
+              <main className="relative flex flex-1 flex-col">
+                {/* Overlay che trang khi API chậm >300ms */}
+                <PageLoadingOverlay />
+                <AuthGate>
+                  <Outlet/>
+                </AuthGate>
+              </main>
+            </SidebarInset>
+          </CustomSidebarProvider>
+          <ScrollToTop />
+        </SocketProvider>
+      </LoadingProvider>
     </AuthProvider>
     <Toaster richColors position="top-right" />
   </ThemeProvider>
@@ -81,18 +105,21 @@ const router = createBrowserRouter([
     element: <RootLayout/>,
     children: [
       {index: true, element: <Navigate to="dashboard" replace />},
-      {path: "dashboard", element: <Dashboard/>},
-      {path: "monitoring", element: <Monitoring/>},
-      {path: "analytics", element: <Analytics/>},
-      {path: "projects", element: <Projects/>},
-      {path: "models", element: <Models/>},
-      {path: "team", element: <Team/>},
-      {path: "data-library", element: <DataLibrary/>},
-      {path: "reports-forecasts", element: <Reports/>},
-      {path: "assistant", element: <WordAssistant/>},
-      {path: "settings", element: <Setting/>},
-      {path: "help", element: <Help/>},
-      {path: "search", element: <Search/>},
+      // loader dùng setTimeout(0) thay vì Promise.resolve() để tạo macrotask,
+      // cho React kịp re-render với navigation.state==="loading" trước khi loader resolve,
+      // giúp TopProgressBar hiển thị đúng khi chuyển route.
+      {path: "dashboard",        element: <Dashboard/>,     loader: () => new Promise(r => setTimeout(r, 0))},
+      {path: "monitoring",       element: <Monitoring/>,    loader: () => new Promise(r => setTimeout(r, 0))},
+      {path: "analytics",        element: <Analytics/>,     loader: () => new Promise(r => setTimeout(r, 0))},
+      {path: "projects",         element: <Projects/>,      loader: () => new Promise(r => setTimeout(r, 0))},
+      {path: "models",           element: <Models/>,        loader: () => new Promise(r => setTimeout(r, 0))},
+      {path: "team",             element: <Team/>,          loader: () => new Promise(r => setTimeout(r, 0))},
+      {path: "data-library",     element: <DataLibrary/>,   loader: () => new Promise(r => setTimeout(r, 0))},
+      {path: "reports-forecasts",element: <Reports/>,       loader: () => new Promise(r => setTimeout(r, 0))},
+      {path: "assistant",        element: <WordAssistant/>, loader: () => new Promise(r => setTimeout(r, 0))},
+      {path: "settings",         element: <Setting/>,       loader: () => new Promise(r => setTimeout(r, 0))},
+      {path: "help",             element: <Help/>,          loader: () => new Promise(r => setTimeout(r, 0))},
+      {path: "search",           element: <Search/>,        loader: () => new Promise(r => setTimeout(r, 0))},
     ],
   },
   // Redirect gốc về dashboard

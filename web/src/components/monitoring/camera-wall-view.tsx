@@ -1,5 +1,5 @@
 import * as React from "react";
-import { CameraWallCell } from "@/components/camera-wall-cell";
+import { CameraWallCell } from "@/components/monitoring/camera-wall-cell";
 import { type CameraData } from "@/contexts/SocketContext";
 import { Button } from "@/components/ui/button";
 import {

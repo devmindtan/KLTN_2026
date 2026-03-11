@@ -27,6 +27,7 @@ import {
 import { getAllCameras } from "@/services/camera.service";
 import { IconBrain, IconChartBar, IconChevronDown, IconClock, IconInfoCircle, IconTrendingUp } from "@tabler/icons-react";
 import { PageHeader } from "@/components/page-header";
+import { useLoading } from "@/contexts/LoadingContext";
 
 /**
  * Định dạng thời gian cho giao diện
@@ -146,6 +147,7 @@ export default function PredictiveAnalytics() {
   const [errorMessage, setErrorMessage] = React.useState<string>("");
   const [isExplanationOpen, setIsExplanationOpen] = React.useState<boolean>(false);
   const location = useLocation();
+  const { startLoading, stopLoading } = useLoading();
 
   // Scroll tới anchor khi data đã tải xong
   React.useEffect(() => {
@@ -165,6 +167,7 @@ export default function PredictiveAnalytics() {
       try {
         setIsLoading(true);
         setErrorMessage("");
+        startLoading();
 
         const [latest, history, cameras] = await Promise.all([
           getLatestModelMetrics(),
@@ -186,13 +189,14 @@ export default function PredictiveAnalytics() {
       } catch {
         if (isMounted) setErrorMessage("Không thể tải dữ liệu phân tích từ backend");
       } finally {
+        stopLoading();
         if (isMounted) setIsLoading(false);
       }
     }
 
     loadAnalyticsData();
     return () => { isMounted = false; };
-  }, []);
+  }, [startLoading, stopLoading]);
 
   const overall = latestMetrics?.overall;
   const trendAccuracy = latestMetrics?.trend_accuracy?.trend_accuracy ?? 0;
@@ -207,14 +211,6 @@ export default function PredictiveAnalytics() {
       >
         <Badge variant="outline">Cập nhật gần nhất: {latestGeneratedAt}</Badge>
       </PageHeader>
-
-      {isLoading && (
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">Đang tải dữ liệu phân tích...</p>
-          </CardContent>
-        </Card>
-      )}
 
       {!isLoading && errorMessage && (
         <Card>
@@ -241,7 +237,7 @@ export default function PredictiveAnalytics() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>Giải thích nhanh các chỉ số chính</CardTitle>
+                    <CardTitle className="pt-1 pb-1">Giải thích nhanh các chỉ số chính</CardTitle>
                     <CardDescription>
                       Giúp đọc nhanh ý nghĩa và ngưỡng đánh giá của từng metric
                     </CardDescription>

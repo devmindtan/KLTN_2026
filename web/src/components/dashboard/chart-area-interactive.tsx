@@ -1,17 +1,18 @@
 "use client"
 
 import * as React from "react"
+import { useNavigate, useParams } from "react-router-dom"
 import logger from "@/lib/logger"
+import { IconChartAreaLine } from "@tabler/icons-react"
 import { Area, AreaChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts"
+import { CardSectionHeader } from "@/components/card-section-header"
 import { type TrendInfo } from "@/contexts/SocketContext"
 
 // import { useIsMobile } from "@/hooks/use-mobile"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card"
 import {
   type ChartConfig,
@@ -84,6 +85,8 @@ const PctChangeLabel = (props: any) => {
 };
 
 export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
+  const navigate = useNavigate()
+  const { prefix } = useParams<{ prefix: string }>()
   const [selectedCamera, setSelectedCamera] = React.useState<string>("all")
   const [searchQuery, setSearchQuery] = React.useState<string>("")
 
@@ -167,15 +170,21 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
   return (
     <Card className="@container/card">
       <CardHeader>
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-0">
           <div className="min-w-0">
-            <CardTitle className="pt-1 pb-2">Dự báo lưu lượng giao thông</CardTitle>
-            <CardDescription>
-              <span className="@[540px]/card:block hidden">
-                Dự đoán số lượng phương tiện trong các mốc 5/10/15/30/60 phút
-              </span>
-              <span className="@[540px]/card:hidden">Giờ dự đoán tiếp theo</span>
-            </CardDescription>
+            <CardSectionHeader
+              icon={IconChartAreaLine}
+              title="Dự báo lưu lượng giao thông"
+              description="Dự đoán số lượng phương tiện các mốc 5/10/15/30/60 phút"
+              action={
+                <button
+                  onClick={() => navigate(`/${prefix}/reports-forecasts`, { state: { tab: "forecast" } })}
+                  className="text-[11px] text-primary hover:underline underline-offset-2 font-medium shrink-0"
+                >
+                  Xem chi tiết →
+                </button>
+              }
+            />
           </div>
           <div className="shrink-0">
           <Select value={selectedCamera} onValueChange={setSelectedCamera}>
@@ -220,20 +229,28 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-4">
         {chartData.length === 0 ? (
-          <div className="flex h-[250px] items-center justify-center text-muted-foreground">
-            <div className="text-center">
-              <p className="text-lg font-medium">Không có dữ liệu dự đoán nào</p>
-              <p className="text-sm">Đợi kết quả dự đoán từ model...</p>
-            </div>
+          <div className="flex h-[250px] flex-col items-center justify-center gap-2 text-muted-foreground">
+            <p className="text-sm font-medium">Không có dữ liệu dự đoán</p>
+            <p className="text-xs">Chờ kết quả dự đoán từ model...</p>
           </div>
         ) : (
           <ChartContainer
             config={chartConfig}
-            className="aspect-auto h-[300px] w-full"
+            className="aspect-auto h-[240px] w-full"
           >
             <AreaChart data={chartData} margin={{ top: 28, right: -20, left: -30, bottom: 0 }}>
-              <CartesianGrid vertical={false} />
-              <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
+              <defs>
+                <linearGradient id="fillVehicles" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--color-vehicles)" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="var(--color-vehicles)" stopOpacity={0.02} />
+                </linearGradient>
+                <linearGradient id="fillVcPct" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--color-vcPct)" stopOpacity={0.2} />
+                  <stop offset="95%" stopColor="var(--color-vcPct)" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} strokeDasharray="3 3" />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} tick={{ fontSize: 11 }} />
               <YAxis
                 yAxisId="left"
                 tickLine={false}
@@ -279,9 +296,10 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
                 yAxisId="left"
                 dataKey="vehicles"
                 type="monotone"
-                fill="var(--color-vehicles)"
-                fillOpacity={0.4}
+                fill="url(#fillVehicles)"
                 stroke="var(--color-vehicles)"
+                strokeWidth={2}
+                dot={false}
               >
                 <LabelList dataKey="pctChange" content={PctChangeLabel} />
               </Area>
@@ -290,14 +308,29 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
                   yAxisId="right"
                   dataKey="vcPct"
                   type="monotone"
-                  fill="var(--color-vcPct)"
-                  fillOpacity={0.15}
+                  fill="url(#fillVcPct)"
                   stroke="var(--color-vcPct)"
-                  strokeDasharray="4 2"
+                  strokeWidth={2}
+                  strokeDasharray="5 3"
+                  dot={false}
                 />
               )}
             </AreaChart>
           </ChartContainer>
+        )}
+        {chartData.length > 0 && (
+          <div className="flex items-center gap-4 justify-center mt-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <div className="h-0.5 w-5 border-t-2" style={{ borderColor: "var(--primary)" }} />
+              <span>Lưu lượng dự báo</span>
+            </div>
+            {chartData.some((d) => d.vcPct !== null) && (
+              <div className="flex items-center gap-1.5">
+                <div className="h-0.5 w-5 border-t-2 border-dashed" style={{ borderColor: "var(--chart-2)" }} />
+                <span>Mức tải V/C (%)</span>
+              </div>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>

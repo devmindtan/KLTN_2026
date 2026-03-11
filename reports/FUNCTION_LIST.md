@@ -195,6 +195,13 @@ Template:
 
 | TS-AS01 | **auth.service.ts** - API calls xác thực | **Input:** Nạp các params (email, password, token...)<br>**Output:** API responses | ✅ | [NEW 03/03/26] | 6 functions: fetchGuestToken, loginRequest, logoutRequest, refreshTokenRequest, getMeRequest, changePasswordRequest, getActivityLogsRequest | `web/web-user/src/services/auth.service.ts` |
 | TS-AF01 | **apiFetch** - HTTP wrapper tự động gắn JWT | **Input:** `(url, options?)`<br>**Output:** `Promise<Response>` | ✅ | [NEW 03/03/26] | Đọc token từ localStorage, gắn `Authorization: Bearer` vào mọi request. Dùng thay thế fetch trong camera.service, model.service, model-metrics.service | `web/web-user/src/lib/apiFetch.ts` |
+| TSX-MON01 | **CameraDetailDialog** - Dialog chi tiết + dự báo của 1 camera | **Input:** `{camera: CameraData, forceOpen?: boolean}`<br>**Output:** Dialog với ảnh, metrics, AreaChart dự báo vcPct | ✅ | [NEW 18/05/25] Tách từ monitoring.tsx | forecastChartConfig + PctForecastLabel (module-level). YAxis dual (vehicles + %). useIsMobile cho compact layout | `web/src/components/monitoring/camera-detail-dialog.tsx::CameraDetailDialog()` |
+| TS-MON02 | **getStatusBadge()** - Helper trả Badge LOS theo status key | **Input:** `status: string`<br>**Output:** JSX `<Badge>` | ✅ | [NEW 18/05/25] Tách vào camera-utils.tsx riêng để tránh fast-refresh warning | 5 cases: free_flow/smooth/moderate/heavy/congested. Fallback gray | `web/src/components/monitoring/camera-utils.tsx::getStatusBadge()` |
+| TSX-S01 | **DetailSheet** - Sheet xem nhanh camera/model từ search | **Input:** `{result: SearchResult \| null, onClose: () => void}`<br>**Output:** Sheet với rows chi tiết + navigate button | ✅ | [NEW 18/05/25] Tách từ search.tsx | Rows dynamic theo type (camera 7 rows / model 8 rows). navigate với state (openCamId / openModelVersion) | `web/src/components/search/detail-sheet.tsx::DetailSheet()` |
+| TSX-S02 | **ResultItem** - Dòng kết quả tìm kiếm | **Input:** `{result, query, onView?}`<br>**Output:** Row với icon/badge/hover button | ✅ | [NEW 18/05/25] Tách từ search.tsx | `getTypeMeta(type)` → icon+color+bg per type. Hover: nút "Xem" fade in | `web/src/components/search/result-item.tsx::ResultItem()` |
+| TSX-S03 | **StatusIcon** - Icon trạng thái online/warning/offline | **Input:** `{status?: string}`<br>**Output:** JSX icon hoặc null | ✅ | [NEW 18/05/25] | 3 cases: online=green check, warning=yellow alert, offline=moon | `web/src/components/search/result-item.tsx::StatusIcon()` |
+| TSX-S04 | **ResultSkeleton** - Skeleton loading 4 dòng | **Input:** None<br>**Output:** 4 skeleton rows | ✅ | [NEW 18/05/25] | Fixed 4 rows layout khớp ResultItem | `web/src/components/search/result-skeleton.tsx::ResultSkeleton()` |
+| TS-S05 | **search-types.ts** - Types + constants + helpers cho Search | **Input:** CameraInfo[], MLModelMetadata[]<br>**Output:** SearchResult[], constants | ✅ | [NEW 18/05/25] | Exports: ResultType, SearchResult interface, LOS_LABELS, MOCK_REPORT_FORECAST, QUICK_ACTIONS, TAB_CONFIG, LS_KEY, MAX_HISTORY, getTypeMeta(), buildCameraResults(), buildModelResults() | `web/src/components/search/search-types.ts` |
 
 ---
 
@@ -226,11 +233,11 @@ Template:
 - **Python Backup**: 7 functions (Disaster Recovery)
 - **Python App Route**: 3 functions
 - **Frontend Services**: 7 API services + 3 Contexts (Socket, Theme, Auth)
-- **UI Components**: 18 components (Navigation, Dashboard, Table, Charts + ProtectedRoute + Login + Data Library + CameraWall + TrafficDensityChart + EditCollectionDialog + ForecastAccuracyCard)
+- **UI Components**: 26 components (Navigation, Dashboard, Charts, Table + Auth + Data Library + CameraWall + TrafficDensityChart + ForecastAccuracyCard + monitoring/camera-detail-dialog + monitoring/camera-utils + search/* 4 files)
 - **Backend Controllers**: TS-TP01, TS-TP02, TS-TP03 (traffic pattern MatViews + Node.js refresh)
 - **Frontend Services**: TS-TPS01 (traffic-pattern.service.ts)
-- **Pages**: 7 pages (Dashboard, Lifecycle, Analytics, Settings, Models, Login, DataLibrary)
-- **Tổng cộng**: **88 functions** được document
+- **Pages**: 8 pages (Dashboard, Monitoring, Analytics, Settings, Models, Login, DataLibrary, Search)
+- **Tổng cộng**: **96 functions** được document
 
 ### 🎯 Luồng dữ liệu chính
 ```

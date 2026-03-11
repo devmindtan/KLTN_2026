@@ -1,10 +1,10 @@
 "use client";
 import { useMemo } from "react";
-import { ChartAreaInteractive } from "@/components/chart-area-interactive";
-import { DataTable } from "@/components/data-table";
-import { ForecastAccuracyCard } from "@/components/forecast-accuracy-card";
-import { SectionCards } from "@/components/section-cards";
-import { TrafficDensityChart } from "@/components/traffic-density-chart";
+import { ChartAreaInteractive } from "@/components/dashboard/chart-area-interactive";
+import { DataTable } from "@/components/dashboard/data-table";
+import { ForecastAccuracyCard } from "@/components/dashboard/forecast-accuracy-card";
+import { SectionCards } from "@/components/dashboard/section-cards";
+import { TrafficDensityChart } from "@/components/dashboard/traffic-density-chart";
 // import { SocketDebug } from "@/components/socket-debug";
 import { useSocket } from "@/contexts/SocketContext";
 
@@ -76,30 +76,23 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="@container/main flex flex-1 flex-col gap-2">
-        <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+      <div className="@container/main flex flex-1 flex-col">
+        <div className="flex flex-col gap-6 py-6 px-4 lg:px-6">
           {/* Debug Panel - Remove this after debugging */}
-          {/* <div className="px-4 lg:px-6"> */}
-          {/*   <SocketDebug /> */}
-          {/* </div> */}
+          {/* <SocketDebug /> */}
 
           <SectionCards metrics={metrics} isConnected={isConnected} />
-          <div className="px-4 lg:px-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="lg:col-span-2">
-                <ChartAreaInteractive cameras={processedCameras} />
-              </div>
-              <div>
-                <ForecastAccuracyCard />
-              </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <ChartAreaInteractive cameras={processedCameras} />
             </div>
+            <ForecastAccuracyCard />
           </div>
-          <div className="px-4 lg:px-6">
-            <TrafficDensityChart />
-          </div>
-          <div className="px-4 lg:px-6">
-            <DataTable data={processedCameras} />
-          </div>
+
+          <TrafficDensityChart />
+
+          <DataTable data={processedCameras} />
         </div>
       </div>
     </div>

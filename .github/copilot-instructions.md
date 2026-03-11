@@ -22,6 +22,7 @@
 - **No Verbosity**: Loại bỏ các câu chào hỏi, kết luận rườm rà như "I hope this helps".
 - **Parallel Reads**: Khi cần đọc nhiều file, sử dụng parallel tool calls thay vì sequential để tiết kiệm thời gian.
 - **Read Smart**: KHÔNG đọc toàn bộ file nếu chỉ cần 1 section. Sử dụng `startLine`/`endLine` chính xác.
+- **File này (copilot-instructions.md) – quy tắc biên tập**: Khi cập nhật file này, CHỈ ghi tổng quan — nêu nguyên tắc, không viết code block minh họa dài. Chi tiết implementation → đặt vào file `style-guide/` riêng (ví dụ: `FRONTEND_RULES.md`, `BACKEND_RULES.md`). Giữ file < 250 lines.
 
 # Global Coding Rules
 
@@ -29,79 +30,19 @@
   - PascalCase cho React Components.
   - camelCase cho biến, hàm, và instances.
   - kebab-case cho tên file và thư mục.
+- **Component File Organization**: → `style-guide/frontend/FRONTEND_RULES.md#1`. Page-specific → `components/{page}/`, Shared → `components/` root. File >500 lines hoặc ≥3 inline sub-component → BẮT BUỘC tách.
 - **Async/Logic**:
   - Ưu tiên tuyệt đối `async/await`.
   - Xử lý lỗi tập trung qua Middleware thay vì bọc `try/catch` rời rạc ở mọi nơi.
-- **Validation (Node.js)**:
-  - Sử dụng thư viện Validation (như Zod hoặc Joi) cho mọi dữ liệu đầu vào (Request Body, Query, Params).
-  - Schema validation phải khớp chính xác với định nghĩa trong `DATABASE_SCHEMA.md`.
+- **Validation (Node.js)**: → `style-guide/backend/BACKEND_RULES.md#1`. Dùng Zod/Joi cho mọi input, khớp với `schemas/DATABASE_SCHEMA.md`.
 - **UI/UX**:
   - Chỉ sử dụng Shadcn UI và Tailwind CSS.
   - Icon ưu tiên Lucide React hoặc bộ icon thống nhất của dự án.
   - Hiển thị giao diện hãy sử dụng từ Tiếng Việt.
-  - **Dialog margin**: Tất cả `DialogContent` và `AlertDialogContent` PHẢI có `w-[calc(100%-2rem)] max-h-[calc(100dvh-2rem)] overflow-y-auto` để đảm bảo khoảng cách tối thiểu 1rem so với cạnh màn hình. Đã implement ở base `dialog.tsx` / `alert-dialog.tsx` – không cần thêm ở từng dialog cụ thể.
-  - **Tooltip – hover-only**: Tất cả tooltip PHẢI chỉ hiện khi hover (không hiện khi focus). Base `tooltip.tsx` đã handle qua pointer tracking context. `TooltipProvider` dùng `delayDuration={200}` (sidebar standard). Không dùng native `title=""` attribute – luôn dùng Radix `<Tooltip>`.
-  - **Text overflow – main pages**: Mọi text có thể dài hơn container ở trang giao diện chính (card title, badge, label, tên...) PHẢI dùng `truncate` (= `overflow-hidden text-ellipsis whitespace-nowrap`) + `max-w-*` phù hợp. Không để text tràn layout.
-  - **Scroll cho list / overflow**: Mọi danh sách dữ liệu hoặc vùng content có thể vượt quá viewport PHẢI có `overflow-y-auto` (hoặc `overflow-auto`). Sheet/Dialog chứa danh sách dài dùng `max-h-[X] overflow-y-auto`. Không dùng `overflow-hidden` ở container chứa danh sách.
-  - **Chart Tooltip – chuẩn thiết kế**: Tất cả tooltips của Recharts PHẢI dùng custom `content` render function theo cấu trúc chuẩn sau (KHÔNG dùng `<ChartTooltipContent>` mặc định):
-
-    ```tsx
-    <ChartTooltip
-      cursor={false} // AreaChart; dùng {{ fill: "hsl(var(--foreground))", opacity: 0.05 }} cho BarChart
-      content={({ active, payload, label }) => {
-        if (!active || !payload?.length) return null;
-        return (
-          <div className="rounded-lg border bg-background px-3 py-2 shadow-md text-sm min-w-[140px]">
-            <p className="font-medium mb-1.5">{label}</p>
-            {payload.map((p) => (
-              <div
-                key={String(p.dataKey)}
-                className="flex items-center justify-between gap-3"
-              >
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className="size-2 rounded-full shrink-0"
-                    style={{ background: p.color }}
-                  />
-                  <span className="text-muted-foreground">
-                    {/* tên hiển thị theo dataKey */}
-                  </span>
-                </div>
-                <span className="font-semibold tabular-nums">
-                  {/* giá trị, thêm đơn vị nếu cần */}
-                </span>
-              </div>
-            ))}
-            {/* Footer section (nếu có metadata bổ sung): */}
-            {/* <div className="mt-1.5 pt-1.5 border-t text-xs flex items-center justify-between gap-3"> */}
-          </div>
-        );
-      }}
-    />
-    ```
-
-    - **BarChart**: `cursor={{ fill: "hsl(var(--foreground))", opacity: 0.05 }}`
-    - **AreaChart / LineChart**: `cursor={false}`
-    - Mỗi row dùng `flex items-center justify-between gap-3` — label trái, giá trị phải
-    - Dấu màu: `size-2 rounded-full` inline `background: p.color`
-    - Footer metadata (nếu cần): `border-t mt-1.5 pt-1.5 text-xs`
-    - `min-w-[140px]` để tránh tooltip quá hẹp
-
-  - **Custom scrollbar**: Tuyệt đối KHÔNG dùng scrollbar mặc định của trình duyệt. Mọi container có `overflow-y-auto` / `overflow-auto` PHẢI kèm class `scrollbar` (định nghĩa trong `index.css`). Scrollbar custom: 4px, bo tròn, dùng `--muted-foreground` 25% opacity, hover 50%. Áp dụng cả base components (dialog, select, dropdown, sheet).
-  - **Highlight từ khoá tìm kiếm – `<HighlightText>`**:
-    - **BẮT BUỘC**: Mọi tính năng filter/search hiển thị danh sách text (table, card, list) PHẢI dùng component `<HighlightText>` từ `@/components/highlight-text` để highlight từ khoá khớp.
-    - **Import**: `import { HighlightText } from "@/components/highlight-text";`
-    - **Dùng**: `<HighlightText text={item.name} query={filterQuery} />` thay cho render text trực tiếp `{item.name}`.
-    - **Query truyền vào**: dùng giá trị live input (không cần đợi debounce) để highlight cập nhật ngay khi gõ.
-    - **Style**: `bg-yellow-200 dark:bg-yellow-800/70 text-foreground rounded-sm px-0.5` — đã định nghĩa sẵn trong component, KHÔNG override.
-    - **Fallback**: Nếu `query` rỗng, component trả về text gốc nguyên vẹn — không gây lỗi.
-    - **Scope áp dụng**: tất cả field là mục tiêu của filter: tên (name, title, version...), mô tả (description, subtitle...).
-  - **Theme (dark/light) – quy tắc bắt buộc**:
-    - **FOUC prevention**: `index.html` PHẢI có inline `<script>` trong `<head>` đọc `localStorage.getItem('theme')` và apply class `dark`/`light` lên `<html>` TRƯỚC khi React render. KHÔNG được xoá script này.
-    - **Smooth transition**: KHÔNG dùng CSS transition thường xuyên trên `*` hoặc semantic elements — gây lag mọi hover/scroll. Thay vào đó, `ThemeContext.tsx` tạm thêm class `theme-switching` vào `<html>` trong 200ms khi toggle, CSS chỉ apply `transition` khi `html.theme-switching *` active. Xem `index.css` và `ThemeContext.tsx`.
-    - **CSS var trong Recharts SVG**: Recharts SVG `style={{ fill: "hsl(var(--...))" }}` KHÔNG tự update khi class `.dark` thay đổi. PHẢI dùng `useTheme()` từ `@/contexts/ThemeContext` để lấy `theme === "dark"` rồi gán giá trị màu thực tế (ví dụ: `oklch(0.985 0 0)` cho dark, `oklch(0.145 0 0)` cho light). Không bao giờ dùng CSS variable string làm `fill` trong Recharts custom tick/label components.
-    - **Standalone sections**: Mọi section lớn render trực tiếp trong page (không nằm trong `<Card>`) PHẢI có `bg-card rounded-xl border` hoặc tương đương để có background riêng thay vì trong suốt.
-    - **useTheme hook**: Luôn import từ `@/contexts/ThemeContext` (custom hook), KHÔNG từ `next-themes`.
+  - **Design System**: `style-guide/frontend/UI_STYLE_GUIDE.md` là nguồn sự thật cho màu sắc, badge, stats card, table row, threshold badge, LOS colors, chart pattern, empty state.
+  - → **Đọc `style-guide/frontend/FRONTEND_RULES.md` khi implement UI** (component org, dialog, tooltip, text overflow, scroll, chart tooltip, loading, scrollbar, highlight, theme, navigate state).
+  - **BẮT BUỘC**: filter/search list → dùng `<HighlightText>` từ `@/components/highlight-text`.
+  - **BẮT BUỘC**: Page mới → 2-layer loading (`loader` trong App.tsx + `useLoading()` API-level).
 
 - **Documentation (Function Headers)**:
   - Mọi hàm (Function/Method) và API Route PHẢI có JSDoc/docstring ngắn gọn ngay phía trên.
@@ -111,51 +52,16 @@
     - [Phương thức HTTP + Path - nếu là API]
       \*/
   - Yêu cầu: Ngôn ngữ súc tích, đi thẳng vào mục đích của hàm.
-- **Docker Best Practices**:
-  - Sử dụng multi-stage build (builder + runner) cho Python services
-  - COPY paths: Chỉ copy `app/`, `models/`, `shared/` (không copy toàn bộ service folder)
-  - Container structure: Flat `/app/` (không nested `/app/app/`)
-  - Imports: Direct imports (`from query import ...` thay vì `from app.query import ...`)
-- **Timezone Handling**:
-  - LUÔN dùng `datetime.utcnow().isoformat()` cho upload FIWARE
-  - Database TIMESTAMPTZ columns nhận UTC input
-  - Frontend convert UTC → local time khi display
+- **Docker + Timezone**: → `style-guide/backend/BACKEND_RULES.md#6-7`.
 
 # Backend Server (Node.js) Rules
 
-## Startup Migration — Trách nhiệm cố định của server
+> **Đọc `style-guide/backend/BACKEND_RULES.md` khi thực hiện task backend** (migration, API, swagger, docker, timezone).
 
-Mỗi lần server khởi động, `runMigrations()` (trong `backend/server/src/migrations/runner.ts`) PHẢI được gọi **trước khi** server bắt đầu nhận request. Logic:
-
-1. Chạy tuần tự các file SQL migrations trong thư mục `src/migrations/` theo thứ tự:
-   - `000_core_tables.sql` — camera_data, camera_detections, camera_forecasts, model_metrics_history, ml_model_metadata, backup_logs
-   - `001_auth_tables.sql` — technician_accounts, activity_logs
-   - `003_data_library.sql` — data_library_collections, data_library_entries
-   - `002_traffic_pattern_views.sql` — Materialized Views (chỉ chạy nếu MV chưa tồn tại, để không làm blocking REFRESH mỗi startup)
-2. Tất cả SQL files đều dùng `IF NOT EXISTS` → idempotent, không gây lỗi khi bảng đã có sẵn.
-3. **KHÔNG chứa INSERT hoặc seed data** trong migration files. Seed dữ liệu (ví dụ: camera_data, admin account) phải chạy thủ công qua script riêng (ví dụ: `seed-admin.ts`).
-4. Lỗi trong migration chỉ được log, **không được throw** để tránh crash toàn bộ server.
-
-## Migration File Rules
-
-- **Thêm bảng mới** → tạo file `0NN_<tên>.sql` mới, cập nhật `PLAIN_MIGRATIONS` array trong `runner.ts`.
-- **Cấu trúc tên file**: `000`, `001`, `002`, `003` (tăng dần để đảm bảo thứ tự phụ thuộc).
-- **TUYỆT ĐỐI KHÔNG** bỏ `IF NOT EXISTS` khỏi bất kỳ `CREATE TABLE` nào trong migration.
-- Migrations là declarative — không chứa business logic, chỉ chứa DDL.
-
-## Controller Rules
-
-- Controllers chỉ thực hiện **query/read/write** dữ liệu — **không** chứa logic tạo bảng hay migration.
-- Nếu cần bảng mới, thêm vào migration SQL rồi đăng ký trong runner, không inline `CREATE TABLE` trong controller.
-
-## Swagger Documentation Rules
-
-- **BẮT BUỘC**: Mọi API route mới (GET/POST/PUT/PATCH/DELETE) PHẢI được bổ sung vào `backend/server/src/config/swagger.ts` ngay trong cùng task tạo route đó.
-- **Tag**: Mỗi nhóm route cần có tag tương ứng trong mảng `tags` ở đầu spec.
-- **Schema**: Nếu request body hoặc response có cấu trúc phức tạp, khai báo trong `components.schemas` và dùng `$ref`.
-- **Security**: Route public (không cần JWT) phải khai báo `security: []` để override global `security`.
-- **Không dùng JSDoc scan** (`apis: []`) — spec khai báo tập trung trong object `paths` duy nhất.
-- Sau khi thêm route mới, luôn verify Swagger UI tại `GET /api/docs` hiển thị đúng.
+**Critical (luôn nhớ — không cần đọc lại):**
+- `runMigrations()` PHẢI chạy trước khi server nhận request (`backend/server/src/migrations/runner.ts`).
+- Mọi API route mới → PHẢI bổ sung Swagger tại `backend/server/src/config/swagger.ts` trong cùng task.
+- Migration: chỉ DDL, `IF NOT EXISTS`, KHÔNG INSERT/seed, lỗi chỉ log không throw.
 
 # Context Reference Strategy
 
@@ -163,7 +69,11 @@ Mỗi lần server khởi động, `runMigrations()` (trong `backend/server/src/
   1. `reports/AGENT_LOG.md` (entry cuối) - Hiểu context task trước
   2. `reports/FUNCTION_LIST.md` (tìm kiếm ID liên quan) - Xác định functions liên quan
   3. `schemas/*.md` (chỉ khi cần DB/FIWARE structure)
-  4. `commands/PROJECT_CONTEXT.md` (chỉ khi cần architecture overview)
+  4. `commands/PROJECT_CONTEXT_FRONTEND.md` hoặc `commands/PROJECT_CONTEXT_BACKEND.md` (chỉ khi cần architecture overview)
+- **Style Guides — Đọc khi task liên quan**:
+  - Frontend UI task → `style-guide/frontend/FRONTEND_RULES.md`
+  - Frontend design/colors/layout → `style-guide/frontend/UI_STYLE_GUIDE.md`
+  - Backend API/migration/docker → `style-guide/backend/BACKEND_RULES.md`
 - **Conditional Reading**: KHÔNG đọc file nếu không liên quan trực tiếp đến task:
   - Task về Frontend → KHÔNG đọc backend PROJECT_CONTEXT
   - Task về Backend API → KHÔNG đọc image-process/image-predict context
@@ -183,6 +93,16 @@ Mỗi lần server khởi động, `runMigrations()` (trong `backend/server/src/
 - **Avoid Duplication**: PROJECT_CONTEXT files nên reference FUNCTION_LIST.md thay vì list lại
 - **Keep Updated**: Mỗi lần thay đổi logic → update AGENT_LOG + FUNCTION_LIST trong cùng 1 task
 - **.md File Size**: Giữ files <300 lines, nếu quá dài thì tách sections hoặc reference external docs
+
+# Logic Regression Check (Kiểm tra trước khi hoàn thành)
+
+Trước khi xác nhận hoàn thành bất kỳ chức năng mới nào, BẮT BUỘC kiểm tra:
+
+1. **Logic cũ có bị ảnh hưởng không?** — Đọc lại tất cả hàm/component bị sửa. Nếu có sự thay đổi props, interface, state — trace ngược lên tất cả consumer hiện tại.
+2. **Hook rules** — Không gọi hook sau `if` / `return null`. Hooks phải gọi vô điều kiện ở top level component.
+3. **Side effect mới** — `useEffect` mới có thể chạy luôn khi mount? Có cleanup không? Có dependency vòng lặp không?
+4. **Navigate state** — Sau khi consume `location.state`, BUỘC phải clear bằng `navigate(pathname, { replace: true, state: {} })` tránh re-trigger sau navigate qua lại.
+5. **TypeScript 0 errors** — Chạy `get_errors` sau mọi batch change trước khi báo hoàn thành.
 
 # Post-Task Protocol (Quy trình sau nhiệm vụ)
 

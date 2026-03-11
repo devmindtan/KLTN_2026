@@ -13,9 +13,6 @@ import {
   IconSearch,
   IconSettings,
   IconUsers,
-  IconBorderHorizontal,
-  IconFolderOpen,
-  IconShare,
 } from "@tabler/icons-react"
 import { useAuth } from "@/contexts/AuthContext"
 import {
@@ -30,12 +27,6 @@ import {
 } from "@/components/custom-sidebar"
 import { NavUser } from "@/components/nav-user"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -44,7 +35,7 @@ import { cn } from "@/lib/utils"
 
 // ─── Nav data factory ───────────────────────────────────────────────────────
 function buildNavMain(p: string) { return [
-  { title: "Bảng điều khiển", url: `/${p}/dashboard`, icon: IconDashboard },
+  { title: "Thông tin chung", url: `/${p}/dashboard`, icon: IconDashboard },
   { title: "Giám sát lưu lượng",        url: `/${p}/monitoring`,  icon: IconListDetails },
   { title: "Phân tích mô hình",       url: `/${p}/analytics`,  icon: IconChartBar },
   { title: "Danh sách mô hình",      url: `/${p}/models`,     icon: IconFolder },
@@ -57,55 +48,33 @@ function buildNavDocuments(p: string) { return [
   { name: "Hỗ trợ ra quyết định",   url: `/${p}/assistant`, icon: IconFileWord },
 ]}
 function buildNavSecondary(p: string) { return [
-  { title: "Cài đặt",  url: `/${p}/settings`, icon: IconSettings },
+  { title: "Tìm kiếm nhanh", url: `/${p}/search`,   icon: IconSearch },
   { title: "Liên hệ & Hướng dẫn",  url: `/${p}/help`,     icon: IconHelp },
-  { title: "Tìm kiếm", url: `/${p}/search`,   icon: IconSearch },
+  { title: "Cài đặt",  url: `/${p}/settings`, icon: IconSettings },
 ]}
 
-// ─── Document item with action dropdown ──────────────────────────────────────
+// ─── Document item (simple NavLink, no dropdown) ────────────────────────────
 function DocItem({ name, url, icon: Icon }: { name: string; url: string; icon: React.ElementType }) {
   const { pathname } = useLocation()
   const { open } = useSidebar()
   const isActive = pathname === url
 
   const link = (
-    <div className="group/doc relative flex items-center">
-      <NavLink
-        to={url}
-        className={cn(
-          "flex flex-1 min-w-0 items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-colors",
-          "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring pr-8",
-          isActive && "bg-sidebar-accent text-sidebar-accent-foreground",
-          !open && "justify-center px-0 pr-0"
-        )}
-      >
-        <span className="shrink-0 size-4 flex items-center justify-center">
-          <Icon className="size-4" />
-        </span>
-        {open && <span className="flex-1 min-w-0 truncate">{name}</span>}
-      </NavLink>
-      {open && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="absolute right-1 top-1/2 -translate-y-1/2 flex size-6 items-center justify-center rounded opacity-0 group-hover/doc:opacity-100 hover:bg-sidebar-accent transition-opacity">
-              <IconBorderHorizontal className="size-3.5" />
-              <span className="sr-only">More</span>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-28 rounded-lg" side="right" align="start">
-            <DropdownMenuItem>
-              <IconFolderOpen className="mr-2 size-4" />
-              <span>Mở</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <IconShare className="mr-2 size-4" />
-              <span>Chia sẻ</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+    <NavLink
+      to={url}
+      className={cn(
+        "flex min-w-0 items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-colors",
+        "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+        isActive && "bg-sidebar-accent text-sidebar-accent-foreground",
+        !open && "justify-center px-0"
       )}
-    </div>
+    >
+      <span className="shrink-0 size-4 flex items-center justify-center">
+        <Icon className="size-4" />
+      </span>
+      {open && <span className="flex-1 min-w-0 truncate">{name}</span>}
+    </NavLink>
   )
 
   if (!open) {
@@ -183,6 +152,7 @@ export function AppSidebar() {
 
         {/* Secondary – push to bottom */}
         <SidebarGroup className="mt-auto pt-2 border-t">
+          <SidebarGroupLabel>Tiện ích</SidebarGroupLabel>
           {buildNavSecondary(p).map((item) => (
             <SidebarMenuItem
               key={item.url}

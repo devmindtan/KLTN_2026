@@ -8,11 +8,10 @@ import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card"
+import { CardSectionHeader } from "@/components/card-section-header"
 import {
   getLatestModelMetrics,
   type HorizonMetric,
@@ -24,20 +23,20 @@ import {
 function AccuracyBadge({ value }: { value: number }) {
   if (value >= 80) {
     return (
-      <Badge className="bg-green-500/15 text-green-600 dark:text-green-400 border-green-500/30 font-semibold pointer-events-none">
+      <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-semibold pointer-events-none text-green-700 border-green-200 bg-green-50 dark:bg-green-950/30 dark:text-green-400">
         {value}%
       </Badge>
     )
   }
   if (value >= 60) {
     return (
-      <Badge className="bg-yellow-500/15 text-yellow-600 dark:text-yellow-400 border-yellow-500/30 font-semibold pointer-events-none">
+      <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-semibold pointer-events-none text-yellow-700 border-yellow-200 bg-yellow-50 dark:bg-yellow-950/30 dark:text-yellow-400">
         {value}%
       </Badge>
     )
   }
   return (
-    <Badge className="bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30 font-semibold pointer-events-none">
+    <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-semibold pointer-events-none text-red-700 border-red-200 bg-red-50 dark:bg-red-950/30 dark:text-red-400">
       {value}%
     </Badge>
   )
@@ -74,13 +73,11 @@ export const ForecastAccuracyCard = React.memo(function ForecastAccuracyCard() {
   return (
     <Card className="h-full flex flex-col">
       <CardHeader className="pb-3">
-        <div className="flex items-center gap-2">
-          <IconShieldCheck className="w-4 h-4 text-muted-foreground" />
-          <CardTitle className="text-base">Độ tin cậy dự đoán</CardTitle>
-        </div>
-        <CardDescription className="text-xs">
-          Tỷ lệ dự đoán sai số ≤5 xe theo mốc
-        </CardDescription>
+        <CardSectionHeader
+          icon={IconShieldCheck}
+          title="Độ tin cậy dự đoán"
+          description="Tỷ lệ dự đoán sai số ≤5 xe theo mốc"
+        />
       </CardHeader>
 
       <CardContent className="flex-1 pb-2">

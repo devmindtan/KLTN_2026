@@ -1,118 +1,253 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+/**
+ * Trang Báo cáo & Dự báo
+ * Tab "Báo cáo": list view (mặc định) + grid toggle
+ * Tab "Dự báo": dashboard realtime 4 zone (summary, chart, next slot, history)
+ * Tab "Lịch sử": audit log thao tác
+ */
+import { useState, useCallback, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { IconFileText, IconDownload, IconCalendar } from "@tabler/icons-react";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  IconFileText,
+  IconChartBar,
+  IconHistory,
+  IconSearch,
+  IconList,
+  IconLayoutGrid,
+  IconPlus,
+  IconRefresh,
+} from "@tabler/icons-react";
 import { PageHeader } from "@/components/page-header";
+import { useLoading } from "@/contexts/LoadingContext";
 
-export default function TrafficReports() {
-  const reports = [
-    {
-      title: "Báo cáo lưu lượng tháng 2/2026",
-      type: "Báo cáo hàng tháng",
-      date: "01/02/2026 - 13/02/2026",
-      status: "completed",
-      size: "2.4 MB"
-    },
-    {
-      title: "Phân tích ùn tắc tuần 6",
-      type: "Báo cáo hàng tuần",
-      date: "03/02/2026 - 09/02/2026",
-      status: "completed",
-      size: "1.8 MB"
-    },
-    {
-      title: "Đánh giá mô hình ML Q4/2025",
-      type: "Báo cáo kỹ thuật",
-      date: "01/10/2025 - 31/12/2025",
-      status: "completed",
-      size: "5.6 MB"
-    },
-    {
-      title: "Dự đoán tết Nguyên Đán 2026",
-      type: "Báo cáo đặc biệt",
-      date: "20/01/2026 - 05/02/2026",
-      status: "completed",
-      size: "3.2 MB"
-    },
-    {
-      title: "Báo cáo hiệu suất hệ thống",
-      type: "Báo cáo kỹ thuật",
-      date: "01/02/2026 - 13/02/2026",
-      status: "processing",
-      size: "Đang xử lý"
-    },
-    {
-      title: "Thống kê giao thông giờ cao điểm",
-      type: "Báo cáo phân tích",
-      date: "01/01/2026 - 31/01/2026",
-      status: "completed",
-      size: "4.1 MB"
-    },
-  ];
+import { ReportRow }  from "@/components/reports-forecasts/report-row";
+import { ReportCard } from "@/components/reports-forecasts/report-card";
+import { ForecastSummaryBar }    from "@/components/reports-forecasts/forecast-summary-bar";
+import { ForecastTimelineChart } from "@/components/reports-forecasts/forecast-timeline-chart";
+import { ForecastNextPanel }     from "@/components/reports-forecasts/forecast-next-panel";
+import { ForecastHistoryTable }  from "@/components/reports-forecasts/forecast-history-table";
+import { HistoryTable }          from "@/components/reports-forecasts/history-table";
+import {
+  MOCK_REPORTS,
+  MOCK_FORECAST_SLOTS,
+  MOCK_FORECAST_SUMMARY,
+  MOCK_HISTORY,
+  type ReportData,
+} from "@/components/reports-forecasts/reports-types";
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "completed":
-        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Hoàn thành</Badge>;
-      case "processing":
-        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Đang xử lý</Badge>;
-      default:
-        return null;
+type ViewMode   = "list" | "grid";
+type ReportType = "all" | "daily" | "weekly" | "monthly" | "incident";
+type StatusFilter = "all" | "ready" | "processing" | "failed";
+
+/** Trang Báo cáo & Dự báo giao thông */
+export default function ReportsForecastsPage() {
+  const { startLoading, stopLoading } = useLoading();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // ── Tab state ────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState("reports");
+
+  // Auto-switch tab khi được điều hướng từ nơi khác (ví dụ: dashboard chart)
+  useEffect(() => {
+    const state = location.state as { tab?: string } | null;
+    if (state?.tab) {
+      setActiveTab(state.tab);
+      // Clear state để tránh re-trigger khi navigate qua lại
+      navigate(location.pathname, { replace: true, state: {} });
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Báo cáo state ────────────────────────────────────
+  const [viewMode,      setViewMode]      = useState<ViewMode>("list");
+  const [searchQuery,   setSearchQuery]   = useState("");
+  const [typeFilter,    setTypeFilter]    = useState<ReportType>("all");
+  const [statusFilter,  setStatusFilter]  = useState<StatusFilter>("all");
+  const [reports,       setReports]       = useState<ReportData[]>([]);
+
+  // ── Fetch giả lập (sẽ thay bằng API) ─────────────────
+  const fetchReports = useCallback(async () => {
+    startLoading();
+    try {
+      await new Promise(r => setTimeout(r, 400));
+      setReports(MOCK_REPORTS);
+    } finally {
+      stopLoading();
+    }
+  }, [startLoading, stopLoading]);
+
+  useEffect(() => { fetchReports(); }, [fetchReports]);
+
+  // ── Filter logic ──────────────────────────────────────
+  const filteredReports = reports.filter(r => {
+    if (typeFilter   !== "all" && r.type   !== typeFilter)   return false;
+    if (statusFilter !== "all" && r.status !== statusFilter) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      if (!r.title.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
       <PageHeader
-        icon={<IconFileText className="w-5 h-5" />}
-        title="Báo cáo và dự báo giao thông"
-        description="Báo cáo và phân tích lưu lượng giao thông đô thị"
+        icon={<IconFileText className="size-5" />}
+        title="Báo cáo & Dự báo"
+        description="Quản lý báo cáo lưu lượng và phân tích dự báo realtime"
       >
-        <Button>Tạo báo cáo mới</Button>
+        <Button variant="outline" size="sm" onClick={fetchReports} className="gap-1.5">
+          <IconRefresh className="size-4" />
+          Làm mới
+        </Button>
+        <Button size="sm" className="gap-1.5">
+          <IconPlus className="size-4" />
+          Tạo báo cáo
+        </Button>
       </PageHeader>
 
-      <div className="grid gap-4">
-        {reports.map((report, idx) => (
-          <Card key={idx}>
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3 flex-1">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <IconFileText className="w-5 h-5 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <CardTitle className="text-base">{report.title}</CardTitle>
-                    <CardDescription className="flex items-center gap-2 mt-1">
-                      <Badge variant="secondary" className="text-xs">{report.type}</Badge>
-                      <span className="flex items-center gap-1 text-xs">
-                        <IconCalendar className="w-3 h-3" />
-                        {report.date}
-                      </span>
-                    </CardDescription>
-                  </div>
-                </div>
-                {getStatusBadge(report.status)}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">
-                  Kích thước: <span className="font-medium text-foreground">{report.size}</span>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline">
-                    Xem trước
-                  </Button>
-                  <Button size="sm" disabled={report.status !== "completed"}>
-                    <IconDownload className="w-4 h-4 mr-1" />
-                    Tải xuống
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col gap-4">
+        <TabsList className="w-fit">
+          <TabsTrigger value="reports" className="gap-1.5 text-xs">
+            <IconFileText className="size-3.5" />
+            Báo cáo
+            <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium">
+              {reports.filter(r => r.status === "ready").length}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger value="forecast" className="gap-1.5 text-xs">
+            <IconChartBar className="size-3.5" />
+            Dự báo
+          </TabsTrigger>
+          <TabsTrigger value="history" className="gap-1.5 text-xs">
+            <IconHistory className="size-3.5" />
+            Lịch sử
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ══════════════ TAB BÁO CÁO ══════════════ */}
+        <TabsContent value="reports" className="mt-0 flex flex-col gap-3">
+          {/* Filter bar */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[200px] max-w-sm">
+              <IconSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Tìm kiếm báo cáo..."
+                className="pl-8 h-8 text-sm"
+              />
+            </div>
+            <Select value={typeFilter} onValueChange={v => setTypeFilter(v as ReportType)}>
+              <SelectTrigger className="h-8 w-[120px] text-xs">
+                <SelectValue placeholder="Loại" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả loại</SelectItem>
+                <SelectItem value="daily">Ngày</SelectItem>
+                <SelectItem value="weekly">Tuần</SelectItem>
+                <SelectItem value="monthly">Tháng</SelectItem>
+                <SelectItem value="incident">Sự cố</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={v => setStatusFilter(v as StatusFilter)}>
+              <SelectTrigger className="h-8 w-[130px] text-xs">
+                <SelectValue placeholder="Trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả</SelectItem>
+                <SelectItem value="ready">Sẵn sàng</SelectItem>
+                <SelectItem value="processing">Đang xử lý</SelectItem>
+                <SelectItem value="failed">Lỗi</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Spacer */}
+            <div className="flex-1" />
+
+            {/* View mode toggle */}
+            <div className="flex gap-0.5 border rounded-md p-0.5">
+              <Button
+                variant={viewMode === "list" ? "secondary" : "ghost"}
+                size="icon"
+                className="size-7"
+                onClick={() => setViewMode("list")}
+                title="Dạng danh sách"
+              >
+                <IconList className="size-4" />
+              </Button>
+              <Button
+                variant={viewMode === "grid" ? "secondary" : "ghost"}
+                size="icon"
+                className="size-7"
+                onClick={() => setViewMode("grid")}
+                title="Dạng lưới"
+              >
+                <IconLayoutGrid className="size-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Count */}
+          <p className="text-xs text-muted-foreground">
+            {filteredReports.length} báo cáo{searchQuery ? ` phù hợp với "${searchQuery}"` : ""}
+          </p>
+
+          {/* List view */}
+          {viewMode === "list" ? (
+            <div className="rounded-lg border bg-card overflow-hidden">
+              {filteredReports.length === 0 ? (
+                <div className="py-12 text-center text-sm text-muted-foreground">Không tìm thấy báo cáo nào</div>
+              ) : (
+                filteredReports.map(r => (
+                  <ReportRow key={r.id} report={r} query={searchQuery} />
+                ))
+              )}
+            </div>
+          ) : (
+            /* Grid view */
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredReports.length === 0 ? (
+                <div className="col-span-full py-12 text-center text-sm text-muted-foreground">Không tìm thấy báo cáo nào</div>
+              ) : (
+                filteredReports.map(r => (
+                  <ReportCard key={r.id} report={r} query={searchQuery} />
+                ))
+              )}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ══════════════ TAB DỰ BÁO ══════════════ */}
+        <TabsContent value="forecast" className="mt-0 flex flex-col gap-4">
+          {/* Zone 1 – Summary */}
+          <ForecastSummaryBar summary={MOCK_FORECAST_SUMMARY} />
+
+          {/* Zone 2 + 3 – Chart + Next panel */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_300px]">
+            <ForecastTimelineChart />
+            <ForecastNextPanel slots={MOCK_FORECAST_SLOTS} />
+          </div>
+
+          {/* Zone 4 – History table */}
+          <ForecastHistoryTable slots={MOCK_FORECAST_SLOTS} />
+        </TabsContent>
+
+        {/* ══════════════ TAB LỊCH SỬ ══════════════ */}
+        <TabsContent value="history" className="mt-0">
+          <HistoryTable entries={MOCK_HISTORY} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

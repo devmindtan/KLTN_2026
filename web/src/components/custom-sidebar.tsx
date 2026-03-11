@@ -165,7 +165,7 @@ export function SidebarFooter({ className, children }: { className?: string; chi
  */
 export function SidebarInset({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <main className={cn("flex flex-1 flex-col min-w-0 overflow-y-auto scrollbar overflow-x-hidden bg-background", className)}>
+    <main id="main-scroll-container" className={cn("flex flex-1 flex-col min-w-0 overflow-y-auto scrollbar overflow-x-hidden bg-background", className)}>
       {children}
     </main>
   )

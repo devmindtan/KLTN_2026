@@ -1,13 +1,16 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { IconMapPin, IconClock, IconAlertTriangle, IconCheck, IconActivity, IconInfoCircle, IconSearch, IconFilter, IconX, IconCar, IconMotorbike, IconLayoutGrid } from "@tabler/icons-react";
+import { IconMapPin, IconClock, IconActivity, IconSearch, IconFilter, IconX, IconLayoutGrid } from "@tabler/icons-react";
 import { PageHeader } from "@/components/page-header";
 import { HighlightText } from "@/components/highlight-text";
-import { CameraWallView } from "@/components/camera-wall-view";
-import { TrendingDownIcon, TrendingUpIcon } from "lucide-react";
-import { useSocket, type CameraData } from "@/contexts/SocketContext";
+import { CameraWallView } from "@/components/monitoring/camera-wall-view";
+import { CameraDetailDialog } from "@/components/monitoring/camera-detail-dialog";
+import { getStatusBadge } from "@/components/monitoring/camera-utils";
+import { useSocket } from "@/contexts/SocketContext";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Separator } from "@/components/ui/separator";
 import * as React from "react";
 import {
   Select,
@@ -16,143 +19,64 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import {
-  type ChartConfig,
-  ChartContainer,
-  ChartTooltip,
-} from "@/components/ui/chart";
-import { Area, AreaChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts";
-import { useIsMobile } from "@/hooks/use-mobile";
-
-/**
- * Hiển thị badge theo Level of Service (LOS)
- */
-const getStatusBadge = (status: string) => {
-  switch (status) {
-    case "free_flow":
-      return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200"><IconCheck className="w-3 h-3 mr-1" />Thông thoáng</Badge>;
-    case "smooth":
-      return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200"><IconCheck className="w-3 h-3 mr-1" />Ổn định</Badge>;
-    case "moderate":
-      return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200"><IconAlertTriangle className="w-3 h-3 mr-1" />Trung bình</Badge>;
-    case "heavy":
-      return <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200"><IconAlertTriangle className="w-3 h-3 mr-1" />Nặng</Badge>;
-    case "congested":
-      return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200"><IconAlertTriangle className="w-3 h-3 mr-1" />Ùn tắc</Badge>;
-    default:
-      return <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">Không rõ</Badge>;
-  }
-};
-
-// Chart config for forecast
-const forecastChartConfig = {
-  vehicles: {
-    label: "Phương tiện (xe)",
-    color: "var(--primary)",
-  },
-  vcPct: {
-    label: "Mức tải (%)",
-    color: "var(--chart-2)",
-  },
-} satisfies ChartConfig;
-
-/** Nhãn % thay đổi so với baseline – module-level để tránh Recharts re-mount */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const PctForecastLabel = (props: any) => {
-  const { x, y, value } = props;
-  if (value === null || value === undefined) return null;
-  const pct = value as number;
-  const color = pct > 0 ? "#f97316" : pct < 0 ? "#22c55e" : "#9ca3af";
-  const sign = pct > 0 ? "+" : "";
-  return (
-    <text x={Number(x)} y={Math.max(Number(y) - 8, 14)} textAnchor="middle" fill={color} fontSize={10} fontWeight={700}>
-      {sign}{pct}%
-    </text>
-  );
-};
 
 export default function TrafficMonitoring() {
   const { processedCameras, isConnected } = useSocket();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const autoOpenCamId: string | null =
+    (location.state as { openCamId?: string } | null)?.openCamId ?? null;
+  React.useEffect(() => {
+    if (autoOpenCamId) {
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [searchQuery, setSearchQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<string>("all");
   const [trendFilter, setTrendFilter] = React.useState<string>("all");
   const [sortBy, setSortBy] = React.useState<string>("name");
 
-  // ─── Camera Wall state ───────────────────────────────────────────────────
   const [viewMode, setViewMode] = React.useState<"cards" | "wall">("cards");
   const [wallPerPage, setWallPerPage] = React.useState<number>(9);
   const [wallCurrentPage, setWallCurrentPage] = React.useState<number>(1);
 
-  // Hàm format thời gian relative từ timestamp (chỉ hiển thị phút trở lên)
+  /** Format thời gian relative từ ISO timestamp */
   const getRelativeTime = (timestamp: string) => {
     if (!timestamp) return "Chưa cập nhật";
-    
-    const now = Date.now();
-    const lastUpdate = new Date(timestamp).getTime();
-    const diffInSeconds = Math.floor((now - lastUpdate) / 1000);
-
-    if (diffInSeconds < 60) return `Vừa xong`;
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} phút trước`;
+    const diffInSeconds = Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000);
+    if (diffInSeconds < 60)    return "Vừa xong";
+    if (diffInSeconds < 3600)  return `${Math.floor(diffInSeconds / 60)} phút trước`;
     if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} giờ trước`;
     return `${Math.floor(diffInSeconds / 86400)} ngày trước`;
   };
 
-  // Filter và sort cameras
   const filteredAndSortedCameras = React.useMemo(() => {
     const filtered = processedCameras.filter((camera) => {
-      // Search filter
       const matchesSearch = searchQuery.trim() === "" ||
         camera.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         camera.shortId.toLowerCase().includes(searchQuery.toLowerCase());
-
-      // Status filter - dùng status.current từ backend (LOS)
       const matchesStatus = statusFilter === "all" || camera.status.current === statusFilter;
-
-      // Trend filter
-      const matchesTrend = trendFilter === "all" || camera.trend.direction === trendFilter;
-
+      const matchesTrend  = trendFilter  === "all" || camera.trend.direction  === trendFilter;
       return matchesSearch && matchesStatus && matchesTrend;
     });
-
-    // Sort
     filtered.sort((a, b) => {
       switch (sortBy) {
-        case "name":
-          return a.name.localeCompare(b.name);
-        case "vehicles-high":
-          return b.totalObjects - a.totalObjects;
-        case "vehicles-low":
-          return a.totalObjects - b.totalObjects;
-        case "updated":
-          return new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime();
-        default:
-          return 0;
+        case "name":          return a.name.localeCompare(b.name);
+        case "vehicles-high": return b.totalObjects - a.totalObjects;
+        case "vehicles-low":  return a.totalObjects - b.totalObjects;
+        case "updated":       return new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime();
+        default:              return 0;
       }
     });
-
     return filtered;
   }, [processedCameras, searchQuery, statusFilter, trendFilter, sortBy]);
 
   const hasActiveFilters = searchQuery !== "" || statusFilter !== "all" || trendFilter !== "all" || sortBy !== "name";
+  const clearFilters = () => { setSearchQuery(""); setStatusFilter("all"); setTrendFilter("all"); setSortBy("name"); };
 
-  const clearFilters = () => {
-    setSearchQuery("");
-    setStatusFilter("all");
-    setTrendFilter("all");
-    setSortBy("name");
-  };
-
-  // ─── Wall mode: chiếm toàn bộ content area ──────────────────────────────
   if (viewMode === "wall") {
     return (
       <div className="flex flex-1 flex-col min-h-0">
@@ -176,35 +100,25 @@ export default function TrafficMonitoring() {
         description="Theo dõi lưu lượng giao thông tại các điểm quan trọng trong thành phố"
       >
         <Badge
-              variant="outline"
-              className={`flex items-center gap-1 rounded-lg text-xs whitespace-nowrap shrink-0 ${
-                isConnected ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"
-              }`}
-            >
-              <IconActivity className="size-3 shrink-0" />
-              {isConnected ? "Trực tiếp" : "Mất kết nối"}
-            </Badge>
-        <Button
           variant="outline"
-          size="sm"
-          className="gap-1.5"
-          onClick={() => {
-            setViewMode("wall");
-            setWallCurrentPage(1);
-          }}
+          className={`flex items-center gap-1 rounded-lg text-xs whitespace-nowrap shrink-0 ${
+            isConnected ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"
+          }`}
         >
+          <IconActivity className="size-3 shrink-0" />
+          {isConnected ? "Trực tiếp" : "Mất kết nối"}
+        </Badge>
+        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => { setViewMode("wall"); setWallCurrentPage(1); }}>
           <IconLayoutGrid className="w-4 h-4" />
           Chế độ Wall
         </Button>
       </PageHeader>
-      
-      {/* Search and Filters */}
+
       {processedCameras.length > 0 && (
         <Card>
           <CardContent className="pt-6">
             <div className="flex flex-col gap-4">
               <div className="flex flex-col lg:flex-row gap-4">
-                {/* Search */}
                 <div className="relative flex-1">
                   <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
@@ -214,8 +128,6 @@ export default function TrafficMonitoring() {
                     className="pl-9"
                   />
                 </div>
-                
-                {/* Filters */}
                 <div className="flex gap-2">
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger className="w-[150px]">
@@ -231,7 +143,6 @@ export default function TrafficMonitoring() {
                       <SelectItem value="congested">Ùn tắc</SelectItem>
                     </SelectContent>
                   </Select>
-                  
                   <Select value={trendFilter} onValueChange={setTrendFilter}>
                     <SelectTrigger className="w-[150px]">
                       <SelectValue placeholder="Xu hướng" />
@@ -243,7 +154,6 @@ export default function TrafficMonitoring() {
                       <SelectItem value="decreasing">Giảm</SelectItem>
                     </SelectContent>
                   </Select>
-                  
                   <Select value={sortBy} onValueChange={setSortBy}>
                     <SelectTrigger className="w-[180px]">
                       <SelectValue placeholder="Sắp xếp" />
@@ -257,8 +167,6 @@ export default function TrafficMonitoring() {
                   </Select>
                 </div>
               </div>
-              
-              {/* Active filters badge */}
               <div className="flex items-center justify-between">
                 <div className="text-sm text-muted-foreground">
                   Hiển thị <span className="font-semibold text-foreground">{filteredAndSortedCameras.length}</span> / {processedCameras.length} camera
@@ -274,7 +182,7 @@ export default function TrafficMonitoring() {
           </CardContent>
         </Card>
       )}
-      
+
       {processedCameras.length === 0 ? (
         <Card>
           <CardContent className="flex h-[400px] items-center justify-center">
@@ -292,347 +200,83 @@ export default function TrafficMonitoring() {
               <IconSearch className="w-12 h-12 mx-auto mb-4" />
               <p className="text-lg font-medium">Không tìm thấy camera</p>
               <p className="text-sm">Thử điều chỉnh bộ lọc hoặc tìm kiếm khác</p>
-              <Button variant="outline" className="mt-4" onClick={clearFilters}>
-                Xóa bộ lọc
-              </Button>
+              <Button variant="outline" className="mt-4" onClick={clearFilters}>Xóa bộ lọc</Button>
             </div>
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
-          {filteredAndSortedCameras.map((camera) => {
-            return (
-              <Card key={camera.id} className="overflow-hidden">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <IconMapPin className="w-5 h-5 text-primary" />
-                      <CardTitle className="text-base">
-                        <HighlightText text={camera.name} query={searchQuery} />
-                      </CardTitle>
-                    </div>
-                    <div className="flex flex-col gap-1 items-end">
-                      {getStatusBadge(camera.status.current)}
-                    </div>
+          {filteredAndSortedCameras.map((camera) => (
+            <Card key={camera.id} className="overflow-hidden">
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2">
+                    <IconMapPin className="w-5 h-5 text-primary" />
+                    <CardTitle className="text-base">
+                      <HighlightText text={camera.name} query={searchQuery} />
+                    </CardTitle>
                   </div>
-                  <CardDescription>ID: <HighlightText text={camera.shortId} query={searchQuery} /></CardDescription>
-                </CardHeader>
-                {/* Camera Image */}
-                {camera.imageUrl && (
-                  <div className="px-6 pb-4">
-                    <div className="rounded-lg border overflow-hidden">
-                      <img
-                        src={camera.imageUrl}
-                        alt={`Camera ${camera.shortId}`}
-                        className="w-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='200'%3E%3Crect width='400' height='200' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239ca3af' font-family='sans-serif'%3EImage Not Available%3C/text%3E%3C/svg%3E";
-                        }}
-                      />
-                    </div>
+                  <div className="flex flex-col gap-1 items-end">
+                    {getStatusBadge(camera.status.current)}
                   </div>
-                )}
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Tổng phương tiện hiện tại:</span>
-                      <span className="font-semibold">{camera.totalObjects} xe</span>
-                    </div>
-                    {camera.inputValue !== undefined && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Trung bình 5p trước:</span>
-                        <span className="text-sm text-muted-foreground">{camera.inputValue}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Ô tô:</span>
-                      <span className="text-sm">{camera.carCount} xe</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Xe máy:</span>
-                      <span className="text-sm">{camera.motorbikeCount} xe</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Xu hướng:</span>
-                      <span className="text-sm capitalize">{camera.trend.direction === "increasing" ? "Tăng" : camera.trend.direction === "decreasing" ? "Giảm" : "Ổn định"}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground flex items-center gap-1">
-                        <IconClock className="w-3 h-3" />
-                        Cập nhật:
-                      </span>
-                      <span className="text-sm">{getRelativeTime(camera.lastUpdated)}</span>
-                    </div>
-                    <Separator className="my-3" />
-                    <CameraDetailDialog camera={camera} />
+                </div>
+                <CardDescription>ID: <HighlightText text={camera.shortId} query={searchQuery} /></CardDescription>
+              </CardHeader>
+              {camera.imageUrl && (
+                <div className="px-6 pb-4">
+                  <div className="rounded-lg border overflow-hidden">
+                    <img
+                      src={camera.imageUrl}
+                      alt={`Camera ${camera.shortId}`}
+                      className="w-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='200'%3E%3Crect width='400' height='200' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239ca3af' font-family='sans-serif'%3EImage Not Available%3C/text%3E%3C/svg%3E";
+                      }}
+                    />
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                </div>
+              )}
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Tổng phương tiện hiện tại:</span>
+                    <span className="font-semibold">{camera.totalObjects} xe</span>
+                  </div>
+                  {camera.inputValue !== undefined && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Trung bình 5p trước:</span>
+                      <span className="text-sm text-muted-foreground">{camera.inputValue}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Ô tô:</span>
+                    <span className="text-sm">{camera.carCount} xe</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Xe máy:</span>
+                    <span className="text-sm">{camera.motorbikeCount} xe</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Xu hướng:</span>
+                    <span className="text-sm capitalize">
+                      {camera.trend.direction === "increasing" ? "Tăng" : camera.trend.direction === "decreasing" ? "Giảm" : "Ổn định"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground flex items-center gap-1">
+                      <IconClock className="w-3 h-3" />
+                      Cập nhật:
+                    </span>
+                    <span className="text-sm">{getRelativeTime(camera.lastUpdated)}</span>
+                  </div>
+                  <Separator className="my-3" />
+                  <CameraDetailDialog camera={camera} forceOpen={camera.shortId === autoOpenCamId} />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
     </div>
-  );
-}
-
-// Camera Detail Dialog Component
-function CameraDetailDialog({ camera }: { camera: CameraData }) {
-  const isMobile = useIsMobile();
-
-  // Transform forecasts to chart data (pctChange vs baseline + vcPct V/C ratio)
-  const capacity = camera.calculation?.capacity ?? 0;
-  const baseline = camera.inputValue ?? camera.totalObjects;
-  const forecastData = [
-    { time: "5 phút",  vehicles: Math.round(camera.forecasts["5m"]),  vcPct: capacity > 0 ? Math.round(camera.forecasts["5m"]  / capacity * 100) : 0, pctChange: baseline > 0 ? Math.round((camera.forecasts["5m"]  - baseline) / baseline * 100) : null },
-    { time: "10 phút", vehicles: Math.round(camera.forecasts["10m"]), vcPct: capacity > 0 ? Math.round(camera.forecasts["10m"] / capacity * 100) : 0, pctChange: baseline > 0 ? Math.round((camera.forecasts["10m"] - baseline) / baseline * 100) : null },
-    { time: "15 phút", vehicles: Math.round(camera.forecasts["15m"]), vcPct: capacity > 0 ? Math.round(camera.forecasts["15m"] / capacity * 100) : 0, pctChange: baseline > 0 ? Math.round((camera.forecasts["15m"] - baseline) / baseline * 100) : null },
-    { time: "30 phút", vehicles: Math.round(camera.forecasts["30m"]), vcPct: capacity > 0 ? Math.round(camera.forecasts["30m"] / capacity * 100) : 0, pctChange: baseline > 0 ? Math.round((camera.forecasts["30m"] - baseline) / baseline * 100) : null },
-    { time: "60 phút", vehicles: Math.round(camera.forecasts["60m"]), vcPct: capacity > 0 ? Math.round(camera.forecasts["60m"] / capacity * 100) : 0, pctChange: baseline > 0 ? Math.round((camera.forecasts["60m"] - baseline) / baseline * 100) : null },
-  ];
-
-
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="w-full" size="sm">
-          <IconInfoCircle className="w-4 h-4 mr-2" />
-          Xem thông tin chi tiết
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto scrollbar">
-        <DialogHeader>
-          <DialogTitle>{camera.name}</DialogTitle>
-          <DialogDescription>
-            Camera ID: {camera.shortId} • Thông tin chi tiết và dự đoán lưu lượng giao thông
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-1 flex-col gap-4 py-4 text-sm">
-          {/* Camera Image */}
-          {camera.imageUrl && (
-            <div className="rounded-lg border overflow-hidden">
-              <img
-                src={camera.imageUrl}
-                alt={`Camera ${camera.shortId}`}
-                className="w-full object-cover"
-                onError={(e) => {
-                  e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='200'%3E%3Crect width='400' height='200' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239ca3af' font-family='sans-serif'%3EImage Not Available%3C/text%3E%3C/svg%3E";
-                }}
-              />
-            </div>
-          )}
-
-          <Separator />
-
-          {/* Current Status */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs text-muted-foreground">Tổng phương tiện hiện tại</Label>
-              <div className="text-xl font-bold tabular-nums">{camera.totalObjects}</div>
-              {camera.inputValue !== undefined && (
-                <div className="flex flex-col gap-1">
-                  <span className="text-xs text-muted-foreground">Trung bình 5p trước:</span>
-                  <span className="text-xl font-bold tabular-nums">{camera.inputValue}</span>
-                </div>
-              )}
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label className="text-xs text-muted-foreground">Trạng thái</Label>
-              <div className="flex flex-col gap-1.5">
-                {getStatusBadge(camera.status.current)}
-                <div className="text-[10px] text-muted-foreground border-t pt-1">Dự báo 5p:</div>
-                {getStatusBadge(camera.status.forecast)}
-                {camera.calculation && (
-                  <div className="text-[10px] text-muted-foreground bg-muted/50 rounded px-2 py-1 mt-1">
-                    <div className="font-mono">
-                      {Math.round(camera.calculation.predicted_volume)} / {Math.round(camera.calculation.capacity)} xe
-                      <span className="ml-1">({Math.round(camera.calculation.vc_ratio * 100)}%)</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs text-muted-foreground">Ô tô</Label>
-              <div className="flex items-center gap-1.5 text-xl font-semibold tabular-nums">
-                <IconCar className="size-5 text-blue-500 shrink-0" />
-                {camera.carCount}
-              </div>
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs text-muted-foreground">Xe máy</Label>
-              <div className="flex items-center gap-1.5 text-xl font-semibold tabular-nums">
-                <IconMotorbike className="size-5 text-orange-500 shrink-0" />
-                {camera.motorbikeCount}
-              </div>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Forecast Chart */}
-          {!isMobile && forecastData.some(d => d.vehicles > 0) && (
-            <>
-              <div className="flex flex-col gap-2">
-                <Label className="text-sm font-medium">Dự báo lưu lượng giao thông</Label>
-                <ChartContainer config={forecastChartConfig} className="h-[260px]">
-                  <AreaChart
-                    accessibilityLayer
-                    data={forecastData}
-                    margin={{ left: -30, right: -20, top: 28, bottom: 0 }}
-                  >
-                    <CartesianGrid vertical={false} />
-                    <XAxis
-                      dataKey="time"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                    />
-                    <YAxis
-                      yAxisId="left"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                      tick={{ fontSize: 10 }}
-                    />
-                    <YAxis
-                      yAxisId="right"
-                      orientation="right"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                      tick={{ fontSize: 10 }}
-                      tickFormatter={(v) => `${v}%`}
-                      domain={[0, 100]}
-                    />
-                    <ChartTooltip
-                      cursor={false}
-                      content={({ active, payload, label }) => {
-                        if (!active || !payload?.length) return null;
-                        const visibleRows = payload.filter((p) => p.value !== null && p.value !== undefined && p.value !== 0 || p.dataKey === "vehicles");
-                        const labelMap: Record<string, string> = { vehicles: "Phương tiện", vcPct: "Mức tải" };
-                        return (
-                          <div className="rounded-lg border bg-background px-3 py-2 shadow-md text-sm min-w-[140px]">
-                            <p className="font-medium mb-1.5">{label}</p>
-                            {visibleRows.map((p) => (
-                              <div key={String(p.dataKey)} className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="size-2 rounded-full shrink-0" style={{ background: p.color }} />
-                                  <span className="text-muted-foreground">{labelMap[String(p.dataKey)] ?? String(p.dataKey)}</span>
-                                </div>
-                                <span className="font-semibold tabular-nums">
-                                  {p.dataKey === "vcPct" ? `${p.value}%` : p.value}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      }}
-                    />
-                    <Area
-                      yAxisId="left"
-                      dataKey="vehicles"
-                      type="monotone"
-                      fill="var(--color-vehicles)"
-                      fillOpacity={0.4}
-                      stroke="var(--color-vehicles)"
-                    >
-                      <LabelList dataKey="pctChange" content={PctForecastLabel} />
-                    </Area>
-                    {capacity > 0 && (
-                      <Area
-                        yAxisId="right"
-                        dataKey="vcPct"
-                        type="monotone"
-                        fill="var(--color-vcPct)"
-                        fillOpacity={0.15}
-                        stroke="var(--color-vcPct)"
-                        strokeDasharray="4 2"
-                      />
-                    )}
-                  </AreaChart>
-                </ChartContainer>
-              </div>
-              <Separator />
-            </>
-          )}
-
-          {/* Forecast Values */}
-          <div className="flex flex-col gap-2">
-            <Label className="text-sm font-medium">Dự đoán số lượng phương tiện</Label>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="flex flex-col gap-1 rounded-md border p-2">
-                <span className="text-xs text-muted-foreground">5 phút</span>
-                <span className="text-lg font-semibold tabular-nums">{Math.round(camera.forecasts["5m"])}</span>
-                {capacity > 0 && <span className="text-xs text-muted-foreground">{Math.round(camera.forecasts["5m"] / capacity * 100)}% mức tải</span>}
-              </div>
-              <div className="flex flex-col gap-1 rounded-md border p-2">
-                <span className="text-xs text-muted-foreground">15 phút</span>
-                <span className="text-lg font-semibold tabular-nums">{Math.round(camera.forecasts["15m"])}</span>
-                {capacity > 0 && <span className="text-xs text-muted-foreground">{Math.round(camera.forecasts["15m"] / capacity * 100)}% mức tải</span>}
-              </div>
-              <div className="flex flex-col gap-1 rounded-md border p-2">
-                <span className="text-xs text-muted-foreground">60 phút</span>
-                <span className="text-lg font-semibold tabular-nums">{Math.round(camera.forecasts["60m"])}</span>
-                {capacity > 0 && <span className="text-xs text-muted-foreground">{Math.round(camera.forecasts["60m"] / capacity * 100)}% mức tải</span>}
-              </div>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Additional Info */}
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs text-muted-foreground">Xu hướng</Label>
-                <Badge variant="outline" className="flex gap-1">
-                  {camera.trend.direction === "increasing" ? (
-                    <TrendingUpIcon className="size-3 text-orange-500" />
-                  ) : camera.trend.direction === "decreasing" ? (
-                    <TrendingDownIcon className="size-3 text-green-500" />
-                  ) : null}
-                  {camera.trend.direction === "increasing" ? "Tăng" : camera.trend.direction === "decreasing" ? "Giảm" : "Ổn định"}
-                </Badge>
-              </div>
-              <div className="text-[10px] text-muted-foreground bg-blue-50 dark:bg-blue-950/20 rounded px-2 py-1.5 border border-blue-200 dark:border-blue-800">
-                💡 {camera.trend.direction === "increasing" 
-                  ? `GTI (${camera.trend.gti?.toFixed(1)}%) cao hơn hiện tại (${camera.trend.current_ratio?.toFixed(1)}%) → xu hướng tăng`
-                  : camera.trend.direction === "decreasing"
-                  ? `GTI (${camera.trend.gti?.toFixed(1)}%) thấp hơn hiện tại (${camera.trend.current_ratio?.toFixed(1)}%) → xu hướng giảm`
-                  : `GTI (${camera.trend.gti?.toFixed(1)}%) ổn định so với hiện tại (${camera.trend.current_ratio?.toFixed(1)}%)`}
-              </div>
-            </div>
-            <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground">Cập nhật lần cuối</Label>
-              <span className="text-xs">
-                {camera.lastUpdated
-                  ? new Date(camera.lastUpdated).toLocaleString("vi-VN")
-                  : "N/A"}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground">Dự đoán lần cuối</Label>
-              <span className="text-xs">
-                {camera.lastPredicted
-                  ? new Date(camera.lastPredicted).toLocaleString("vi-VN")
-                  : "N/A"}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground">Mã Camera</Label>
-              <span className="font-mono text-xs">{camera.shortId}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground">Vị trí</Label>
-              <span className="text-xs">{camera.name}</span>
-            </div>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }

@@ -2,179 +2,41 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import {
   IconSearch,
   IconX,
   IconClock,
-  IconCameraPlus,
-  IconBrain,
-  IconFileText,
-  IconChartBar,
-  IconRefresh,
-  IconMapPin,
-  IconAlertTriangle,
-  IconCircleCheck,
-  IconMoonStars,
   IconExternalLink,
 } from "@tabler/icons-react";
 import { PageHeader } from "@/components/page-header";
-import { HighlightText } from "@/components/highlight-text";
-import { getAllCameras, type CameraInfo } from "@/services/camera.service";
-import { getAllModelVersions, type MLModelMetadata } from "@/services/model.service";
+import { getAllCameras } from "@/services/camera.service";
+import { getAllModelVersions } from "@/services/model.service";
 import { useSocket } from "@/contexts/SocketContext";
+import { useLoading } from "@/contexts/LoadingContext";
+import {
+  type ResultType,
+  type SearchResult,
+  LOS_LABELS,
+  MOCK_REPORT_FORECAST,
+  QUICK_ACTIONS,
+  TAB_CONFIG,
+  LS_KEY,
+  MAX_HISTORY,
+  getTypeMeta,
+  buildCameraResults,
+  buildModelResults,
+} from "@/components/search/search-types";
+import { ResultSkeleton } from "@/components/search/result-skeleton";
+import { ResultItem } from "@/components/search/result-item";
+import { DetailSheet } from "@/components/search/detail-sheet";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-type ResultType = "camera" | "model" | "report" | "forecast";
-
-interface SearchResult {
-  id: string;
-  type: ResultType;
-  title: string;
-  subtitle: string;
-  meta: string;
-  badge?: string;
-  badgeVariant?: "default" | "secondary" | "outline" | "destructive";
-  status?: "online" | "offline" | "warning";
-}
-
-// ─── Mock data (chỉ dùng cho report + forecast chưa có API) ──────────────────
-const MOCK_REPORT_FORECAST: SearchResult[] = [
-  { id: "r1", type: "report", title: "Báo cáo lưu lượng tháng 2/2026", subtitle: "Tổng 2.4M lượt • Giờ cao điểm: 17:00–19:00", meta: "Tạo: 01/03/2026", badge: "PDF", badgeVariant: "outline" },
-  { id: "r2", type: "report", title: "Báo cáo mô hình LSTM tháng 2", subtitle: "Accuracy: 94.2% • 28 ngày dữ liệu", meta: "Tạo: 28/02/2026", badge: "PDF", badgeVariant: "outline" },
-  { id: "r3", type: "report", title: "Tổng hợp sự cố tháng 1/2026", subtitle: "12 sự kiện ùn tắc • 3 camera offline", meta: "Tạo: 01/02/2026", badge: "Docs", badgeVariant: "outline" },
-  { id: "f1", type: "forecast", title: "Dự báo 17:00–18:00 hôm nay", subtitle: "Cầu Sài Gòn: 480 xe/giờ • Nguy cơ ùn tắc cao", meta: "Độ tin cậy: 91%", badge: "Nguy cơ cao", badgeVariant: "destructive" },
-  { id: "f2", type: "forecast", title: "Dự báo 08:00–09:00 mai", subtitle: "Ngã tư Bến Thành: 310 xe/giờ • Bình thường", meta: "Độ tin cậy: 87%", badge: "Bình thường", badgeVariant: "default" },
-  { id: "f3", type: "forecast", title: "Dự báo cuối tuần 14–15/03", subtitle: "Toàn mạng lưới: giảm 35% so với ngày thường", meta: "Độ tin cậy: 82%", badge: "Thấp điểm", badgeVariant: "secondary" },
-];
-
-const LOS_LABELS: Record<string, string> = {
-  free_flow: "Thông thoáng",
-  smooth:    "Ổn định",
-  moderate:  "Trung bình",
-  heavy:     "Lưu lượng cao",
-  congested: "Ùn tắc",
-};
-
-const QUICK_ACTIONS = [
-  { label: "Làm mới dữ liệu camera", icon: IconRefresh, desc: "Cập nhật toàn bộ feed camera" },
-  { label: "Xem mô hình đang active", icon: IconBrain,   desc: "Tìm kiếm theo từ khoá 'active'" },
-  { label: "Bản đồ giám sát",         icon: IconMapPin,  desc: "Mở chế độ xem bản đồ" },
-  { label: "Xuất báo cáo hôm nay",    icon: IconFileText, desc: "Tải báo cáo mới nhất" },
-];
-
-const TAB_CONFIG: { value: string; label: string; type?: ResultType; icon: React.ElementType }[] = [
-  { value: "all",      label: "Tất cả",  icon: IconSearch    },
-  { value: "camera",   label: "Camera",  type: "camera",   icon: IconCameraPlus },
-  { value: "model",    label: "Mô hình", type: "model",    icon: IconBrain      },
-  { value: "report",   label: "Báo cáo", type: "report",   icon: IconFileText   },
-  { value: "forecast", label: "Dự báo",  type: "forecast", icon: IconChartBar   },
-];
-
-const LS_KEY = "search_history";
-const MAX_HISTORY = 8;
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function getTypeMeta(type: ResultType) {
-  switch (type) {
-    case "camera":   return { icon: IconCameraPlus, color: "text-blue-500",   bg: "bg-blue-500/10",   label: "Camera"   };
-    case "model":    return { icon: IconBrain,       color: "text-purple-500", bg: "bg-purple-500/10", label: "Mô hình"  };
-    case "report":   return { icon: IconFileText,    color: "text-orange-500", bg: "bg-orange-500/10", label: "Báo cáo"  };
-    case "forecast": return { icon: IconChartBar,    color: "text-green-500",  bg: "bg-green-500/10",  label: "Dự báo"   };
-  }
-}
-
-function StatusIcon({ status }: { status?: string }) {
-  if (status === "online")  return <IconCircleCheck  className="w-3 h-3 text-green-500 shrink-0" />;
-  if (status === "warning") return <IconAlertTriangle className="w-3 h-3 text-yellow-500 shrink-0" />;
-  if (status === "offline") return <IconMoonStars     className="w-3 h-3 text-muted-foreground shrink-0" />;
-  return null;
-}
-
-/** Chuyển dữ liệu camera tĩnh + realtime thành SearchResult */
-function buildCameraResults(
-  cameras: CameraInfo[],
-  processedMap: Map<string, { totalObjects: number; status: string; lastUpdated: string }>
-): SearchResult[] {
-  return cameras.map(cam => {
-    const realtime = processedMap.get(cam.cam_id);
-    const isOnline = !!realtime;
-    const losStatus = realtime?.status;
-    const isWarning = losStatus === "heavy" || losStatus === "congested";
-
-    const statusKey: SearchResult["status"] = !isOnline
-      ? "offline"
-      : isWarning ? "warning" : "online";
-
-    const badge      = !isOnline ? "Offline" : isWarning ? "Cảnh báo" : "Online";
-    const badgeVariant: SearchResult["badgeVariant"] = !isOnline
-      ? "secondary"
-      : isWarning ? "destructive" : "default";
-
-    const subtitle = isOnline
-      ? `${realtime!.totalObjects} xe/giờ • ${LOS_LABELS[losStatus!] ?? losStatus}`
-      : "Không có dữ liệu real-time";
-
-    const meta = isOnline
-      ? `Cập nhật: ${new Date(realtime!.lastUpdated).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`
-      : "Offline";
-
-    return {
-      id:           cam.cam_id,
-      type:         "camera",
-      title:        cam.display_name,
-      subtitle,
-      meta,
-      badge,
-      badgeVariant,
-      status:       statusKey,
-    };
-  });
-}
-
-/** Chuyển dữ liệu model thành SearchResult */
-function buildModelResults(versions: MLModelMetadata[]): SearchResult[] {
-  return versions.map(v => {
-    const acc  = v.metrics?.r2   != null ? `R²: ${(v.metrics.r2 as number).toFixed(3)}` : null;
-    const mae  = v.metrics?.mae  != null ? `MAE: ${(v.metrics.mae as number).toFixed(2)}` : null;
-    const subtitle = [acc, mae].filter(Boolean).join(" • ") || "Chưa có metrics";
-    const meta = `Loại: ${v.model_type} • ${new Date(v.created_at).toLocaleDateString("vi-VN")}`;
-    return {
-      id:           String(v.id),
-      type:         "model",
-      title:        v.model_version,
-      subtitle,
-      meta,
-      badge:        v.is_active ? "Active" : "Lưu trữ",
-      badgeVariant: v.is_active ? "default" : "outline",
-    };
-  });
-}
-
-// ─── Skeleton ────────────────────────────────────────────────────────────────
-function ResultSkeleton() {
-  return (
-    <div className="space-y-3">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 p-3 border rounded-lg">
-          <Skeleton className="h-9 w-9 rounded-lg shrink-0" />
-          <div className="flex-1 space-y-2">
-            <Skeleton className="h-4 w-2/5" />
-            <Skeleton className="h-3 w-3/5" />
-          </div>
-          <Skeleton className="h-6 w-16 rounded-full shrink-0" />
-        </div>
-      ))}
-    </div>
-  );
-}
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function Search() {
   const { processedCameras } = useSocket();
+  const { startLoading, stopLoading } = useLoading();
 
   const [query,       setQuery]       = useState("");
   const [debouncedQ,  setDebouncedQ]  = useState("");
@@ -187,6 +49,8 @@ export default function Search() {
   const [dataLoaded,    setDataLoaded]    = useState(false);
   const [dataError,     setDataError]     = useState(false);
 
+  const [selected, setSelected] = useState<SearchResult | null>(null);
+
   const [history, setHistory] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); }
     catch { return []; }
@@ -194,9 +58,9 @@ export default function Search() {
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  /** Build processedCameras lookup map */
+  /** Build processedCameras lookup map — key = shortId (cam_id), không phải full NGSI-LD id */
   const processedMap = new Map(
-    processedCameras.map(c => [c.id, {
+    processedCameras.map(c => [c.shortId, {
       totalObjects: c.totalObjects,
       status:       c.status.current,
       lastUpdated:  c.lastUpdated,
@@ -207,6 +71,7 @@ export default function Search() {
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
+      startLoading();
       try {
         const [cameras, allVersions] = await Promise.all([
           getAllCameras(),
@@ -219,12 +84,14 @@ export default function Search() {
         setDataLoaded(true);
       } catch {
         if (!cancelled) setDataError(true);
+      } finally {
+        if (!cancelled) stopLoading();
       }
     };
     load();
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [startLoading, stopLoading]);
 
   /** Cập nhật lại trạng thái camera khi socket có dữ liệu mới */
   useEffect(() => {
@@ -237,9 +104,9 @@ export default function Search() {
         return {
           ...r,
           status:       (isWarning ? "warning" : "online") as SearchResult["status"],
-          badge:        isWarning ? "Cảnh báo" : "Online",
+          badge:        isWarning ? "Cảnh báo" : "Trực tuyến",
           badgeVariant: (isWarning ? "destructive" : "default") as SearchResult["badgeVariant"],
-          subtitle:     `${realtime.totalObjects} xe/giờ • ${LOS_LABELS[realtime.status] ?? realtime.status}`,
+          subtitle:     `${realtime.totalObjects} xe • ${LOS_LABELS[realtime.status] ?? realtime.status}`,
           meta:         `Cập nhật: ${new Date(realtime.lastUpdated).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`,
         };
       })
@@ -294,7 +161,8 @@ export default function Search() {
     const needle = debouncedQ.toLowerCase();
     return list.filter(r =>
       r.title.toLowerCase().includes(needle) ||
-      r.subtitle.toLowerCase().includes(needle)
+      r.subtitle.toLowerCase().includes(needle) ||
+      r.meta.toLowerCase().includes(needle)
     );
   };
 
@@ -503,12 +371,12 @@ export default function Search() {
                               <span className="text-xs text-muted-foreground">({group.length})</span>
                             </div>
                             <div className="space-y-1">
-                              {group.map(r => <ResultItem key={r.id} result={r} query={debouncedQ} />)}
+                              {group.map(r => <ResultItem key={r.id} result={r} query={debouncedQ} onView={r.type === "camera" || r.type === "model" ? () => setSelected(r) : undefined} />)}
                             </div>
                           </div>
                         );
                       })
-                    : filteredResults.map(r => <ResultItem key={r.id} result={r} query={debouncedQ} />)
+                    : filteredResults.map(r => <ResultItem key={r.id} result={r} query={debouncedQ} onView={r.type === "camera" || r.type === "model" ? () => setSelected(r) : undefined} />)
                   }
                 </div>
               )}
@@ -516,43 +384,8 @@ export default function Search() {
           </Card>
         </div>
       )}
-    </div>
-  );
-}
-
-// ─── ResultItem ───────────────────────────────────────────────────────────────
-/** Một dòng kết quả tìm kiếm */
-function ResultItem({ result, query }: { result: SearchResult; query: string }) {
-  const { icon: Icon, color, bg } = getTypeMeta(result.type);
-  return (
-    <div className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-accent cursor-pointer transition-colors group">
-      <div className={`p-2 ${bg} rounded-lg shrink-0`}>
-        <Icon className={`w-4 h-4 ${color}`} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-medium text-sm truncate">
-            <HighlightText text={result.title} query={query} />
-          </span>
-          {result.badge && (
-            <Badge variant={result.badgeVariant ?? "secondary"} className="text-[10px] px-1.5 py-0 h-4 shrink-0">
-              {result.badge}
-            </Badge>
-          )}
-          {result.status && <StatusIcon status={result.status} />}
-        </div>
-        <p className="text-xs text-muted-foreground mt-0.5 truncate">
-          <HighlightText text={result.subtitle} query={query} />
-        </p>
-        <p className="text-[10px] text-muted-foreground/60 mt-0.5">{result.meta}</p>
-      </div>
-      <Button
-        size="sm"
-        variant="ghost"
-        className="opacity-0 group-hover:opacity-100 transition-opacity h-7 px-2 text-xs shrink-0"
-      >
-        Xem
-      </Button>
+      {/* ── Detail Sheet ── */}
+      <DetailSheet result={selected} onClose={() => setSelected(null)} />
     </div>
   );
 }

@@ -20,6 +20,7 @@ from datetime import datetime, timezone, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import aiohttp
+import gc
 import joblib
 import numpy as np
 import pandas as pd
@@ -42,8 +43,95 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# ============================================================
+# MODULE-LEVEL MODEL CACHE — tránh reload từ disk mỗi chu kỳ
+# ============================================================
+_models_cache: dict = {}       # key: horizon ("5m".."60m") → sklearn model
+_encoder_cache = None           # LabelEncoder
+_cache_lock = threading.RLock()  # thread-safe giữa scheduler và reload endpoint
 
-def ensure_models_ready():
+# Map model_type (DB) → horizon key
+_MODEL_TYPE_TO_HORIZON = {
+    "random_forest_5m":  "5m",
+    "random_forest_10m": "10m",
+    "random_forest_15m": "15m",
+    "random_forest_30m": "30m",
+    "random_forest_60m": "60m",
+}
+
+# Map horizon → local filename
+_HORIZON_TO_FILE = {
+    "5m":  "models/camera_rf_model_5m.joblib",
+    "10m": "models/camera_rf_model_10m.joblib",
+    "15m": "models/camera_rf_model_15m.joblib",
+    "30m": "models/camera_rf_model_30m.joblib",
+    "60m": "models/camera_rf_model_60m.joblib",
+    "encoder": "models/camera_label_encoder.joblib",
+}
+
+
+def load_models_into_cache() -> bool:
+    """
+    Nạp toàn bộ 5 RF models + encoder vào module-level cache.
+    Gọi 1 lần khi container start — sau đó dùng cache thay vì đọc disk mỗi 5 phút.
+    Returns:
+        bool: True nếu load thành công tất cả models
+    """
+    global _models_cache, _encoder_cache
+    try:
+        new_models = {
+            horizon: joblib.load(path)
+            for horizon, path in _HORIZON_TO_FILE.items()
+            if horizon != "encoder"
+        }
+        new_encoder = joblib.load(_HORIZON_TO_FILE["encoder"])
+
+        with _cache_lock:
+            old_models = _models_cache
+            _models_cache = new_models
+            _encoder_cache = new_encoder
+
+        # Giải phóng objects cũ ngay lập tức
+        del old_models
+        gc.collect()
+
+        logger.info("✅ Model cache loaded: 5 RF models + encoder")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Lỗi load models vào cache: {e}")
+        return False
+
+
+def refresh_cache_for_model_type(model_type: str) -> bool:
+    """
+    Reload 1 model cụ thể vào cache sau khi /reload endpoint cập nhật file trên disk.
+    Args:
+        model_type: DB model_type, vd 'random_forest_5m'
+    Returns:
+        bool: True nếu cập nhật cache thành công
+    """
+    global _models_cache
+    horizon = _MODEL_TYPE_TO_HORIZON.get(model_type)
+    if horizon is None:
+        logger.error(f"[CacheRefresh] Không tìm thấy horizon cho model_type='{model_type}'")
+        return False
+
+    file_path = _HORIZON_TO_FILE[horizon]
+    try:
+        new_model = joblib.load(file_path)
+        with _cache_lock:
+            old_model = _models_cache.get(horizon)
+            _models_cache[horizon] = new_model
+
+        del old_model
+        gc.collect()
+
+        file_size_kb = os.path.getsize(file_path) / 1024
+        logger.info(f"✅ [CacheRefresh] Cache updated: {horizon} ({file_size_kb:.1f} KB)")
+        return True
+    except Exception as e:
+        logger.error(f"❌ [CacheRefresh] Lỗi refresh cache cho {horizon}: {e}")
+        return False
     """
     Kiểm tra và download models từ MinIO nếu chưa có local.
     - RF models (5m-60m): tải đúng phiên bản is_active=TRUE từ DB
@@ -254,20 +342,20 @@ def predict_realtime(current_data_from_db):
     Returns:
         DataFrame chứa kết quả dự đoán hoặc empty DataFrame nếu lỗi
     """
-    try:
-        # Load 5 models riêng biệt (models đã được download sẵn khi container start)
-        models = {
-            "5m": joblib.load("models/camera_rf_model_5m.joblib"),
-            "10m": joblib.load("models/camera_rf_model_10m.joblib"),
-            "15m": joblib.load("models/camera_rf_model_15m.joblib"),
-            "30m": joblib.load("models/camera_rf_model_30m.joblib"),
-            "60m": joblib.load("models/camera_rf_model_60m.joblib"),
-        }
-        le = joblib.load("models/camera_label_encoder.joblib")
-        logger.info("✅ Đã load 5 models riêng biệt cho từng horizon")
-    except Exception as e:
-        logger.error(f"❌ Lỗi load models: {e}")
-        return pd.DataFrame()
+    # Sử dụng module-level cache — tránh reload từ disk mỗi chu kỳ
+    with _cache_lock:
+        models = dict(_models_cache)     # shallow copy để tránh race condition
+        le = _encoder_cache
+
+    if not models or le is None:
+        logger.error("❌ Model cache chưa sẵn sàng. Thử load lại...")
+        if not load_models_into_cache():
+            return pd.DataFrame()
+        with _cache_lock:
+            models = dict(_models_cache)
+            le = _encoder_cache
+
+    logger.info("✅ Sử dụng 5 models từ cache (không reload disk)")
 
     # Features configuration cho từng horizon (khớp với train.py)
     horizon_features = {
@@ -455,7 +543,10 @@ class ReloadHandler(BaseHTTPRequestHandler):
         # Chạy reload trong background thread để không block response
         def _run():
             from reload_model import reload_active_model
-            reload_active_model(model_type)
+            success = reload_active_model(model_type)
+            if success:
+                # Cập nhật in-memory cache ngay sau khi file disk đã được update
+                refresh_cache_for_model_type(model_type)
 
         threading.Thread(target=_run, daemon=True).start()
         self._send(202, {"status": "accepted", "model_type": model_type})
@@ -531,7 +622,13 @@ if __name__ == "__main__":
         reload_port = int(os.getenv("RELOAD_SERVER_PORT", 8080))
         threading.Thread(target=start_reload_server, args=(reload_port,), daemon=True).start()
 
-        # 3. Chạy scheduler loop
+        # 3. Nạp models vào cache trước khi chạy scheduler
+        logger.info("🧠 Loading models into memory cache...")
+        if not load_models_into_cache():
+            logger.error("❌ Không thể nạp models vào cache. Exiting...")
+            sys.exit(1)
+
+        # 4. Chạy scheduler loop
         run_scheduler()
     except Exception as e:
         logger.error(f"Lỗi thực thi scheduler: {e}.")

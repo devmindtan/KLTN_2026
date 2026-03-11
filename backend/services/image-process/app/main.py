@@ -1,5 +1,6 @@
 from shared.los_utils import calculate_los_status, DEFAULT_CAPACITY, get_camera_max_realtime_capacity
 import asyncio
+import gc
 import io
 import logging
 import os
@@ -133,11 +134,12 @@ def refresh_capacity_map_if_needed():
         last_capacity_refresh = now
 
 
-async def update_fiware(camera_id, detections, total_objects, minio_key):
+async def update_fiware(session, camera_id, detections, total_objects, minio_key):
     """
     Cập nhật dữ liệu realtime sang FIWARE Orion Context Broker
     Tính status_current dựa trên LOS calculation với thông tin chi tiết
     Args:
+        session: aiohttp ClientSession dùng chung (tái sử dụng, không tạo mới)
         camera_id: ID của camera
         detections: Dict chứa kết quả phát hiện (e.g., {"car": 30, "motorcycle": 15})
         total_objects: Tổng số phương tiện phát hiện được
@@ -181,18 +183,15 @@ async def update_fiware(camera_id, detections, total_objects, minio_key):
     }
 
     try:
-        async with aiohttp.ClientSession() as session:
-            # Sử dụng UPSERT (POST với options=upsert)
-            # để tạo mới nếu chưa có hoặc cập nhật nếu đã tồn tại
-            url = f"{FIWARE_ORION_URL}?options=upsert"
-            async with session.post(
-                url, json=payload, headers=headers, timeout=5
-            ) as resp:
-                if resp.status in [201, 204]:
-                    logger.info(f"[{camera_id}] FIWARE Update OK")
-                    pass
-                else:
-                    logger.error(f"FIWARE Error: {resp.status}")
+        # Sử dụng session truyền vào — không tạo session mới mỗi camera
+        url = f"{FIWARE_ORION_URL}?options=upsert"
+        async with session.post(
+            url, json=payload, headers=headers, timeout=5
+        ) as resp:
+            if resp.status in [201, 204]:
+                logger.info(f"[{camera_id}] FIWARE Update OK")
+            else:
+                logger.error(f"FIWARE Error: {resp.status}")
     except Exception as e:
         logger.error(f"Lỗi kết nối FIWARE: {e}")
 
@@ -247,32 +246,19 @@ def process_and_upload(camera_id, image_bytes):
         if frame is not None:
             # Chạy AI
             results = model(frame, verbose=False)
+            del frame, nparr  # Giải phóng bộ nhớ ảnh gốc
 
-            # --- LẤY DỮ LIỆU ---
-            data_summary = []
+            # --- LẤY DỮ LIỆU --- (bỏ data_summary — không dùng)
             detection_counts = {}
 
             for box in results[0].boxes:
                 class_id = int(box.cls[0])
                 label = model.names[class_id]
-                confidence = float(box.conf[0])
-
-                # Lưu vào danh sách chi tiết
-                data_summary.append(
-                    {
-                        "label": label,
-                        "confidence": confidence,
-                        "box": box.xyxy[0].tolist(),  # [x1, y1, x2, y2]
-                    }
-                )
-
                 # Đếm số lượng từng loại
                 detection_counts[label] = detection_counts.get(label, 0) + 1
 
-            # In ra để kiểm tra
-            total_objects = 0
-            for i in detection_counts.values():
-                total_objects += i
+            # Tổng số phương tiện
+            total_objects = sum(detection_counts.values())
 
             logger.info(f"[{camera_id}] Phát hiện: {detection_counts}")
 
@@ -280,9 +266,15 @@ def process_and_upload(camera_id, image_bytes):
             annotated_frame = results[0].plot(
                 line_width=1, font_size=0.5, labels=False)
 
+            # Giải phóng YOLO results ngay sau khi đã lấy xong dữ liệu
+            del results
+            gc.collect()
+
             # Encode lại thành JPEG
             _, buffer = cv2.imencode(".jpg", annotated_frame)
+            del annotated_frame  # Giải phóng annotated frame
             io_buf = io.BytesIO(buffer)
+            del buffer
 
             # Upload lên MinIO
             timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
@@ -340,6 +332,7 @@ async def fetch_camera(session, camera_id):
                 logger.info(result)
                 if result:
                     await update_fiware(
+                        session=session,
                         camera_id=camera_id,
                         detections=result["detections"],
                         total_objects=result["total_objects"],

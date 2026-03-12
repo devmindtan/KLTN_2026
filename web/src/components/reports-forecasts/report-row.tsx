@@ -19,7 +19,7 @@ import {
   IconLoader2,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
-import { HighlightText } from "@/components/highlight-text";
+import { HighlightText } from "@/components/custom/highlight-text";
 import type { ReportData } from "./reports-types";
 import { REPORT_TYPE_LABEL } from "./reports-types";
 

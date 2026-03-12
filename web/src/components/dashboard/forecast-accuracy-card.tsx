@@ -11,7 +11,7 @@ import {
   CardFooter,
   CardHeader,
 } from "@/components/ui/card"
-import { CardSectionHeader } from "@/components/card-section-header"
+import { CardSectionHeader } from "@/components/custom/card-section-header"
 import {
   getLatestModelMetrics,
   type HorizonMetric,
@@ -72,7 +72,7 @@ export const ForecastAccuracyCard = React.memo(function ForecastAccuracyCard() {
 
   return (
     <Card className="h-full flex flex-col">
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-6">
         <CardSectionHeader
           icon={IconShieldCheck}
           title="Độ tin cậy dự đoán"
@@ -80,7 +80,7 @@ export const ForecastAccuracyCard = React.memo(function ForecastAccuracyCard() {
         />
       </CardHeader>
 
-      <CardContent className="flex-1 pb-2">
+      <CardContent className="flex-1 pb-0">
         {isLoading ? (
           <div className="flex flex-col gap-2">
             {[1, 2, 3, 4, 5].map((i) => (

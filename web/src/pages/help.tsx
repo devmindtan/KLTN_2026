@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { IconBook, IconMessageCircle, IconMail, IconPhone } from "@tabler/icons-react";
-import { PageHeader } from "@/components/page-header";
+import { PageHeader } from "@/components/custom/page-header";
 
 export default function Help() {
   const helpCategories = [

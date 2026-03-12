@@ -121,10 +121,12 @@ export interface ForecastSummary {
 
 /** Dữ liệu cho timeline chart: tổng hợp per-hour toàn mạng */
 export interface TimelinePoint {
-  hour: string;         // "06:00"
+  hour: string;               // "06:00"
   predicted: number;
   actual: number | null;
   isFuture: boolean;
+  /** Tỉ lệ V/C dự báo (0–100). null = không có dữ liệu capacity */
+  vcPct?: number | null;
 }
 
 export const LOS_LABEL: Record<string, string> = {
@@ -200,24 +202,24 @@ export const MOCK_FORECAST_SUMMARY: ForecastSummary = {
 };
 
 export const MOCK_TIMELINE: TimelinePoint[] = [
-  { hour: "06:00", predicted: 320,  actual: 305,  isFuture: false },
-  { hour: "07:00", predicted: 510,  actual: 523,  isFuture: false },
-  { hour: "08:00", predicted: 640,  actual: 618,  isFuture: false },
-  { hour: "09:00", predicted: 580,  actual: 595,  isFuture: false },
-  { hour: "10:00", predicted: 490,  actual: 480,  isFuture: false },
-  { hour: "11:00", predicted: 450,  actual: 460,  isFuture: false },
-  { hour: "12:00", predicted: 530,  actual: 510,  isFuture: false },
-  { hour: "13:00", predicted: 480,  actual: 492,  isFuture: false },
-  { hour: "14:00", predicted: 460,  actual: 448,  isFuture: false },
-  { hour: "15:00", predicted: 520,  actual: 535,  isFuture: false },
-  { hour: "16:00", predicted: 720,  actual: 745,  isFuture: false },
-  { hour: "17:00", predicted: 890,  actual: null, isFuture: true },
-  { hour: "18:00", predicted: 760,  actual: null, isFuture: true },
-  { hour: "19:00", predicted: 580,  actual: null, isFuture: true },
-  { hour: "20:00", predicted: 420,  actual: null, isFuture: true },
-  { hour: "21:00", predicted: 310,  actual: null, isFuture: true },
-  { hour: "22:00", predicted: 210,  actual: null, isFuture: true },
-  { hour: "23:00", predicted: 140,  actual: null, isFuture: true },
+  { hour: "06:00", predicted: 320,  actual: 305,  isFuture: false, vcPct: 41  },
+  { hour: "07:00", predicted: 510,  actual: 523,  isFuture: false, vcPct: 66  },
+  { hour: "08:00", predicted: 640,  actual: 618,  isFuture: false, vcPct: 80  },
+  { hour: "09:00", predicted: 580,  actual: 595,  isFuture: false, vcPct: 75  },
+  { hour: "10:00", predicted: 490,  actual: 480,  isFuture: false, vcPct: 62  },
+  { hour: "11:00", predicted: 450,  actual: 460,  isFuture: false, vcPct: 58  },
+  { hour: "12:00", predicted: 530,  actual: 510,  isFuture: false, vcPct: 66  },
+  { hour: "13:00", predicted: 480,  actual: 492,  isFuture: false, vcPct: 62  },
+  { hour: "14:00", predicted: 460,  actual: 448,  isFuture: false, vcPct: 57  },
+  { hour: "15:00", predicted: 520,  actual: 535,  isFuture: false, vcPct: 67  },
+  { hour: "16:00", predicted: 720,  actual: 745,  isFuture: false, vcPct: 93  },
+  { hour: "17:00", predicted: 890,  actual: null, isFuture: true,  vcPct: 100 },
+  { hour: "18:00", predicted: 760,  actual: null, isFuture: true,  vcPct: 97  },
+  { hour: "19:00", predicted: 580,  actual: null, isFuture: true,  vcPct: 73  },
+  { hour: "20:00", predicted: 420,  actual: null, isFuture: true,  vcPct: 54  },
+  { hour: "21:00", predicted: 310,  actual: null, isFuture: true,  vcPct: 39  },
+  { hour: "22:00", predicted: 210,  actual: null, isFuture: true,  vcPct: 27  },
+  { hour: "23:00", predicted: 140,  actual: null, isFuture: true,  vcPct: 18  },
 ];
 
 // ─────────────────────────── HISTORY ───────────────────────────

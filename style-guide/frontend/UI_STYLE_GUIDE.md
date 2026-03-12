@@ -226,47 +226,36 @@ Khi hiển thị delta % so với baseline (giá trị thay đổi):
 
 ---
 
-## 13. Card/Chart/Table Title Pattern
+## 13. Card/Chart/Table Title Pattern (CardSectionHeader)
 
-**Quy tắc bắt buộc**: Mọi card có biểu đồ (chart) hoặc bảng liệt kê (table) PHẢI dùng title chuẩn `text-sm font-medium text-muted-foreground`. Nội dung bên trong (label, value, badge) phải bằng hoặc nhỏ hơn — KHÔNG được dùng font size lớn hơn `text-sm` cho nội dung mô tả, chỉ trừ giá trị số liệu chính (`text-2xl font-bold tabular-nums`).
+**Quy tắc bắt buộc**: Mọi card có biểu đồ (chart) hoặc bảng liệt kê (table) PHẢI dùng `<CardSectionHeader>` từ `@/components/card-section-header`. KHÔNG dùng `CardTitle`/`CardDescription` trực tiếp cho heading của chart/table.
 
-### 2 dạng layout:
+### Component API:
 
-**Dạng 1 — Card với icon container (dùng cho table/list có header riêng):**
 ```tsx
-<div className="flex items-center gap-2.5">
-  <div className="size-8 rounded-lg bg-blue-100 dark:bg-blue-950/40 flex items-center justify-center shrink-0">
-    <SomeIcon className="size-4 text-blue-600 dark:text-blue-400" />
-  </div>
-  <div>
-    <h2 className="text-sm font-medium text-muted-foreground leading-tight">Tiêu đề</h2>
-    <p className="text-[11px] text-muted-foreground">Mô tả ngắn</p>
-  </div>
-</div>
+import { CardSectionHeader } from "@/components/card-section-header"
+
+<CardSectionHeader
+  icon={SomeIcon}           // bắt buộc — lucide-react / @tabler/icons-react
+  title="Tiêu đề"           // bắt buộc — luôn text-sm font-medium
+  iconColor="text-blue-600 dark:text-blue-400"         // tùy chỉnh màu icon
+  iconBg="bg-blue-100 dark:bg-blue-950/40"             // tùy chỉnh nền ô icon
+  description="Mô tả phụ"                              // text-[11px] dưới title
+  action={<button>Xem →</button>}  // ngang hàng với title (inline)
+  badge={<Badge>12 camera</Badge>} // sau khối text
+  menu={<DropdownMenu>...</DropdownMenu>}               // flush-right (ml-auto)
+  className="w-full"        // thêm khi cần full-width
+/>
 ```
 
-**Dạng 2 — CardTitle với icon inline (dùng cho chart card):**
-```tsx
-<div className="flex items-center gap-1.5 pt-1 pb-2">
-  <SomeIcon className="size-4 text-blue-500 shrink-0" />
-  <CardTitle className="text-sm font-medium text-muted-foreground">Tiêu đề</CardTitle>
-</div>
-<CardDescription className="text-[11px] text-muted-foreground">Mô tả ngắn</CardDescription>
-```
-
-### Quy tắc font size:
+### Quy tắc font size trong chart/table:
 
 | Vị trí | Class | Ghi chú |
 |---|---|---|
-| Title (bắt buộc) | `text-sm font-medium text-muted-foreground` | Không đổi |
-| Description/label | `text-[11px] text-muted-foreground` | Nhỏ hơn title |
+| Title | `text-sm font-medium` | Bắt buộc, không thay đổi |
+| Description / label | `text-[11px] text-muted-foreground` | Nhỏ hơn title |
 | Column header table | `text-xs` | Nhỏ hơn title |
-| Cell text | `text-sm` | Bằng title — tối đa |
-| Giá trị số liệu chính | `text-2xl font-bold tabular-nums` | Ngoại lệ cho data value |
-| Icon đi kèm title | `size-4 text-blue-500 shrink-0` | Màu blue chuẩn |
+| Cell text | `text-xs` đến `text-sm` | Tối đa `text-sm` |
+| Giá trị số liệu chính | `text-2xl font-bold tabular-nums` | Ngoại lệ duy nhất |
 
-> Mẫu chuẩn: `data-table.tsx` (Dạng 1), `chart-area-interactive.tsx` + `forecast-accuracy-card.tsx` + `traffic-density-chart.tsx` (Dạng 2)
-
----
-
-> Xem implementation mẫu: `web/src/components/reports-forecasts/` và `web/src/pages/reports-forecasts.tsx`
+> Mẫu chuẩn: `data-table.tsx` (với `menu`) · `chart-area-interactive.tsx` (với `action`) · `forecast-accuracy-card.tsx` · `traffic-density-chart.tsx`

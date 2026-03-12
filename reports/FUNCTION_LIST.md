@@ -202,6 +202,10 @@ Template:
 | TSX-S03 | **StatusIcon** - Icon trạng thái online/warning/offline | **Input:** `{status?: string}`<br>**Output:** JSX icon hoặc null | ✅ | [NEW 18/05/25] | 3 cases: online=green check, warning=yellow alert, offline=moon | `web/src/components/search/result-item.tsx::StatusIcon()` |
 | TSX-S04 | **ResultSkeleton** - Skeleton loading 4 dòng | **Input:** None<br>**Output:** 4 skeleton rows | ✅ | [NEW 18/05/25] | Fixed 4 rows layout khớp ResultItem | `web/src/components/search/result-skeleton.tsx::ResultSkeleton()` |
 | TS-S05 | **search-types.ts** - Types + constants + helpers cho Search | **Input:** CameraInfo[], MLModelMetadata[]<br>**Output:** SearchResult[], constants | ✅ | [NEW 18/05/25] | Exports: ResultType, SearchResult interface, LOS_LABELS, MOCK_REPORT_FORECAST, QUICK_ACTIONS, TAB_CONFIG, LS_KEY, MAX_HISTORY, getTypeMeta(), buildCameraResults(), buildModelResults() | `web/src/components/search/search-types.ts` |
+| TSX-CU01 | **SearchInput** - Input tìm kiếm có nút xóa | **Input:** `{value, onChange, placeholder?, className?, disabled?}`<br>**Output:** Input với SearchIcon prefix + X clear button | ✅ | [NEW 22/05/25] | Hiển thị X button khi `value` không rỗng, onClick clear → `onChange("")`. Native input (không phải shadcn). | `web/src/components/custom/search-input.tsx::SearchInput()` |
+| TSX-CU02 | **CustomSelect** - Select đơn từ options array | **Input:** `{value, onChange, options: SelectOption[], placeholder?, icon?, className?, disabled?}`<br>**Output:** shadcn Select | ✅ | [NEW 22/05/25] | Wrapper shadcn Select nhận `options[]` thay vì manual `SelectItem` children. Hỗ trợ icon per-option hoặc trigger-only icon. | `web/src/components/custom/custom-select.tsx::CustomSelect()` |
+| TSX-CU03 | **SelectWithSearch** - Select có thanh tìm kiếm nội bộ | **Input:** `{options, value, onChange, size?, contentWidth?, searchPlaceholder?, defaultOption?, triggerClassName?}`<br>**Output:** shadcn Select với sticky search bar | ✅ | [NEW 22/05/25] `size` (sm/default/lg → SIZE_CLASSES), `contentWidth` inline style, `SearchableOption.searchValue` alias tìm kiếm ẩn. Auto-reset query `onOpenChange`. | `web/src/components/custom/select-with-search.tsx::SelectWithSearch()` |
+| TSX-RF01 | **ForecastTimelineChartZone** - Chart-only dự báo 24h (không Card) | **Input:** `{data: TimelinePoint[], nowHour?, height?, showVcPct?, className?}`<br>**Output:** Recharts ComposedChart 3 series | ✅ | [NEW 22/05/25] Area predicted (dashed) + Area actual (solid) + Line vcPct (trục Y phải). ReferenceArea vùng tương lai, ReferenceLine "Hiện tại" + ngưỡng 100%. Gradient IDs `ftcz-*` tránh collision. | `web/src/components/reports-forecasts/forecast-timeline-chart-zone.tsx::ForecastTimelineChartZone()` |
 
 ---
 
@@ -233,11 +237,11 @@ Template:
 - **Python Backup**: 7 functions (Disaster Recovery)
 - **Python App Route**: 3 functions
 - **Frontend Services**: 7 API services + 3 Contexts (Socket, Theme, Auth)
-- **UI Components**: 26 components (Navigation, Dashboard, Charts, Table + Auth + Data Library + CameraWall + TrafficDensityChart + ForecastAccuracyCard + monitoring/camera-detail-dialog + monitoring/camera-utils + search/* 4 files)
+- **UI Components**: 30 components (Navigation, Dashboard, Charts, Table + Auth + Data Library + CameraWall + TrafficDensityChart + ForecastAccuracyCard + monitoring/camera-detail-dialog + monitoring/camera-utils + search/* 4 files + custom/* SearchInput/CustomSelect/SelectWithSearch + reports-forecasts/ForecastTimelineChartZone)
 - **Backend Controllers**: TS-TP01, TS-TP02, TS-TP03 (traffic pattern MatViews + Node.js refresh)
 - **Frontend Services**: TS-TPS01 (traffic-pattern.service.ts)
 - **Pages**: 8 pages (Dashboard, Monitoring, Analytics, Settings, Models, Login, DataLibrary, Search)
-- **Tổng cộng**: **96 functions** được document
+- **Tổng cộng**: **100 functions** được document
 
 ### 🎯 Luồng dữ liệu chính
 ```

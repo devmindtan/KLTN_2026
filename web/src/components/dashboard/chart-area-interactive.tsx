@@ -5,7 +5,7 @@ import { useNavigate, useParams } from "react-router-dom"
 import logger from "@/lib/logger"
 import { IconChartAreaLine } from "@tabler/icons-react"
 import { Area, AreaChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts"
-import { CardSectionHeader } from "@/components/card-section-header"
+import { CardSectionHeader } from "@/components/custom/card-section-header"
 import { type TrendInfo } from "@/contexts/SocketContext"
 
 // import { useIsMobile } from "@/hooks/use-mobile"
@@ -19,13 +19,7 @@ import {
   ChartContainer,
   ChartTooltip,
 } from "@/components/ui/chart"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { SelectWithSearch } from "@/components/custom/select-with-search"
 // import {
 //   ToggleGroup,
 //   ToggleGroupItem,
@@ -58,7 +52,7 @@ interface ChartAreaInteractiveProps {
 
 const chartConfig = {
   vehicles: {
-    label: "Phương tiện",
+    label: "Dự báo",
     color: "var(--primary)",
   },
   vcPct: {
@@ -88,19 +82,16 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
   const navigate = useNavigate()
   const { prefix } = useParams<{ prefix: string }>()
   const [selectedCamera, setSelectedCamera] = React.useState<string>("all")
-  const [searchQuery, setSearchQuery] = React.useState<string>("")
 
-  // Filter cameras based on search query
-  const filteredCameras = React.useMemo(() => {
-    if (!searchQuery.trim()) return cameras;
-    
-    const query = searchQuery.toLowerCase();
-    return cameras.filter(cam => 
-      cam.name.toLowerCase().includes(query) ||
-      cam.shortId.toLowerCase().includes(query) ||
-      cam.id.toLowerCase().includes(query)
-    );
-  }, [cameras, searchQuery]);
+  // Camera options cho SelectWithSearch – searchValue chứa shortId + id để tìm bằng mã ngắn
+  const cameraOptions = React.useMemo(
+    () => cameras.map((cam) => ({
+      value:       cam.id,
+      label:       cam.name,
+      searchValue: `${cam.shortId} ${cam.id}`,
+    })),
+    [cameras]
+  )
 
   // Transform forecast data to chart format
   const chartData = React.useMemo(() => {
@@ -170,11 +161,13 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
   return (
     <Card className="@container/card">
       <CardHeader>
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-0">
-          <div className="min-w-0">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div className="min-w-0 flex-1">
             <CardSectionHeader
               icon={IconChartAreaLine}
               title="Dự báo lưu lượng giao thông"
+              iconBg="bg-blue-500/10"
+              iconColor="text-blue-600"
               description="Dự đoán số lượng phương tiện các mốc 5/10/15/30/60 phút"
               action={
                 <button
@@ -187,43 +180,18 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
             />
           </div>
           <div className="shrink-0">
-          <Select value={selectedCamera} onValueChange={setSelectedCamera}>
-            <SelectTrigger
-              className="w-full sm:w-65"
-              aria-label="Select camera"
-            >
-              <SelectValue placeholder="All Cameras" />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl max-h-[400px]">
-              <div className="sticky top-0 z-10 bg-background p-2 border-b">
-                <input
-                  type="text"
-                  placeholder="Tìm kiếm camera..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                  onClick={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => e.stopPropagation()}
-                />
-              </div>
-              <div className="overflow-y-auto scrollbar max-h-[300px]">
-                <SelectItem value="all" className="rounded-lg">
-                  Tất cả camera (trung bình)
-                </SelectItem>
-                {filteredCameras.length > 0 ? (
-                  filteredCameras.map((cam) => (
-                    <SelectItem key={cam.id} value={cam.id} className="rounded-lg">
-                      {cam.name}
-                    </SelectItem>
-                  ))
-                ) : (
-                  <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-                    Không tìm thấy camera nào
-                  </div>
-                )}
-              </div>
-            </SelectContent>
-          </Select>
+            <SelectWithSearch
+              value={selectedCamera}
+              onChange={setSelectedCamera}
+              options={cameraOptions}
+              defaultOption={{ value: "all", label: "Tất cả camera (trung bình)" }}
+              placeholder="Tất cả camera"
+              searchPlaceholder="Tìm camera, mã ID..."
+              emptyText="Không tìm thấy camera nào"
+              size="default"
+              triggerClassName="w-full sm:w-55"
+              ariaLabel="Chọn camera"
+            />
           </div>
         </div>
       </CardHeader>
@@ -273,7 +241,7 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
                 content={({ active, payload, label }) => {
                   if (!active || !payload?.length) return null;
                   const visibleRows = payload.filter((p) => p.value !== null && p.value !== undefined && p.value !== 0 || p.dataKey === "vehicles");
-                  const labelMap: Record<string, string> = { vehicles: "Phương tiện", vcPct: "Mức tải" };
+                  const labelMap: Record<string, string> = { vehicles: "Dự báo", vcPct: "Mức tải" };
                   return (
                     <div className="rounded-lg border bg-background px-3 py-2 shadow-md text-sm min-w-[140px]">
                       <p className="font-medium mb-1.5">{label}</p>
@@ -284,7 +252,7 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
                             <span className="text-muted-foreground">{labelMap[String(p.dataKey)] ?? String(p.dataKey)}</span>
                           </div>
                           <span className="font-semibold tabular-nums">
-                            {p.dataKey === "vcPct" ? `${p.value}%` : p.value}
+                            {p.dataKey === "vcPct" ? `${p.value}%` : `${p.value} xe`}
                           </span>
                         </div>
                       ))}
@@ -322,7 +290,7 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
           <div className="flex items-center gap-4 justify-center mt-1 text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5">
               <div className="h-0.5 w-5 border-t-2" style={{ borderColor: "var(--primary)" }} />
-              <span>Lưu lượng dự báo</span>
+              <span>Dự báo</span>
             </div>
             {chartData.some((d) => d.vcPct !== null) && (
               <div className="flex items-center gap-1.5">

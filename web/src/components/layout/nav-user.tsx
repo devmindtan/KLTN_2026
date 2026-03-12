@@ -21,7 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { useSidebar } from "@/components/custom-sidebar"
+import { useSidebar } from "@/components/layout/custom-sidebar"
 import { useAuth } from "@/contexts/AuthContext"
 import { cn } from "@/lib/utils"
 import {

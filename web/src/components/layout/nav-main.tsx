@@ -1,5 +1,5 @@
 import {type LucideIcon} from "lucide-react"
-import {NavLink, useLocation} from "react-router-dom" // 1. Import NavLink
+import {NavLink, useLocation} from "react-router-dom"
 
 import {
   SidebarGroup,
@@ -25,7 +25,6 @@ export function NavMain({
         <SidebarMenu>
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
-              {/* 2. Thêm asChild để SidebarMenuButton đóng vai trò là Link */}
               <SidebarMenuButton asChild tooltip={item.title} isActive={pathname === item.url}>
                 <NavLink to={item.url}>
                   {item.icon && <item.icon/>}

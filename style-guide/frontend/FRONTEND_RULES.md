@@ -1,6 +1,6 @@
 # Frontend Coding Rules
 
-> Đọc file này khi thực hiện task liên quan đến UI/UX, component React, routing, hoặc Tailwind/ShadCN.
+> Đọc file này khi thực hiện task liên quan đến UI/UX, component React, routing, và đặc biệt là luôn sử dụng Tailwind/ShadCN (chỉ suy nghĩ sử dụng css hay cách thiết kế đặc thù khi và chỉ khi không có trong Tailwind/ShadCN).
 > Nguồn sự thật cho phong cách giao diện: `style-guide/frontend/UI_STYLE_GUIDE.md`
 
 ---

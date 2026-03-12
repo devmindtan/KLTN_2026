@@ -25,7 +25,7 @@ import {
   IconSortDescending,
   IconSearch,
 } from "@tabler/icons-react";
-import { HighlightText } from "@/components/highlight-text";
+import { HighlightText } from "@/components/custom/highlight-text";
 import {
   getModelHistory,
   getR2Color,

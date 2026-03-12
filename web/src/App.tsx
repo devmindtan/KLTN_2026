@@ -1,31 +1,38 @@
 "use client"
 import React from "react";
 import {createBrowserRouter, RouterProvider, Outlet, Navigate} from "react-router-dom";
-import {CustomSidebarProvider, SidebarInset} from "@/components/custom-sidebar";
-import {AppSidebar} from "@/components/app-sidebar";
-import Dashboard from "@/pages/dashboard.tsx";
-import Setting from "@/pages/setting.tsx";
-import DataLibrary from "@/pages/data-library.tsx";
-import Monitoring from "@/pages/monitoring.tsx";
-import Analytics from "@/pages/analytics.tsx";
-import Projects from "@/pages/projects.tsx";
-import Models from "@/pages/models.tsx";
-import Team from "@/pages/team.tsx";
-import Reports from "@/pages/reports-forecasts";
-import WordAssistant from "@/pages/word-assistant.tsx";
-import Help from "@/pages/help.tsx";
-import Search from "@/pages/search.tsx";
-import Login from "@/pages/login.tsx";
+import {CustomSidebarProvider, SidebarInset} from "@/components/layout/custom-sidebar";
+import {AppSidebar} from "@/components/layout/app-sidebar";
 
-import {SiteHeader} from "@/components/site-header";
+// Lazy-load tất cả pages để code-split thành các chunk riêng
+const Dashboard     = React.lazy(() => import("@/pages/dashboard.tsx"));
+const Setting       = React.lazy(() => import("@/pages/setting.tsx"));
+const DataLibrary   = React.lazy(() => import("@/pages/data-library.tsx"));
+const Monitoring    = React.lazy(() => import("@/pages/monitoring.tsx"));
+const Analytics     = React.lazy(() => import("@/pages/analytics.tsx"));
+const Projects      = React.lazy(() => import("@/pages/projects.tsx"));
+const Models        = React.lazy(() => import("@/pages/models.tsx"));
+const Team          = React.lazy(() => import("@/pages/team.tsx"));
+const Reports       = React.lazy(() => import("@/pages/reports-forecasts"));
+const WordAssistant = React.lazy(() => import("@/pages/word-assistant.tsx"));
+const Help          = React.lazy(() => import("@/pages/help.tsx"));
+const Search        = React.lazy(() => import("@/pages/search.tsx"));
+const Login         = React.lazy(() => import("@/pages/login.tsx"));
+
+// Chỉ load sandbox trong môi trường development — Vite tree-shake khỏi production bundle
+const SandboxPage = import.meta.env.DEV
+  ? React.lazy(() => import("@/pages/sandbox.tsx"))
+  : null;
+
+import {SiteHeader} from "@/components/layout/site-header";
 import {SocketProvider} from "@/contexts/SocketContext";
 import {ThemeProvider} from "@/contexts/ThemeContext";
 import {AuthProvider, useAuth} from "@/contexts/AuthContext";
-import {ScrollToTop} from "@/components/scroll-to-top";
+import {ScrollToTop} from "@/components/custom/scroll-to-top";
 import {Toaster} from "@/components/ui/sonner";
 import {LoadingProvider} from "@/contexts/LoadingContext";
-import {TopProgressBar} from "@/components/top-progress-bar";
-import {PageLoadingOverlay} from "@/components/page-loading-overlay";
+import {TopProgressBar} from "@/components/custom/top-progress-bar";
+import {PageLoadingOverlay} from "@/components/custom/page-loading-overlay";
 import {useLocation} from "react-router-dom";
 
 /**
@@ -74,7 +81,9 @@ const RootLayout = () => (
                 {/* Overlay che trang khi API chậm >300ms */}
                 <PageLoadingOverlay />
                 <AuthGate>
-                  <Outlet/>
+                  <React.Suspense fallback={null}>
+                    <Outlet/>
+                  </React.Suspense>
                 </AuthGate>
               </main>
             </SidebarInset>
@@ -94,7 +103,9 @@ const router = createBrowserRouter([
     element: (
       <ThemeProvider>
         <AuthProvider>
-          <Login />
+          <React.Suspense fallback={null}>
+            <Login />
+          </React.Suspense>
           <Toaster richColors position="top-right" />
         </AuthProvider>
       </ThemeProvider>
@@ -120,6 +131,9 @@ const router = createBrowserRouter([
       {path: "settings",         element: <Setting/>,       loader: () => new Promise(r => setTimeout(r, 0))},
       {path: "help",             element: <Help/>,          loader: () => new Promise(r => setTimeout(r, 0))},
       {path: "search",           element: <Search/>,        loader: () => new Promise(r => setTimeout(r, 0))},
+      ...(import.meta.env.DEV && SandboxPage
+        ? [{ path: "sandbox", element: <React.Suspense fallback={null}><SandboxPage /></React.Suspense>, loader: () => new Promise(r => setTimeout(r, 0)) }]
+        : []),
     ],
   },
   // Redirect gốc về dashboard

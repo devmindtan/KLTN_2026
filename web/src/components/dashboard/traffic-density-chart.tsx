@@ -3,7 +3,7 @@
 import * as React from "react";
 import { IconChartHistogram } from "@tabler/icons-react";
 import { Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts";
-import { CardSectionHeader } from "@/components/card-section-header";
+import { CardSectionHeader } from "@/components/custom/card-section-header";
 
 import {
   Card,
@@ -15,13 +15,7 @@ import {
   ChartContainer,
   ChartTooltip,
 } from "@/components/ui/chart";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SelectWithSearch } from "@/components/custom/select-with-search";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   getTrafficPattern,
@@ -334,7 +328,6 @@ export function TrafficDensityChart() {
   const isNarrow = useIsNarrow();
   const [activeTab, setActiveTab]         = React.useState<TabKey>("hour");
   const [selectedCamera, setSelectedCamera] = React.useState<string>("all");
-  const [searchQuery, setSearchQuery]     = React.useState<string>("");
   const [cameraList, setCameraList]       = React.useState<{ id: string; name: string }[]>([]);
   const [patternData, setPatternData]         = React.useState<PatternData>(EMPTY_PATTERN);
   const [timeRanges, setTimeRanges]           = React.useState<Partial<Record<TabKey, { from: string; to: string }>>>({});
@@ -393,60 +386,38 @@ export function TrafficDensityChart() {
     return () => { cancelled = true; };
   }, [selectedCamera]);
 
-  const filteredCameras = React.useMemo(() => {
-    if (!searchQuery.trim()) return cameraList;
-    const q = searchQuery.toLowerCase();
-    return cameraList.filter((c) => c.name.toLowerCase().includes(q));
-  }, [searchQuery, cameraList]);
+  const cameraOptions = React.useMemo(
+    () => cameraList.map((c) => ({ value: c.id, label: c.name })),
+    [cameraList]
+  );
 
   return (
     <Card className="@container/card">
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <CardSectionHeader
               icon={IconChartHistogram}
               title="Giao động mật độ giao thông"
+              iconBg="bg-violet-500/10"
+              iconColor="text-violet-600"
               description="Phân tích lưu lượng trung bình theo chu kỳ thời gian"
             />
           </div>
 
           {/* Camera Selector */}
           <div className="shrink-0">
-            <Select value={selectedCamera} onValueChange={setSelectedCamera}>
-              <SelectTrigger className="w-full sm:w-64" aria-label="Chọn camera">
-                <SelectValue placeholder="Tất cả camera" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl max-h-[400px]">
-              <div className="sticky top-0 z-10 bg-background p-2 border-b">
-                <input
-                  type="text"
-                  placeholder="Tìm kiếm camera..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                  onClick={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => e.stopPropagation()}
-                />
-              </div>
-              <div className="overflow-y-auto scrollbar max-h-[300px]">
-                <SelectItem value="all" className="rounded-lg">
-                  Tất cả camera (trung bình)
-                </SelectItem>
-                {filteredCameras.length > 0 ? (
-                  filteredCameras.map((cam) => (
-                    <SelectItem key={cam.id} value={cam.id} className="rounded-lg">
-                      <span className="truncate max-w-[220px] block">{cam.name}</span>
-                    </SelectItem>
-                  ))
-                ) : (
-                  <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-                    Không tìm thấy camera
-                  </div>
-                )}
-              </div>
-              </SelectContent>
-            </Select>
+            <SelectWithSearch
+              value={selectedCamera}
+              onChange={setSelectedCamera}
+              options={cameraOptions}
+              defaultOption={{ value: "all", label: "Tất cả camera (trung bình)" }}
+              placeholder="Tất cả camera"
+              searchPlaceholder="Tìm kiếm camera..."
+              emptyText="Không tìm thấy camera"
+              triggerClassName="w-full sm:w-55"
+              ariaLabel="Chọn camera"
+            />
           </div>
         </div>
       </CardHeader>

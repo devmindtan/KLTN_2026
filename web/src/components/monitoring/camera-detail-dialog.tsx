@@ -32,7 +32,7 @@ import { useSocket, type CameraData } from "@/contexts/SocketContext";
 
 
 const forecastChartConfig = {
-  vehicles: { label: "Phương tiện (xe)", color: "var(--primary)" },
+  vehicles: { label: "Dự báo (xe)", color: "var(--primary)" },
   vcPct:    { label: "Mức tải (%)",       color: "var(--chart-2)" },
 } satisfies ChartConfig;
 
@@ -189,7 +189,7 @@ export function CameraDetailDialog({ camera, forceOpen = false }: { camera: Came
                       cursor={false}
                       content={({ active, payload, label }) => {
                         if (!active || !payload?.length) return null;
-                        const labelMap: Record<string, string> = { vehicles: "Phương tiện", vcPct: "Mức tải" };
+                        const labelMap: Record<string, string> = { vehicles: "Dự báo", vcPct: "Mức tải" };
                         return (
                           <div className="rounded-lg border bg-background px-3 py-2 shadow-md text-sm min-w-[140px]">
                             <p className="font-medium mb-1.5">{label}</p>
@@ -200,7 +200,7 @@ export function CameraDetailDialog({ camera, forceOpen = false }: { camera: Came
                                   <span className="text-muted-foreground">{labelMap[String(p.dataKey)] ?? String(p.dataKey)}</span>
                                 </div>
                                 <span className="font-semibold tabular-nums">
-                                  {p.dataKey === "vcPct" ? `${p.value}%` : p.value}
+                                  {p.dataKey === "vcPct" ? `${p.value}%` : `${p.value} xe`}
                                 </span>
                               </div>
                             ))}

@@ -26,7 +26,7 @@ import {
   IconPlus,
   IconRefresh,
 } from "@tabler/icons-react";
-import { PageHeader } from "@/components/page-header";
+import { PageHeader } from "@/components/custom/page-header";
 import { useLoading } from "@/contexts/LoadingContext";
 
 import { ReportRow }  from "@/components/reports-forecasts/report-row";

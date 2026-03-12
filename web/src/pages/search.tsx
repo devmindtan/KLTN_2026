@@ -10,7 +10,7 @@ import {
   IconClock,
   IconExternalLink,
 } from "@tabler/icons-react";
-import { PageHeader } from "@/components/page-header";
+import { PageHeader } from "@/components/custom/page-header";
 import { getAllCameras } from "@/services/camera.service";
 import { getAllModelVersions } from "@/services/model.service";
 import { useSocket } from "@/contexts/SocketContext";

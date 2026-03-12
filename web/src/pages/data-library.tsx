@@ -38,8 +38,8 @@ import {
   IconRefresh,
   IconCalendar,
 } from "@tabler/icons-react";
-import { HighlightText } from "@/components/highlight-text";
-import { PageHeader }   from "@/components/page-header";
+import { HighlightText } from "@/components/custom/highlight-text";
+import { PageHeader }   from "@/components/custom/page-header";
 import { useAuth }      from "@/contexts/AuthContext";
 import { toast }        from "sonner";
 import type { DataLibraryCollection, CollectionDetail } from "@/services/data-library.service";

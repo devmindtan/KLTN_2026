@@ -5,9 +5,10 @@
  * overflow-x: hidden tuyệt đối – text dài không bao giờ đè lên content
  */
 import * as React from "react"
+import { AnimatePresence, motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
-import { PanelLeftIcon } from "lucide-react"
+import { PanelLeftIcon, ChevronDownIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -24,6 +25,7 @@ interface SidebarCtx {
 
 const SidebarContext = React.createContext<SidebarCtx | null>(null)
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useSidebar(): SidebarCtx {
   const ctx = React.useContext(SidebarContext)
   if (!ctx) throw new Error("useSidebar must be used within CustomSidebarProvider")
@@ -41,7 +43,7 @@ export function CustomSidebarProvider({ children }: { children: React.ReactNode 
         .split(";")
         .find((c) => c.trim().startsWith(`${COOKIE_KEY}=`))
       if (cookie) return cookie.split("=")[1].trim() !== "false"
-    } catch {}
+    } catch { /* empty */ }
     return true
   })
 
@@ -191,22 +193,82 @@ export function SidebarTrigger({ className }: { className?: string }) {
 }
 
 // ─── Nav group ────────────────────────────────────────────────────────────────
-export function SidebarGroup({ className, children }: { className?: string; children: React.ReactNode }) {
+interface SidebarGroupCtx { isOpen: boolean; toggle: () => void; collapsible: boolean }
+const SidebarGroupContext = React.createContext<SidebarGroupCtx>({ isOpen: true, toggle: () => {}, collapsible: false })
+
+export function SidebarGroup({
+  className,
+  children,
+  collapsible = false,
+  defaultOpen = true,
+}: {
+  className?: string
+  children: React.ReactNode
+  collapsible?: boolean
+  defaultOpen?: boolean
+}) {
+  const [isOpen, setIsOpen] = React.useState(defaultOpen)
   const { open } = useSidebar()
+  const toggle = React.useCallback(() => setIsOpen(v => !v), [])
   return (
-    <div className={cn("flex flex-col gap-1", className)} data-open={open}>
-      {children}
-    </div>
+    <SidebarGroupContext.Provider value={{ isOpen, toggle, collapsible }}>
+      <div className={cn("flex flex-col gap-1", className)} data-open={open}>
+        {children}
+      </div>
+    </SidebarGroupContext.Provider>
   )
 }
 
 export function SidebarGroupLabel({ className, children }: { className?: string; children: React.ReactNode }) {
   const { open } = useSidebar()
+  const { isOpen, toggle, collapsible } = React.useContext(SidebarGroupContext)
   if (!open) return null
+  if (collapsible) {
+    return (
+      <button
+        onClick={toggle}
+        className={cn(
+          "flex w-full items-center justify-between px-2 py-1 text-xs font-medium",
+          "text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors rounded-sm",
+          className
+        )}
+      >
+        <span>{children}</span>
+        <ChevronDownIcon className={cn("size-3 transition-transform duration-200", !isOpen && "-rotate-90")} />
+      </button>
+    )
+  }
   return (
     <div className={cn("px-2 py-1 text-xs font-medium text-muted-foreground uppercase tracking-wider", className)}>
       {children}
     </div>
+  )
+}
+
+/** Bọc nội dung của group có collapsible – animate height khi đóng/mở */
+export function SidebarGroupContent({ className, children }: { className?: string; children: React.ReactNode }) {
+  const { isOpen, collapsible } = React.useContext(SidebarGroupContext)
+
+  if (!collapsible) {
+    return <div className={cn("flex flex-col gap-1", className)}>{children}</div>
+  }
+
+  return (
+    <AnimatePresence initial={false}>
+      {isOpen && (
+        <motion.div
+          key="sidebar-group-content"
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: "auto", opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{ duration: 0.22, ease: "easeInOut" }}
+          style={{ overflow: "hidden" }}
+          className={cn("flex flex-col gap-1", className)}
+        >
+          {children}
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }
 

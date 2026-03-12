@@ -12,7 +12,7 @@ import {
   IconDatabase,
   IconSparkles,
 } from "@tabler/icons-react";
-import { PageHeader } from "@/components/page-header";
+import { PageHeader } from "@/components/custom/page-header";
 import {
   getActiveModels,
   type MLModelMetadata,
@@ -180,7 +180,7 @@ export default function ModelsPage() {
       {/* Header */}
       <PageHeader
         icon={<IconBrain className="w-5 h-5" />}
-        title="Mô hình Machine Learning"
+        title="Danh sách mô hình"
         description="Quản lý và theo dõi các mô hình dự đoán lưu lượng giao thông"
       >
         {isTechnician && (

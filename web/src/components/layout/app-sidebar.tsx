@@ -13,6 +13,7 @@ import {
   IconSearch,
   IconSettings,
   IconUsers,
+  IconFlask,
 } from "@tabler/icons-react"
 import { useAuth } from "@/contexts/AuthContext"
 import {
@@ -22,20 +23,22 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupLabel,
+  SidebarGroupContent,
   SidebarMenuItem,
   useSidebar,
-} from "@/components/custom-sidebar"
-import { NavUser } from "@/components/nav-user"
+} from "@/components/layout/custom-sidebar"
+import { NavUser } from "@/components/layout/nav-user"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils"
 
 // ─── Nav data factory ───────────────────────────────────────────────────────
 function buildNavMain(p: string) { return [
-  { title: "Thông tin chung", url: `/${p}/dashboard`, icon: IconDashboard },
+  { title: "Tổng quan", url: `/${p}/dashboard`, icon: IconDashboard },
   { title: "Giám sát lưu lượng",        url: `/${p}/monitoring`,  icon: IconListDetails },
   { title: "Phân tích mô hình",       url: `/${p}/analytics`,  icon: IconChartBar },
   { title: "Danh sách mô hình",      url: `/${p}/models`,     icon: IconFolder },
@@ -89,6 +92,21 @@ function DocItem({ name, url, icon: Icon }: { name: string; url: string; icon: R
   return link
 }
 
+// Định nghĩa khung sườn cho hiệu ứng container – stagger mỗi item 0.05s
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.05, delayChildren: 0.05 },
+  },
+};
+
+// Định nghĩa hiệu ứng cho từng item – trượt lên nhẹ + fade in
+const itemVariants = {
+  hidden: { y: 6, opacity: 0 },
+  visible: { y: 0, opacity: 1, transition: { duration: 0.18, ease: "easeOut" as const } },
+};
+
 // ─── Logo header ──────────────────────────────────────────────────────────────
 function LogoButton({ prefix }: { prefix: string }) {
   const { open } = useSidebar()
@@ -115,6 +133,7 @@ export function AppSidebar() {
   const { pathname } = useLocation()
   const { routePrefix } = useAuth()
   const p = routePrefix
+  const { role } = useAuth()
 
   const mainItems = [
     ...buildNavMain(p),
@@ -142,28 +161,52 @@ export function AppSidebar() {
           ))}
         </SidebarGroup>
 
-        {/* Documents – hidden when collapsed */}
-        <SidebarGroup className="mt-2">
+        {/* Documents – collapsible */}
+        <SidebarGroup className="mt-2" collapsible defaultOpen>
           <SidebarGroupLabel>Tài liệu</SidebarGroupLabel>
-          {buildNavDocuments(p).map((item) => (
-            <DocItem key={item.url} name={item.name} url={item.url} icon={item.icon} />
-          ))}
+          <SidebarGroupContent>
+            <motion.div variants={containerVariants} initial="hidden" animate="visible">
+              {buildNavDocuments(p).map((item) => (
+                <motion.div key={item.url} variants={itemVariants}>
+                  <DocItem name={item.name} url={item.url} icon={item.icon} />
+                </motion.div>
+              ))}
+            </motion.div>
+          </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Secondary – push to bottom */}
-        <SidebarGroup className="mt-auto pt-2 border-t">
+        {/* Secondary – collapsible, push to bottom */}
+        <SidebarGroup className="mt-auto pt-2 border-t" collapsible defaultOpen>
           <SidebarGroupLabel>Tiện ích</SidebarGroupLabel>
-          {buildNavSecondary(p).map((item) => (
-            <SidebarMenuItem
-              key={item.url}
-              as={NavLink}
-              to={item.url}
-              icon={<item.icon className="size-4" />}
-              label={item.title}
-              isActive={pathname === item.url}
-            />
-          ))}
+          <SidebarGroupContent>
+            {buildNavSecondary(p).map((item) => (
+              <SidebarMenuItem
+                key={item.url}
+                as={NavLink}
+                to={item.url}
+                icon={<item.icon className="size-4" />}
+                label={item.title}
+                isActive={pathname === item.url}
+              />
+            ))}
+          </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Dev – chỉ hiện cho technician */}
+        {role === "technician" && (
+          <SidebarGroup className="pt-2 border-t" collapsible defaultOpen>
+            <SidebarGroupLabel>Phát triển</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenuItem
+                as={NavLink}
+                to={`/${p}/sandbox`}
+                icon={<IconFlask className="size-4" />}
+                label="Thử nghiệm giao diện"
+                isActive={pathname === `/${p}/sandbox`}
+              />
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       {/* User info */}
@@ -173,4 +216,3 @@ export function AppSidebar() {
     </CustomSidebar>
   )
 }
-

@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconBulb, IconAlertCircle, IconArrowRight, IconCircle } from "@tabler/icons-react";
-import { PageHeader } from "@/components/page-header";
+import { PageHeader } from "@/components/custom/page-header";
 
 export default function DecisionSupport() {
   const recommendations = [

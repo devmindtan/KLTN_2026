@@ -2,7 +2,7 @@
 
 import {useLocation, Link} from "react-router-dom"
 import {Separator} from "@/components/ui/separator"
-import {SidebarTrigger} from "@/components/custom-sidebar"
+import {SidebarTrigger} from "@/components/layout/custom-sidebar"
 import {Button} from "@/components/ui/button"
 import {
   Breadcrumb,

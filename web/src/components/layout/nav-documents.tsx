@@ -22,7 +22,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import {NavLink, useLocation} from "react-router-dom";
+import {NavLink, useLocation} from "react-router-dom"
 
 export function NavDocuments({
                                items,
@@ -42,9 +42,7 @@ export function NavDocuments({
         {items.map((item) => (
           <SidebarMenuItem key={item.name}>
             <SidebarMenuButton asChild isActive={pathname === item.url}>
-              <NavLink
-                to={item.url}
-              >
+              <NavLink to={item.url}>
                 <item.icon/>
                 <span>{item.name}</span>
               </NavLink>

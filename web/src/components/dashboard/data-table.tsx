@@ -4,7 +4,6 @@ import {
   type ColumnFiltersState,
   type Row,
   type SortingState,
-  type VisibilityState,
   flexRender,
   getCoreRowModel,
   getFacetedRowModel,
@@ -16,12 +15,10 @@ import {
 } from "@tanstack/react-table"
 import {
   CheckCircle2Icon,
-  ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronsLeftIcon,
   ChevronsRightIcon,
-  ColumnsIcon,
   LoaderIcon,
   TrendingUpIcon,
   TrendingDownIcon,
@@ -31,7 +28,7 @@ import {
   MonitorIcon,
 } from "lucide-react"
 import { IconCar, IconMotorbike } from "@tabler/icons-react"
-import { CardSectionHeader } from "@/components/card-section-header"
+import { CardSectionHeader } from "@/components/custom/card-section-header"
 import { Area, AreaChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts"
 // import { toast } from "sonner"
 import { z } from "zod"
@@ -44,14 +41,8 @@ import {
   ChartContainer,
   ChartTooltip,
 } from "@/components/ui/chart"
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
-import { HighlightText } from "@/components/highlight-text"
+import { HighlightText } from "@/components/custom/highlight-text"
 import { useSocket } from "@/contexts/SocketContext"
 import { Label } from "@/components/ui/label"
 import {
@@ -87,6 +78,7 @@ import {
 } from "@/components/ui/tabs"
 
 // Camera data schema for traffic monitoring
+// eslint-disable-next-line react-refresh/only-export-components
 export const schema = z.object({
   id: z.string(),
   shortId: z.string(),
@@ -173,11 +165,11 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     accessorKey: "name",
     header: "Tên đường",
     cell: ({ row, column }) => (
-      <div className="sm:max-w-[250px] text-sm min-w-0">
+      <div className="sm:max-w-[300px] text-[12px] min-w-0">
         <div className="font-medium">
           <HighlightText text={row.original.name} query={String(column.getFilterValue() ?? "")} />
         </div>
-        <div className="text-xs text-muted-foreground sm:hidden">ID: {row.original.shortId}</div>
+        <div className="text-sm text-muted-foreground sm:hidden">ID: {row.original.shortId}</div>
       </div>
     ),
     enableHiding: false,
@@ -187,7 +179,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     header: () => <div className="hidden xl:block">Tổng Số Xe</div>,
     cell: ({ row }) => (
       <div className="hidden xl:flex items-center gap-2">
-        <span className="text-lg font-semibold tabular-nums">
+        <span className="text-sm font-semibold tabular-nums">
           {row.original.totalObjects}
         </span>
         <div className="flex items-center gap-1 text-[11px]">
@@ -320,25 +312,12 @@ function ClickableRow({ row, onRowClick }: { row: Row<z.infer<typeof schema>>, o
   )
 }
 
-// Nhãn tiếng Việt cho từng column id – dùng trong dropdown Tùy chỉnh cột
-const COLUMN_LABELS: Record<string, string> = {
-  shortId: "Mã Camera",
-  totalObjects: "Tổng Số Xe",
-  status: "Trạng Thái",
-  status_forecast: "Dự Báo 5p",
-  trend: "Xu Hướng",
-  forecasts: "Dự Báo 5'",
-  lastUpdated: "Cập Nhật Cuối",
-}
-
 export function DataTable({
   data: initialData,
 }: {
   data: z.infer<typeof schema>[]
 }) {
   const [data, setData] = React.useState(() => initialData)
-  const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   )
@@ -363,14 +342,12 @@ export function DataTable({
     columns,
     state: {
       sorting,
-      columnVisibility,
       columnFilters,
       pagination,
     },
     getRowId: (row) => row.id,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
-    onColumnVisibilityChange: setColumnVisibility,
     onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -388,50 +365,21 @@ export function DataTable({
       defaultValue="cameras"
       className="flex w-full flex-col justify-start gap-4 rounded-xl border bg-card py-4"
     >
-      <div className="flex items-center justify-between px-4 lg:px-6">
+      <div className="px-4 lg:px-6">
         <CardSectionHeader
           icon={MonitorIcon}
           title="Nguồn camera trực tiếp"
+          iconBg="bg-teal-500/10"
+          iconColor="text-teal-600"
           description="Giám sát luồng giao thông thời gian thực"
+          className="w-full"
           badge={
             <Badge variant="secondary" className="flex h-5 items-center justify-center rounded-full px-2 ml-0.5">
               {table.getFilteredRowModel().rows.length} camera
             </Badge>
           }
+
         />
-        <div className="hidden lg:flex items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <ColumnsIcon />
-                <span>Tùy chỉnh cột</span>
-                <ChevronDownIcon />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              {table
-                .getAllColumns()
-                .filter(
-                  (column) =>
-                    typeof column.accessorFn !== "undefined" &&
-                    column.getCanHide()
-                )
-                .map((column) => {
-                  return (
-                    <DropdownMenuCheckboxItem
-                      key={column.id}
-                      checked={column.getIsVisible()}
-                      onCheckedChange={(value) =>
-                        column.toggleVisibility(!!value)
-                      }
-                    >
-                      {COLUMN_LABELS[column.id] ?? column.id}
-                    </DropdownMenuCheckboxItem>
-                  )
-                })}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
       </div>
       
       {/* Search and Filters */}
@@ -669,7 +617,7 @@ const PctForecastLabel = (props: any) => {
 
 const forecastChartConfig = {
   vehicles: {
-    label: "Phương tiện",
+    label: "Dự báo",
     color: "var(--primary)",
   },
   vcPct: {
@@ -823,7 +771,7 @@ function TableCellViewerModal({ item, open, onOpenChange }: { item: z.infer<type
                       content={({ active, payload, label }) => {
                         if (!active || !payload?.length) return null;
                         const visibleRows = payload.filter((p) => p.value !== null && p.value !== undefined && p.value !== 0 || p.dataKey === "vehicles");
-                        const labelMap: Record<string, string> = { vehicles: "Phương tiện", vcPct: "Mức tải" };
+                        const labelMap: Record<string, string> = { vehicles: "Dự báo", vcPct: "Mức tải" };
                         return (
                           <div className="rounded-lg border bg-background px-3 py-2 shadow-md text-sm min-w-[140px]">
                             <p className="font-medium mb-1.5">{label}</p>
@@ -834,7 +782,7 @@ function TableCellViewerModal({ item, open, onOpenChange }: { item: z.infer<type
                                   <span className="text-muted-foreground">{labelMap[String(p.dataKey)] ?? String(p.dataKey)}</span>
                                 </div>
                                 <span className="font-semibold tabular-nums">
-                                  {p.dataKey === "vcPct" ? `${p.value}%` : p.value}
+                                  {p.dataKey === "vcPct" ? `${p.value}%` : `${p.value} xe`}
                                 </span>
                               </div>
                             ))}
@@ -876,17 +824,17 @@ function TableCellViewerModal({ item, open, onOpenChange }: { item: z.infer<type
             <div className="grid grid-cols-3 gap-2">
               <div className="flex flex-col gap-1 rounded-md border p-2">
                 <span className="text-xs text-muted-foreground">5 phút</span>
-                <span className="text-lg font-semibold tabular-nums">{Math.round(item.forecasts["5m"])}</span>
+                <span className="text-sm font-semibold tabular-nums">{Math.round(item.forecasts["5m"])}</span>
                 {capacity > 0 && <span className="text-xs text-muted-foreground">{Math.round(item.forecasts["5m"] / capacity * 100)}% mức tải</span>}
               </div>
               <div className="flex flex-col gap-1 rounded-md border p-2">
                 <span className="text-xs text-muted-foreground">15 phút</span>
-                <span className="text-lg font-semibold tabular-nums">{Math.round(item.forecasts["15m"])}</span>
+                <span className="text-sm font-semibold tabular-nums">{Math.round(item.forecasts["15m"])}</span>
                 {capacity > 0 && <span className="text-xs text-muted-foreground">{Math.round(item.forecasts["15m"] / capacity * 100)}% mức tải</span>}
               </div>
               <div className="flex flex-col gap-1 rounded-md border p-2">
                 <span className="text-xs text-muted-foreground">60 phút</span>
-                <span className="text-lg font-semibold tabular-nums">{Math.round(item.forecasts["60m"])}</span>
+                <span className="text-sm font-semibold tabular-nums">{Math.round(item.forecasts["60m"])}</span>
                 {capacity > 0 && <span className="text-xs text-muted-foreground">{Math.round(item.forecasts["60m"] / capacity * 100)}% mức tải</span>}
               </div>
             </div>

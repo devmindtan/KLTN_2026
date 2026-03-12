@@ -3,7 +3,7 @@
  */
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { HighlightText } from "@/components/highlight-text";
+import { HighlightText } from "@/components/custom/highlight-text";
 import {
   IconAlertTriangle,
   IconCircleCheck,

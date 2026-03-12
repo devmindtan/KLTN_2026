@@ -5,12 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
   Table,
   TableBody,
   TableCell,
@@ -25,8 +19,9 @@ import {
   type ModelMetricsHistoryRow,
 } from "@/services/model-metrics.service";
 import { getAllCameras } from "@/services/camera.service";
-import { IconBrain, IconChartBar, IconChevronDown, IconClock, IconInfoCircle, IconTrendingUp } from "@tabler/icons-react";
-import { PageHeader } from "@/components/page-header";
+import { IconBrain, IconChartBar, IconChevronDown, IconClock, IconTrendingUp } from "@tabler/icons-react";
+import { PageHeader } from "@/components/custom/page-header";
+import { TermTooltip } from "@/components/custom/info-tooltip";
 import { useLoading } from "@/contexts/LoadingContext";
 
 /**
@@ -82,27 +77,6 @@ function translateRecommendation(rec: string) {
   if (rec === "OPTIONAL") return "Tùy chọn";
   if (rec === "DROP") return "Loại bỏ";
   return rec;
-}
-
-/**
- * Tooltip cho thuật ngữ chuyên ngành
- */
-function TermTooltip({ term, description }: { term: string; description: string }) {
-  return (
-    <TooltipProvider delayDuration={200}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="inline-flex items-center gap-1 cursor-help text-primary underline decoration-dotted underline-offset-2">
-            {term}
-            <IconInfoCircle className="h-3 w-3 text-muted-foreground" />
-          </span>
-        </TooltipTrigger>
-        <TooltipContent className="max-w-xs">
-          <p className="text-xs">{description}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
 }
 
 /**

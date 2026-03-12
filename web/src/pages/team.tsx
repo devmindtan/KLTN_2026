@@ -4,7 +4,7 @@ import avatarImage from "@/assets/avatar.jpg";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconMail, IconPhone, IconUsers } from "@tabler/icons-react";
-import { PageHeader } from "@/components/page-header";
+import { PageHeader } from "@/components/custom/page-header";
 
 export default function Team() {
   const getInitials = (name: string) => {

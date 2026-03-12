@@ -61,8 +61,12 @@ export default defineConfig({
             "sonner",
             "vaul",
           ],
+          // Animation – dùng trong sidebar layout
+          "vendor-motion": ["framer-motion"],
         },
       },
     },
+    // Tăng giới hạn cảnh báo chunk; pages lazy-load sẽ được split riêng
+    chunkSizeWarningLimit: 600,
   },
 });

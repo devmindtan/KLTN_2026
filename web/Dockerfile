@@ -1,4 +1,4 @@
-# --- Giai đoạn 1: Build dự án ---
+# --- Giai đoạn 1: Build dự án --
 FROM node:20-alpine AS build-stage
 
 # Nhận build-args từ CI (GitHub Actions secrets)

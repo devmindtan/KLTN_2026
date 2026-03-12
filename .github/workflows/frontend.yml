@@ -80,6 +80,9 @@ jobs:
           file: ./web/Dockerfile
           push: true
           build-args: |
+            VITE_BACKEND_URL=${{ secrets.VITE_BACKEND_URL }}
+            VITE_SOCKET_URL=${{ secrets.VITE_SOCKET_URL }}
+            VITE_MINIO_URL=${{ secrets.VITE_MINIO_URL }}
             VITE_LOG=false
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/${{ steps.version.outputs.repo }}:frontend-${{ steps.version.outputs.new }}

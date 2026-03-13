@@ -192,8 +192,8 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Dev – chỉ hiện cho technician */}
-        {role === "technician" && (
+        {/* Dev – chỉ hiện cho technician trong môi trường development */}
+        {import.meta.env.DEV && role === "technician" && (
           <SidebarGroup className="pt-2 border-t" collapsible defaultOpen>
             <SidebarGroupLabel>Phát triển</SidebarGroupLabel>
             <SidebarGroupContent>

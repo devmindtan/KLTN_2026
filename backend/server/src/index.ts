@@ -32,10 +32,12 @@ app.use(
   cors({
     origin: (origin, callback) => {
       // Cho phép requests không có origin (mobile apps, curl, Swagger UI local)
+      // callback(null, false) thay vì throw Error — tránh Express trả 500 trước khi gắn header
+      // Traefik cors-backend middleware là security gate thực sự trong production
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(new Error(`CORS blocked: ${origin}`));
+        callback(null, false);
       }
     },
     credentials: true,

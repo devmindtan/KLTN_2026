@@ -264,11 +264,13 @@ def forecast_and_save_to_db(y_preds, df_input):
                 pred_val = float(y_preds[df_input.index.get_loc(idx), i])
 
                 # Extract metadata từ df_input (sample counts + input value)
-                input_sample_count = int(row.get("sample_count", 0))
+                # Guard NaN trước khi int() — LAG window đầu tiên có thể là NaN
+                _sc = row.get("sample_count", 0)
+                input_sample_count = int(_sc) if not pd.isna(_sc) else 0
                 input_value = float(row.get("avg_objects", 0))
                 lag_count_col = f"lag_{horizon}m_count"
-                lag_sample_count = int(
-                    row.get(lag_count_col, 0)) if lag_count_col in row.index else None
+                _lc = row.get(lag_count_col, None) if lag_count_col in row.index else None
+                lag_sample_count = int(_lc) if (_lc is not None and not pd.isna(_lc)) else None
 
                 # 4. Sử dụng tham số :now thay vì hàm NOW() của Postgres
                 upsert_query = text("""

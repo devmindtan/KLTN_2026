@@ -1,6 +1,7 @@
 from db_queries import (
     forecast_and_save_to_db,
     query_from_db_realtime,
+    refresh_forecast_mv,
 )
 from shared.monitor_performance import monitor_performance
 from shared.los_utils import (
@@ -437,6 +438,9 @@ def predict_realtime(current_data_from_db):
 
     # 7. Lưu vào Database
     forecast_and_save_to_db(y_preds, df_valid)
+
+    # 7b. Refresh MV ngay sau khi lưu → reduce delay từ 6 phút (CronJob) xuống ~0
+    refresh_forecast_mv()
 
     # 8. Tạo result DataFrame
     result = df_valid.copy()

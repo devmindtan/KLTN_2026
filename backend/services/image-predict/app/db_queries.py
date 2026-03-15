@@ -304,6 +304,20 @@ def forecast_and_save_to_db(y_preds, df_input):
     logger.info(f"✅ Đã cập nhật dự báo (UTC) cho {len(df_input)} camera.")
 
 
+def refresh_forecast_mv():
+    """
+    Refresh Materialized View mv_forecast_rolling_today sau khi lưu predictions.
+    Chạy CONCURRENTLY → không lock query trong lúc refresh.
+    Phải dùng autocommit=True vì REFRESH không chạy được trong transaction block.
+    """
+    try:
+        with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+            conn.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_forecast_rolling_today"))
+        logger.info("✅ Đã refresh mv_forecast_rolling_today")
+    except Exception as e:
+        logger.error(f"⚠️ Không thể refresh MV: {e}")
+
+
 @monitor_performance
 def get_camera_capacity_map(lookback_days: int = 7):
     """

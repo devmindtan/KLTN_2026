@@ -52,6 +52,8 @@ def sync_actual_values():
     - KHÔNG sync bucket 10:05-10:10 (chưa đủ data do service delay)
     - Bù đắp forecast bị sót do service downtime/delay (tối đa 5h)
     - Đảm bảo sync_sample_count từ FULL 5-minute window
+    - KHÔNG filter total_objects > 5: actual_value phải ghi đúng traffic thực tế
+      kể cả giờ thấp điểm (traffic 0-5 xe vẫn là dữ liệu hợp lệ)
 
     Lưu thêm sync_sample_count để verify data quality
     """
@@ -77,8 +79,9 @@ def sync_actual_values():
                     COUNT(*) AS sample_count
                 FROM camera_detections
                 -- Lấy dữ liệu trong 5 giờ đổ lại để sync forecast bị sót
-                WHERE total_objects > 5
-                  AND created_at >= :now - interval '5 hour'
+                -- NOTE: KHÔNG filter total_objects > 5 ở đây — actual_value phải
+                -- phản ánh traffic thực tế kể cả giờ thấp điểm (0-5 xe/khung hình)
+                WHERE created_at >= :now - interval '5 hour'
                 GROUP BY camera_id, time_bucket
             ) inner_agg
             -- CHỈ lấy bucket ĐÃ HOÀN THÀNH (đủ 5 phút)

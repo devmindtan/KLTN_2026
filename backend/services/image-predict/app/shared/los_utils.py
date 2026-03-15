@@ -181,6 +181,56 @@ def get_camera_capacity_map(lookback_days: int = 7, camera_list=None) -> Dict[st
         return {}
 
 
+def get_capacity_from_mv(camera_list=None) -> Dict[str, float]:
+    """
+    Đọc capacity từ Materialized View mv_forecast_capacity (PostgreSQL).
+    Thay thế get_camera_capacity_map() để tránh tính toán nặng mỗi chu kỳ 5 phút.
+    MV được refresh định kỳ bởi CronJob k8s (forecast-mv-refresh).
+    Dùng bởi: image-predict service (prediction capacity)
+
+    Args:
+        camera_list: List camera_id dùng fallback khi MV trống (optional)
+    Returns:
+        Dict[camera_id, capacity] hoặc DEFAULT_CAPACITY nếu MV trống/lỗi
+    """
+    try:
+        import os
+        from sqlalchemy import create_engine, text
+        import pandas as pd
+        from dotenv import load_dotenv
+
+        load_dotenv()
+        POSTGRES_HOST = os.getenv("POSTGRES_HOST")
+        POSTGRES_DBS = os.getenv("POSTGRES_DBS")
+        POSTGRES_USERNAME = os.getenv("POSTGRES_USERNAME")
+        POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
+        POSTGRES_PORT = int(os.getenv("POSTGRES_PORT", 5432))
+
+        DATABASE_URL = f"postgresql://{POSTGRES_USERNAME}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DBS}"
+        engine = create_engine(DATABASE_URL)
+
+        df = pd.read_sql(
+            text("SELECT camera_id, capacity FROM mv_forecast_capacity"),
+            engine,
+        )
+
+        if df.empty:
+            logger.warning("⚠️ mv_forecast_capacity trống, fallback DEFAULT_CAPACITY")
+            if camera_list:
+                return {cam_id: DEFAULT_CAPACITY for cam_id in camera_list}
+            return {}
+
+        capacity_dict = dict(zip(df["camera_id"], df["capacity"]))
+        logger.info(f"✅ Loaded capacity từ MV cho {len(capacity_dict)} cameras")
+        return capacity_dict
+
+    except Exception as e:
+        logger.error(f"❌ Lỗi đọc mv_forecast_capacity: {e} — fallback DEFAULT_CAPACITY")
+        if camera_list:
+            return {cam_id: DEFAULT_CAPACITY for cam_id in camera_list}
+        return {}
+
+
 def calculate_los_status(volume: float, capacity: float) -> str:
     """
     Tính toán Level of Service (LOS) dựa trên tỉ lệ Volume/Capacity
@@ -331,3 +381,6 @@ def calculate_trend_by_gti(
         "diff": diff,
         "gti_state": classify_gti_state(gti),
     }
+
+
+print(get_capacity_from_mv())

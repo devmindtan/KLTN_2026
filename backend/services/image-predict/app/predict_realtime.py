@@ -8,6 +8,7 @@ from shared.los_utils import (
     calculate_trend_by_gti,
     DEFAULT_CAPACITY,
     get_camera_capacity_map,
+    get_capacity_from_mv,
 )
 import asyncio
 import json
@@ -450,9 +451,9 @@ def predict_realtime(current_data_from_db):
 
 @monitor_performance
 async def run_cycle():
-    # Load camera capacity map động từ database (7 ngày, giá trị MAX)
-    # Lấy giá trị trung bình 5p LỚN NHẤT trong 7 ngày qua làm capacity
-    capacity_map = get_camera_capacity_map(lookback_days=7)
+    # Đọc capacity từ Materialized View mv_forecast_capacity
+    # MV được refresh định kỳ bởi CronJob — không cần tính lại mỗi 5 phút
+    capacity_map = get_capacity_from_mv()
 
     data = query_from_db_realtime()
 

@@ -12,7 +12,8 @@ const pool = new Pool({
   // Optional: cấu hình connection pool
   max: 20, // số connection tối đa
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 10000,  // 10s (đủ thời gian cho CAPACITY_CTE complex query)
+  statement_timeout: 30000,        // query tự kill sau 30s tránh hang
 });
 
 // Test connection

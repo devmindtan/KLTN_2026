@@ -14,6 +14,7 @@ const PLAIN_MIGRATIONS = [
 ];
 
 const MV_MIGRATION = "002_traffic_pattern_views.sql";
+const MV_FORECAST_MIGRATION = "004_forecast_views.sql";
 
 /**
  * Chạy toàn bộ migrations khi server khởi động.
@@ -52,6 +53,24 @@ export async function runMigrations(dbPool: Pool): Promise<void> {
     }
   } catch (err) {
     console.error(`[migrations] ❌ ${MV_MIGRATION} failed:`, err);
+  }
+
+  // ── Forecast Materialized Views (004) ────────────────────────────────────
+  // Chỉ tạo nếu chưa tồn tại — tránh blocking khi MV đã có sẵn dữ liệu
+  try {
+    const { rows } = await dbPool.query(
+      `SELECT matviewname FROM pg_matviews WHERE matviewname = 'mv_forecast_capacity'`
+    );
+    if (rows.length === 0) {
+      const sqlPath = path.join(__dirname, MV_FORECAST_MIGRATION);
+      const sql     = fs.readFileSync(sqlPath, "utf8");
+      await dbPool.query(sql);
+      console.log(`[migrations] ✅ ${MV_FORECAST_MIGRATION} (created + initial refresh)`);
+    } else {
+      console.log(`[migrations] ✅ ${MV_FORECAST_MIGRATION} (already exists, skipped)`);
+    }
+  } catch (err) {
+    console.error(`[migrations] ❌ ${MV_FORECAST_MIGRATION} failed:`, err);
   }
 
   console.log("[migrations] Startup migrations completed ✅");

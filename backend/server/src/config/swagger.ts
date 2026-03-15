@@ -772,6 +772,162 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
+
+      // ── FORECAST ──────────────────────────────────────────────────
+      "/api/forecast/summary": {
+        get: {
+          tags: ["Forecast"],
+          summary: "Tổng hợp độ chính xác dự báo trong ngày",
+          parameters: [
+            {
+              name: "date", in: "query", required: true,
+              schema: { type: "string", example: "2026-03-13" },
+              description: "Ngày cần tổng hợp (YYYY-MM-DD, giờ VN)",
+            },
+          ],
+          responses: {
+            200: {
+              description: "Tổng hợp thống kê dự báo",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      success:       { type: "boolean" },
+                      date:          { type: "string" },
+                      mae:           { type: "number", nullable: true },
+                      mape:          { type: "number", nullable: true },
+                      r2:            { type: "number", nullable: true },
+                      totalSlots:    { type: "integer" },
+                      coveredSlots:  { type: "integer" },
+                      highRiskCount: { type: "integer" },
+                      networkTrend:       { type: "string", nullable: true, enum: ["up", "down", "stable", null] },
+                      networkChangePct:   { type: "number",  nullable: true },
+                    },
+                  },
+                },
+              },
+            },
+            400: { description: "Thiếu tham số date" },
+            401: { description: "Thiếu JWT token" },
+          },
+        },
+      },
+
+      "/api/forecast/timeline": {
+        get: {
+          tags: ["Forecast"],
+          summary: "Chuỗi thời gian predicted vs actual theo giờ",
+          parameters: [
+            {
+              name: "date", in: "query", required: true,
+              schema: { type: "string", example: "2026-03-13" },
+              description: "Ngày cần lấy dữ liệu",
+            },
+            {
+              name: "camId", in: "query",
+              schema: { type: "string", default: "all" },
+              description: "Camera ID hoặc 'all' để lấy tổng toàn mạng",
+            },
+          ],
+          responses: {
+            200: {
+              description: "Danh sách điểm dữ liệu theo giờ",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      success: { type: "boolean" },
+                      date:    { type: "string" },
+                      camId:   { type: "string" },
+                      data: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            hour:      { type: "integer", example: 7 },
+                            predicted: { type: "number", nullable: true },
+                            actual:    { type: "number", nullable: true },
+                            vcPct:     { type: "number", nullable: true },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            400: { description: "Thiếu tham số date" },
+            401: { description: "Thiếu JWT token" },
+          },
+        },
+      },
+
+      "/api/forecast/slots": {
+        get: {
+          tags: ["Forecast"],
+          summary: "Danh sách slot dự báo per-camera với LOS và riskLevel",
+          parameters: [
+            {
+              name: "date", in: "query", required: true,
+              schema: { type: "string", example: "2026-03-13" },
+              description: "Ngày cần lấy slot",
+            },
+            {
+              name: "horizon", in: "query",
+              schema: { type: "integer", default: 5, enum: [5, 10, 15, 30, 60] },
+              description: "Horizon dự báo (phút)",
+            },
+            {
+              name: "limit", in: "query",
+              schema: { type: "integer", default: 200 },
+              description: "Số slot tối đa trả về",
+            },
+          ],
+          responses: {
+            200: {
+              description: "Danh sách slot dự báo",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      success: { type: "boolean" },
+                      total:   { type: "integer" },
+                      data: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            id:                { type: "string" },
+                            timeSlot:          { type: "string", example: "07:00" },
+                            duration:          { type: "integer", example: 5 },
+                            camId:             { type: "string" },
+                            camName:           { type: "string" },
+                            predictedVehicles: { type: "number" },
+                            actualVehicles:    { type: "number", nullable: true },
+                            errorPct:          { type: "number", nullable: true },
+                            inputValue:        { type: "number", nullable: true },
+                            predictedLos:      { type: "string" },
+                            actualLos:         { type: "string", nullable: true },
+                            vcPct:             { type: "number", nullable: true },
+                            riskLevel:         { type: "string", enum: ["low", "medium", "high", "critical"] },
+                            deltaVsWeekAvg:    { type: "number", nullable: true },
+                            confidence:        { type: "number", nullable: true },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            400: { description: "Thiếu tham số date" },
+            401: { description: "Thiếu JWT token" },
+          },
+        },
+      },
     },
   },
   apis: [], // Không dùng JSDoc scan – spec đã khai báo đầy đủ ở trên

@@ -12,6 +12,7 @@ import modelApi from "./routes/model.api";
 import authApi from "./routes/auth.api";
 import dataLibraryApi from "./routes/data-library.api";
 import trafficPatternApi from "./routes/traffic-pattern.api";
+import forecastApi from "./routes/forecast.api";
 import { requireAuth } from "./middleware/auth.middleware";
 import { runMigrations } from "./migrations/runner";
 
@@ -67,6 +68,9 @@ app.use("/api/data-library", requireAuth, dataLibraryApi);
 
 // Traffic Pattern routes – lấy dữ liệu phân bố mật độ giao thông (direct query)
 app.use("/api/traffic", requireAuth, trafficPatternApi);
+
+// Forecast routes – tổng hợp, chuỗi thời gian và chi tiết slot dự báo
+app.use("/api/forecast", requireAuth, forecastApi);
 
 // Legacy test route
 app.use("/", testControllerApi);

@@ -258,7 +258,10 @@ def forecast_and_save_to_db(y_preds, df_input):
                 base_time = row["time_bucket"].replace(tzinfo=None)
 
                 # 3. Tính toán mốc thời gian dự báo (target_time)
-                target_time = base_time + timedelta(minutes=horizon)
+                # base_time = start của bucket input (ví dụ: 04:55)
+                # + 5min = kết thúc bucket = thời điểm "được gọi là hiện tại" (05:00)
+                # + horizon = mốc dự báo thực sự (05:05 for 5m, 05:10 for 10m, …)
+                target_time = base_time + timedelta(minutes=5 + horizon)
                 target_time = target_time.replace(second=0, microsecond=0)
 
                 pred_val = float(y_preds[df_input.index.get_loc(idx), i])

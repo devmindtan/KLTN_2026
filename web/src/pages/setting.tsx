@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/custom/page-header";
+import { SETTINGS_TERM } from "@/lib/app-constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,7 +28,7 @@ export default function Setting() {
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
-      <PageHeader icon={<IconSettings size={20} />} title="Cài đặt" description="Quản lý tài khoản và tùy chọn hệ thống" />
+      <PageHeader icon={<IconSettings size={20} />} title={SETTINGS_TERM.page_header.title} description={SETTINGS_TERM.page_header.description} />
       {isAuthenticated && role === "technician" ? (
         <TechnicianSettings user={user} token={token!} />
       ) : (

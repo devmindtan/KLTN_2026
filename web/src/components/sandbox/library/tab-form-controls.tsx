@@ -57,6 +57,7 @@ const MOCK_CAMERAS: SearchableOption[] = Array.from({ length: 18 }, (_, i) => ({
 const SEARCH_PROPS = [
   { prop: "value",       type: "string",                  required: true,  desc: "Giá trị input hiện tại" },
   { prop: "onChange",    type: "(value: string) => void", required: true,  desc: "Callback khi người dùng gõ hoặc nhấn xoá" },
+  { prop: "size",        type: '"sm" | "default" | "lg"', defaultVal: '"default"', desc: 'Kích thước: sm=h-8/text-xs, default=h-9/text-sm, lg=h-10/text-sm' },
   { prop: "placeholder", type: "string",                  defaultVal: '"Tìm kiếm..."', desc: "Placeholder text" },
   { prop: "className",   type: "string",                  desc: "Class bổ sung cho wrapper div" },
   { prop: "disabled",    type: "boolean",                 desc: "Khoá input" },
@@ -102,6 +103,13 @@ export function TabFormControls() {
       {/* ════════════ SearchInput ════════════ */}
       <ComponentName name="SearchInput" path="@/components/custom/search-input" />
       <PropTable rows={SEARCH_PROPS} />
+
+      <SectionTitle>Demo – 3 kích thước</SectionTitle>
+      <div className="flex flex-col gap-2 max-w-md">
+        <SearchInput size="sm"      value={searchVal} onChange={setSearchVal} placeholder="size=sm (h-8)" />
+        <SearchInput size="default" value={searchVal} onChange={setSearchVal} placeholder="size=default (h-9)" />
+        <SearchInput size="lg"      value={searchVal} onChange={setSearchVal} placeholder="size=lg (h-10)" />
+      </div>
 
       <SectionTitle>Demo – Mặc định</SectionTitle>
       <div className="flex flex-col gap-3 max-w-md">
@@ -160,11 +168,14 @@ export function TabFormControls() {
 
 const [search, setSearch] = useState("")
 
-<SearchInput
-  value={search}
-  onChange={setSearch}
-  placeholder="Tìm kiếm theo tên đường..."
-/>`}</CodeBlock>
+// Kiểu mặc định (h-9)
+<SearchInput value={search} onChange={setSearch} placeholder="Tìm kiếm..." />
+
+// Nhỏ — dùng trong filter bar nhul, sheet (h-8)
+<SearchInput size="sm" value={search} onChange={setSearch} />
+
+// Lớn — form chính (h-10)
+<SearchInput size="lg" value={search} onChange={setSearch} />`}</CodeBlock>
 
       {/* ════════════ CustomSelect ════════════ */}
       <div className="mt-8">

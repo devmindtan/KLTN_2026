@@ -31,6 +31,7 @@ import {
 import { ResultSkeleton } from "@/components/search/result-skeleton";
 import { ResultItem } from "@/components/search/result-item";
 import { DetailSheet } from "@/components/search/detail-sheet";
+import { SEARCH_TERM } from "@/lib/app-constants";
 
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -182,8 +183,8 @@ export default function Search() {
     <div className="flex flex-1 flex-col gap-4 p-4">
       <PageHeader
         icon={<IconSearch className="w-5 h-5" />}
-        title="Tìm kiếm"
-        description="Tìm kiếm camera, mô hình, báo cáo và dự báo giao thông"
+        title={SEARCH_TERM.page_header.title}
+        description={SEARCH_TERM.page_header.description}
       />
 
       {/* ── Search bar ── */}

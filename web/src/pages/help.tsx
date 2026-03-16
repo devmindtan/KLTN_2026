@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { IconBook, IconMessageCircle, IconMail, IconPhone } from "@tabler/icons-react";
 import { PageHeader } from "@/components/custom/page-header";
+import { HELP_TERM } from "@/lib/app-constants";
 
 export default function Help() {
   const helpCategories = [
@@ -33,8 +34,8 @@ export default function Help() {
     <div className="flex flex-1 flex-col gap-4 p-4">
       <PageHeader
         icon={<IconBook className="w-5 h-5" />}
-        title="Trung tâm hỗ trợ"
-        description="Tài liệu, hướng dẫn và hỗ trợ kỹ thuật"
+        title={HELP_TERM.page_header.title}
+        description={HELP_TERM.page_header.description}
       />
       <div className="grid gap-4 md:grid-cols-2">
         {helpCategories.map((category, idx) => {

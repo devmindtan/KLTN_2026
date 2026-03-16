@@ -25,6 +25,7 @@ import {
 import { getAllCameras } from "@/services/camera.service";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useIsMobile, useIsNarrow } from "@/hooks/use-mobile";
+import { DASHBOARD_TERM } from "@/lib/app-constants";
 import logger from "@/lib/logger";
 
 // ─── Types ───────────────────────────────────────────────────────────────────────────────
@@ -398,10 +399,10 @@ export function TrafficDensityChart() {
           <div className="min-w-0 flex-1">
             <CardSectionHeader
               icon={IconChartHistogram}
-              title="Giao động mật độ giao thông"
+              title={DASHBOARD_TERM.chart2.title}
               iconBg="bg-violet-500/10"
               iconColor="text-violet-600"
-              description="Phân tích lưu lượng trung bình theo chu kỳ thời gian"
+              description={DASHBOARD_TERM.chart2.description}
             />
           </div>
 

@@ -23,9 +23,9 @@ import {
   IconArrowsSort,
   IconSortAscending,
   IconSortDescending,
-  IconSearch,
 } from "@tabler/icons-react";
 import { HighlightText } from "@/components/custom/highlight-text";
+import { SearchInput } from "@/components/custom/search-input";
 import {
   getModelHistory,
   getR2Color,
@@ -34,6 +34,7 @@ import {
 } from "@/services/model.service";
 import { useAuth } from "@/contexts/AuthContext";
 import { MetricChip } from "@/components/models/metric-chip";
+import { METRIC_LABELS, UI_LABELS } from "@/lib/app-constants";
 
 /**
  * Hàng thông tin label – value dùng trong Sheet chi tiết mô hình.
@@ -249,21 +250,21 @@ export function ModelDetailSheet({
             </p>
             <div className="flex flex-wrap gap-2 mb-4">
               <MetricChip
-                label="MAE"
+                label={METRIC_LABELS.MAE}
                 value={mae !== undefined ? mae.toFixed(2) : undefined}
                 unit=" xe"
               />
               <MetricChip
-                label="RMSE"
+                label={METRIC_LABELS.RMSE}
                 value={rmse !== undefined ? rmse.toFixed(2) : undefined}
                 unit=" xe"
               />
               <MetricChip
-                label="R²"
+                label={METRIC_LABELS.R2}
                 value={r2 !== undefined ? r2.toFixed(3) : undefined}
               />
               <MetricChip
-                label="Samples"
+                label={METRIC_LABELS.SAMPLES}
                 value={
                   model.training_samples != null
                     ? model.training_samples.toLocaleString("vi-VN")
@@ -304,16 +305,13 @@ export function ModelDetailSheet({
               <div className="space-y-2">
                 {/* Filter controls */}
                 <div className="flex flex-wrap gap-1.5 items-center">
-                  <div className="relative flex-1 min-w-[120px]">
-                    <IconSearch className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-                    <input
-                      type="text"
-                      placeholder="Tìm phiên bản..."
-                      value={historySearch}
-                      onChange={(e) => setHistorySearch(e.target.value)}
-                      className="w-full pl-6 pr-2 py-1 text-xs rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                  </div>
+                  <SearchInput
+                    size="sm"
+                    placeholder="Tìm phiên bản..."
+                    value={historySearch}
+                    onChange={setHistorySearch}
+                    className="flex-1 min-w-[120px]"
+                  />
                   <input
                     type="date"
                     value={historyDateFrom}
@@ -347,9 +345,9 @@ export function ModelDetailSheet({
                     <TableHeader>
                       <TableRow>
                         <SortTh col="model_version" label="Phiên bản" />
-                        <SortTh col="mae"            label="MAE"      className="text-right" />
-                        <SortTh col="r2"             label="R²"       className="text-right" />
-                        <SortTh col="training_samples" label="Samples" className="text-right" />
+                        <SortTh col="mae"            label={METRIC_LABELS.MAE}  className="text-right" />
+                        <SortTh col="r2"             label={METRIC_LABELS.R2}   className="text-right" />
+                        <SortTh col="training_samples" label={METRIC_LABELS.SAMPLES} className="text-right" />
                         <SortTh col="created_at"    label="Ngày tạo" className="whitespace-nowrap" />
                         <TableHead className="text-xs">Trạng thái</TableHead>
                       </TableRow>

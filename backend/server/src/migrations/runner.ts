@@ -14,7 +14,8 @@ const PLAIN_MIGRATIONS = [
 ];
 
 const MV_MIGRATION = "002_traffic_pattern_views.sql";
-const MV_FORECAST_MIGRATION = "004_forecast_views.sql";
+const MV_FORECAST_MIGRATION = "004_forecast_capacity_views.sql";
+const MV_FORECAST_ROLLING_MIGRATION = "005_forecast_rolling_view.sql";
 
 /**
  * Chạy toàn bộ migrations khi server khởi động.
@@ -71,6 +72,34 @@ export async function runMigrations(dbPool: Pool): Promise<void> {
     }
   } catch (err) {
     console.error(`[migrations] ❌ ${MV_FORECAST_MIGRATION} failed:`, err);
+  }
+
+  // ── Forecast Rolling Today MV (005) ──────────────────────────────────────
+  // Rolling forecast chart - chỉ ngày hiện tại, phụ thuộc mv_forecast_capacity
+  // NOTE: MV structure thay đổi 15/03/26 từ PIVOT → simple filter (giữ nguyên
+  //       structure gốc camera_forecasts). Detect bằng cột horizon_minutes.
+  try {
+    const { rows } = await dbPool.query(`
+      SELECT attname FROM pg_attribute
+      JOIN pg_class ON pg_class.oid = pg_attribute.attrelid
+      WHERE pg_class.relname = 'mv_forecast_rolling_today'
+        AND pg_attribute.attname = 'horizon_minutes'
+        AND pg_attribute.attnum > 0
+    `);
+    const hasNewStructure = rows.length > 0; // có cột horizon_minutes → MV mới
+    if (!hasNewStructure) {
+      // Chưa có MV, hoặc MV cũ (PIVOT) → drop và tạo lại
+      await dbPool.query(`DROP INDEX IF EXISTS idx_mv_forecast_rolling_today`);
+      await dbPool.query(`DROP MATERIALIZED VIEW IF EXISTS mv_forecast_rolling_today`);
+      const sqlPath = path.join(__dirname, MV_FORECAST_ROLLING_MIGRATION);
+      const sql     = fs.readFileSync(sqlPath, "utf8");
+      await dbPool.query(sql);
+      console.log(`[migrations] ✅ ${MV_FORECAST_ROLLING_MIGRATION} (created/upgraded to simple-filter structure)`);
+    } else {
+      console.log(`[migrations] ✅ ${MV_FORECAST_ROLLING_MIGRATION} (already up-to-date, skipped)`);
+    }
+  } catch (err) {
+    console.error(`[migrations] ❌ ${MV_FORECAST_ROLLING_MIGRATION} failed:`, err);
   }
 
   console.log("[migrations] Startup migrations completed ✅");

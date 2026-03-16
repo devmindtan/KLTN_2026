@@ -36,24 +36,26 @@ import {
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils"
 
-// ─── Nav data factory ───────────────────────────────────────────────────────
+import { PAGE_TITLES } from "@/lib/app-constants";
+
+// ─── Nav data factory — labels từ PAGE_TITLES trong app-constants ──────────
 function buildNavMain(p: string) { return [
-  { title: "Tổng quan", url: `/${p}/dashboard`, icon: IconDashboard },
-  { title: "Giám sát lưu lượng",        url: `/${p}/monitoring`,  icon: IconListDetails },
-  { title: "Phân tích mô hình",       url: `/${p}/analytics`,  icon: IconChartBar },
-  { title: "Danh sách mô hình",      url: `/${p}/models`,     icon: IconFolder },
-  { title: "Đội ngũ phát triển", url: `/${p}/team`, icon: IconUsers },
+  { title: PAGE_TITLES.DASHBOARD,  url: `/${p}/dashboard`, icon: IconDashboard },
+  { title: PAGE_TITLES.MONITORING, url: `/${p}/monitoring`, icon: IconListDetails },
+  { title: PAGE_TITLES.ANALYTICS,  url: `/${p}/analytics`, icon: IconChartBar },
+  { title: PAGE_TITLES.MODELS,     url: `/${p}/models`,    icon: IconFolder },
 ]}
 
 function buildNavDocuments(p: string) { return [
-  { name: "Dữ liệu giao thông",  url: `/${p}/data-library`,  icon: IconDatabase },
-  { name: "Báo cáo & Dự báo",  url: `/${p}/reports-forecasts`,        icon: IconReport },
-  { name: "Hỗ trợ ra quyết định",   url: `/${p}/assistant`, icon: IconFileWord },
+  { name: PAGE_TITLES.DATA_LIBRARY, url: `/${p}/data-library`,      icon: IconDatabase },
+  { name: PAGE_TITLES.REPORTS,      url: `/${p}/reports-forecasts`, icon: IconReport },
+  { name: "Hỗ trợ ra quyết định",  url: `/${p}/assistant`,         icon: IconFileWord },
 ]}
 function buildNavSecondary(p: string) { return [
-  { title: "Tìm kiếm nhanh", url: `/${p}/search`,   icon: IconSearch },
-  { title: "Liên hệ & Hướng dẫn",  url: `/${p}/help`,     icon: IconHelp },
-  { title: "Cài đặt",  url: `/${p}/settings`, icon: IconSettings },
+  { title: PAGE_TITLES.SEARCH,   url: `/${p}/search`,   icon: IconSearch },
+  { title: PAGE_TITLES.HELP,     url: `/${p}/help`,     icon: IconHelp },
+  { title: PAGE_TITLES.TEAM,     url: `/${p}/team`,     icon: IconUsers },
+  { title: PAGE_TITLES.SETTINGS, url: `/${p}/settings`, icon: IconSettings },
 ]}
 
 // ─── Document item (simple NavLink, no dropdown) ────────────────────────────

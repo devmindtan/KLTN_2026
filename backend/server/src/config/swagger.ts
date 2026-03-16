@@ -777,7 +777,9 @@ const options: swaggerJsdoc.Options = {
       "/api/forecast/summary": {
         get: {
           tags: ["Forecast"],
-          summary: "Tổng hợp độ chính xác dự báo trong ngày",
+          summary: "[DEPRECATED] Tổng hợp độ chính xác dự báo trong ngày",
+          deprecated: true,
+          description: "⚠️ API này không còn hoạt động vì MV (mv_forecast_daily_stats) đã bị xóa. Sử dụng /api/forecast/rolling để lấy dữ liệu rolling forecast.",
           parameters: [
             {
               name: "date", in: "query", required: true,
@@ -817,7 +819,9 @@ const options: swaggerJsdoc.Options = {
       "/api/forecast/timeline": {
         get: {
           tags: ["Forecast"],
-          summary: "Chuỗi thời gian predicted vs actual theo giờ",
+          summary: "[DEPRECATED] Chuỗi thời gian predicted vs actual theo giờ",
+          deprecated: true,
+          description: "⚠️ API này không còn hoạt động vì MV (mv_forecast_hourly) đã bị xóa. Sử dụng /api/forecast/rolling để lấy dữ liệu rolling forecast.",
           parameters: [
             {
               name: "date", in: "query", required: true,
@@ -867,7 +871,9 @@ const options: swaggerJsdoc.Options = {
       "/api/forecast/slots": {
         get: {
           tags: ["Forecast"],
-          summary: "Danh sách slot dự báo per-camera với LOS và riskLevel",
+          summary: "[DEPRECATED] Danh sách slot dự báo per-camera với LOS và riskLevel",
+          deprecated: true,
+          description: "⚠️ API này không còn hoạt động vì MV (mv_forecast_slots_recent) đã bị xóa. Sử dụng /api/forecast/rolling để lấy dữ liệu rolling forecast.",
           parameters: [
             {
               name: "date", in: "query", required: true,
@@ -924,6 +930,88 @@ const options: swaggerJsdoc.Options = {
               },
             },
             400: { description: "Thiếu tham số date" },
+            401: { description: "Thiếu JWT token" },
+          },
+        },
+      },
+
+      "/api/forecast/rolling": {
+        get: {
+          tags: ["Forecast"],
+          summary: "Rolling forecast data cho Dashboard (ngày hiện tại, 5 horizons)",
+          parameters: [
+            {
+              name: "cameraId", in: "query",
+              schema: { type: "string", default: "all" },
+              description: "Camera ID (all = tổng toàn mạng)",
+            },
+          ],
+          responses: {
+            200: {
+              description: "Dữ liệu rolling forecast",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      success: { type: "boolean" },
+                      metadata: {
+                        type: "object",
+                        properties: {
+                          nowIndex:    { type: "integer", description: "Index của slot hiện tại" },
+                          totalSlots:  { type: "integer", description: "Tổng số slots (07:00-23:55)" },
+                          nowTime:     { type: "string", example: "14:30", description: "Giờ HCM hiện tại HH:MM" },
+                          generatedAt: { type: "string", format: "date-time", description: "ISO timestamp khi response được tạo" },
+                          timeRange:   {
+                            type: "object",
+                            properties: {
+                              start: { type: "string", example: "07:00" },
+                              end:   { type: "string", example: "23:55" },
+                            },
+                          },
+                          description: { type: "string" },
+                        },
+                      },
+                      capacities: {
+                        type: "object",
+                        description: "backward-compat: capacity từng camera (vehicle/5min). Xem cameras[id].capacity.",
+                        additionalProperties: { type: "number" },
+                      },
+                      cameras: {
+                        type: "object",
+                        description: "Per-camera forecast data",
+                        additionalProperties: {
+                          type: "object",
+                          properties: {
+                            capacity: { type: "number", description: "Capacity camera (vehicle/5min)" },
+                            slots: {
+                              type: "array",
+                              items: {
+                                type: "object",
+                                properties: {
+                                  t:            { type: "string", example: "07:00" },
+                                  actual:       { type: "number", nullable: true },
+                                  actualRef:    { type: "number", nullable: true, description: "Baseline cho tương lai" },
+                                  currentRatio: { type: "number", nullable: true, description: "V/C ratio %" },
+                                  isFuture:     { type: "boolean", description: "true nếu slot >= nowTime" },
+                                  los:          { type: "string", example: "A", description: "Level of Service: A–F" },
+                                  losLabel:     { type: "string", example: "Thông thoáng", description: "Nhãn LOS tiếng Việt" },
+                                  f5m:          { type: "number", nullable: true },
+                                  f10m:         { type: "number", nullable: true },
+                                  f15m:         { type: "number", nullable: true },
+                                  f30m:         { type: "number", nullable: true },
+                                  f60m:         { type: "number", nullable: true },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
             401: { description: "Thiếu JWT token" },
           },
         },

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconMail, IconPhone, IconUsers } from "@tabler/icons-react";
 import { PageHeader } from "@/components/custom/page-header";
+import { TEAM_TERM } from "@/lib/app-constants";
 
 export default function Team() {
   const getInitials = (name: string) => {
@@ -38,8 +39,8 @@ export default function Team() {
     <div className="flex flex-1 flex-col gap-4 p-4">
       <PageHeader
         icon={<IconUsers className="w-5 h-5" />}
-        title="Đội ngũ phát triển"
-        description="Thành viên tham gia dự án phát triển phần mềm đoán lưu lượng giao thông"
+        title={TEAM_TERM.page_header.title}
+        description={TEAM_TERM.page_header.description}
       />
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {teamMembers.map((member, idx) => (

@@ -129,7 +129,7 @@ Folder này chứa các tài liệu hướng dẫn và reference cho dự án Tr
 ### Frontend Merge
 - **File**: `src/contexts/SocketContext.tsx`
 - **Logic**: Merge cameraInfoMap (DB) + cameras (Socket)
-- **Output**: processedCameras array
+- **Output**: `processedCameras` array – consumed bởi Dashboard, Monitoring, DataTable, ChartAreaInteractive
 
 ## Update Guidelines
 
@@ -161,8 +161,9 @@ Folder này chứa các tài liệu hướng dẫn và reference cho dự án Tr
 - Frontend Code: `../src/`
 - API Service: `../src/services/camera.service.ts`
 - Socket Context: `../src/contexts/SocketContext.tsx`
-- Data Table: `../src/components/data-table.tsx`
+- Data Table: `../src/components/dashboard/data-table.tsx`
 - Dashboard: `../src/pages/dashboard.tsx`
+- Monitoring: `../src/pages/monitoring.tsx`
 
 ## Contact
 
@@ -172,6 +173,6 @@ Folder này chứa các tài liệu hướng dẫn và reference cho dự án Tr
 
 ---
 
-**Last Updated**: February 13, 2026  
-**Version**: 1.0  
+**Last Updated**: March 13, 2026  
+**Version**: 2.0  
 **Maintained by**: Development Team

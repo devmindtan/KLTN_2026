@@ -1,16 +1,38 @@
 "use client";
-import { useMemo } from "react";
-import { ChartAreaInteractive } from "@/components/dashboard/chart-area-interactive";
-import { DataTable } from "@/components/dashboard/data-table";
-import { ForecastAccuracyCard } from "@/components/dashboard/forecast-accuracy-card";
-import { SectionCards } from "@/components/dashboard/section-cards";
-import { TrafficDensityChart } from "@/components/dashboard/traffic-density-chart";
+import { useMemo, useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { ChartAreaInteractive } from "@/components/dashboard/overview/chart-area-interactive";
+import { DataTable } from "@/components/dashboard/overview/data-table";
+import { ForecastAccuracyCard } from "@/components/dashboard/overview/forecast-accuracy-card";
+import { SectionCards } from "@/components/dashboard/overview/section-cards";
+import { TrafficDensityChart } from "@/components/dashboard/overview/traffic-density-chart";
+import { ForecastStatCards }    from "@/components/dashboard/forecast/forecast-stat-cards";
+import { ForecastRollingChart } from "@/components/dashboard/forecast/forecast-rolling-chart";
+import { PageHeader } from "@/components/custom/page-header";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { IconDashboard, IconChartBar } from "@tabler/icons-react";
+import { DASHBOARD_TERM, CONNECTION_STATUS } from "@/lib/app-constants";
 // import { SocketDebug } from "@/components/socket-debug";
 import { useSocket } from "@/contexts/SocketContext";
 
 export default function Dashboard() {
   // Lấy dữ liệu từ Global Socket Context
   const { processedCameras, isConnected } = useSocket();
+  const [activeTab, setActiveTab] = useState("overview");
+  const location  = useLocation();
+  const navigate  = useNavigate();
+
+  // Auto-switch tab khi được điều hướng từ nơi khác (ví dụ: chart "Xem chi tiết →")
+  // Dùng location.state làm dep để re-fire khi navigate với state mới từ cùng trang.
+  useEffect(() => {
+    const state = location.state as { tab?: string } | null;
+    if (state?.tab) {
+      setActiveTab(state.tab);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
 
   // Calculate aggregate metrics từ processedCameras
   const metrics = useMemo(() => {
@@ -75,12 +97,39 @@ export default function Dashboard() {
   }, [processedCameras]);
 
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="@container/main flex flex-1 flex-col">
-        <div className="flex flex-col gap-6 py-6 px-4 lg:px-6">
+    <div className="flex flex-1 flex-col gap-4 p-4">
+      <PageHeader
+        icon={<IconDashboard className="size-5" />}
+        title={DASHBOARD_TERM.page_header.title}
+        description={DASHBOARD_TERM.page_header.description}
+      >
+        <Badge
+          variant="outline"
+          className={isConnected
+            ? CONNECTION_STATUS.connected.theme
+            : CONNECTION_STATUS.disconnected.theme
+          }
+        >
+          <span className={`${isConnected ? CONNECTION_STATUS.connected.color : CONNECTION_STATUS.disconnected.color}`} />
+          {isConnected ? CONNECTION_STATUS.connected.label: CONNECTION_STATUS.connected.label}
+        </Badge>
+      </PageHeader>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col gap-4">
+        <TabsList className="w-fit">
+          <TabsTrigger value="overview" className="gap-1.5 text-xs">
+            <IconDashboard className="size-3.5" />
+            {DASHBOARD_TERM.tab1.title}
+          </TabsTrigger>
+          <TabsTrigger value="forecast" className="gap-1.5 text-xs">
+            <IconChartBar className="size-3.5" />
+            {DASHBOARD_TERM.tab2.title}
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ══════════════ TAB TỔNG QUAN ══════════════ */}
+        <TabsContent value="overview" className="mt-0 flex flex-col gap-6">
           {/* Debug Panel - Remove this after debugging */}
           {/* <SocketDebug /> */}
-
           <SectionCards metrics={metrics} isConnected={isConnected} />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -93,8 +142,14 @@ export default function Dashboard() {
           <TrafficDensityChart />
 
           <DataTable data={processedCameras} />
-        </div>
-      </div>
+        </TabsContent>
+
+        {/* ══════════════ TAB DỰ BÁO ══════════════ */}
+        <TabsContent value="forecast" className="mt-0 flex flex-col gap-4">
+          <ForecastStatCards />
+          <ForecastRollingChart />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

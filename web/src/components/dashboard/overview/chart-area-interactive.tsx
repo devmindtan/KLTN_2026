@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import logger from "@/lib/logger"
 import { IconChartAreaLine } from "@tabler/icons-react"
 import { Area, AreaChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts"
 import { CardSectionHeader } from "@/components/custom/card-section-header"
@@ -20,6 +19,7 @@ import {
   ChartTooltip,
 } from "@/components/ui/chart"
 import { SelectWithSearch } from "@/components/custom/select-with-search"
+import { DASHBOARD_TERM } from "@/lib/app-constants"
 // import {
 //   ToggleGroup,
 //   ToggleGroupItem,
@@ -93,69 +93,66 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
     [cameras]
   )
 
-  // Transform forecast data to chart format
+  /**
+   * Build chartData trực tiếp từ socket (cameras prop) – không cần gọi rolling API
+   * Dữ liệu tự động cập nhật mỗi khi CAMERA_UPDATED socket gửi prediction mới
+   */
   const chartData = React.useMemo(() => {
-    // console.log("📊 [ChartAreaInteractive] Cameras received:", cameras.length);
-
-    if (cameras.length === 0) {
-      logger.log("⚠️ [ChartAreaInteractive] Không có camera nào");
-      return [];
-    }
-
-    // If "all" is selected, calculate average forecast
-    if (selectedCamera === "all") {
-      const hasInputData = cameras.some(cam => cam.inputValue !== undefined);
-      const currentBase = hasInputData
-        ? cameras.reduce((sum, cam) => sum + (cam.inputValue ?? 0), 0) / cameras.filter(cam => cam.inputValue !== undefined).length
-        : null;
-      const timeframes = ["5m", "10m", "15m", "30m", "60m"] as const;
-      const chartData = timeframes.map((timeframe) => {
-        const avgVehicles = cameras.reduce(
-          (sum, cam) => sum + (cam.forecasts[timeframe] || 0),
-          0
-        ) / cameras.length;
-        const vehicles = Math.round(avgVehicles);
-        return {
-          time: timeframe,
-          vehicles,
-          vcPct: null as number | null,
-          pctChange: (currentBase !== null && currentBase > 0)
-            ? Math.round(((vehicles - currentBase) / currentBase) * 100)
-            : null,
-          label: timeframe === "5m" ? "5 phút" :
-            timeframe === "10m" ? "10 phút" :
-              timeframe === "15m" ? "15 phút" :
-                timeframe === "30m" ? "30 phút" : "60 phút",
-        };
-      });
-
-      return chartData;
-    }
-
-    // If specific camera is selected
-    const camera = cameras.find((cam) => cam.id === selectedCamera);
-    if (!camera) return [];
-
-    const currentBase = camera.inputValue !== undefined ? camera.inputValue : null;
-    const camCapacity = camera.calculation?.capacity ?? 0;
     const timeframes = ["5m", "10m", "15m", "30m", "60m"] as const;
-    const chartData = timeframes.map((timeframe) => {
-      const vehicles = Math.round(camera.forecasts[timeframe] || 0);
+    const labelMap: Record<typeof timeframes[number], string> = {
+      "5m": "5 phút", "10m": "10 phút", "15m": "15 phút", "30m": "30 phút", "60m": "60 phút",
+    };
+
+    let forecasts: CameraData["forecasts"] | null = null;
+    let capacity: number | null = null;
+    let currentBase: number | null = null;
+
+    if (selectedCamera === "all") {
+      const withData = cameras.filter((c) => c.forecasts);
+      if (withData.length === 0) return [];
+
+      // Tính trung bình forecast + capacity từ tất cả cameras
+      const sums = { "5m": 0, "10m": 0, "15m": 0, "30m": 0, "60m": 0 };
+      let capSum = 0, capCount = 0;
+      for (const cam of withData) {
+        for (const tf of timeframes) sums[tf] += cam.forecasts[tf] ?? 0;
+        if (cam.calculation?.capacity) { capSum += cam.calculation.capacity; capCount++; }
+      }
+      forecasts = {
+        "5m":  sums["5m"]  / withData.length,
+        "10m": sums["10m"] / withData.length,
+        "15m": sums["15m"] / withData.length,
+        "30m": sums["30m"] / withData.length,
+        "60m": sums["60m"] / withData.length,
+      };
+      capacity = capCount > 0 ? capSum / capCount : null;
+      const withInput = cameras.filter((c) => c.inputValue != null);
+      currentBase = withInput.length > 0
+        ? withInput.reduce((s, c) => s + (c.inputValue ?? 0), 0) / withInput.length
+        : null;
+    } else {
+      const cam = cameras.find((c) => c.id === selectedCamera);
+      if (!cam) return [];
+      forecasts = cam.forecasts;
+      capacity = cam.calculation?.capacity ?? null;
+      currentBase = cam.inputValue ?? null;
+    }
+
+    if (!forecasts) return [];
+
+    return timeframes.map((timeframe) => {
+      const vehicles = Math.round(forecasts![timeframe] ?? 0);
+      const vcPct = capacity && capacity > 0 ? Math.min(100, Math.round(vehicles / capacity * 100)) : null;
       return {
         time: timeframe,
         vehicles,
-        vcPct: camCapacity > 0 ? Math.round(vehicles / camCapacity * 100) : null,
-        pctChange: (currentBase !== null && currentBase > 0)
+        vcPct,
+        pctChange: currentBase != null && currentBase > 0
           ? Math.round(((vehicles - currentBase) / currentBase) * 100)
           : null,
-        label: timeframe === "5m" ? "5 phút" :
-          timeframe === "10m" ? "10 phút" :
-            timeframe === "15m" ? "15 phút" :
-              timeframe === "30m" ? "30 phút" : "60 phút",
+        label: labelMap[timeframe],
       };
     });
-
-    return chartData;
   }, [cameras, selectedCamera])
 
   return (
@@ -165,13 +162,13 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
           <div className="min-w-0 flex-1">
             <CardSectionHeader
               icon={IconChartAreaLine}
-              title="Dự báo lưu lượng giao thông"
+              title={DASHBOARD_TERM.chart1.title}
               iconBg="bg-blue-500/10"
               iconColor="text-blue-600"
-              description="Dự đoán số lượng phương tiện các mốc 5/10/15/30/60 phút"
+              description={DASHBOARD_TERM.chart1.description}
               action={
                 <button
-                  onClick={() => navigate(`/${prefix}/reports-forecasts`, { state: { tab: "forecast" } })}
+                  onClick={() => navigate(`/${prefix}/dashboard`, { state: { tab: "forecast" } })}
                   className="text-[11px] text-primary hover:underline underline-offset-2 font-medium shrink-0"
                 >
                   Xem chi tiết →
@@ -198,8 +195,14 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-4">
         {chartData.length === 0 ? (
           <div className="flex h-[250px] flex-col items-center justify-center gap-2 text-muted-foreground">
-            <p className="text-sm font-medium">Không có dữ liệu dự đoán</p>
-            <p className="text-xs">Chờ kết quả dự đoán từ model...</p>
+            {cameras.length === 0 ? (
+              <p className="text-sm font-medium">Đang tải dữ liệu camera...</p>
+            ) : (
+              <>
+                <p className="text-sm font-medium">Không có dữ liệu dự đoán</p>
+                <p className="text-xs">Chờ kết quả dự đoán từ model...</p>
+              </>
+            )}
           </div>
         ) : (
           <ChartContainer

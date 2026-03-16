@@ -1,5 +1,6 @@
 import type { ElementType } from "react";
 import { IconClockHour4, IconRobot } from "@tabler/icons-react";
+import { TIME_LABEL } from "@/lib/app-constants";
 
 export const MODEL_ICON: Record<string, ElementType> = {
   random_forest_5m: IconClockHour4,
@@ -10,12 +11,13 @@ export const MODEL_ICON: Record<string, ElementType> = {
   yolo: IconRobot,
 };
 
+/** Map loại model → nhãn khoảng thời gian — từ TIME_LABEL trong app-constants */
 export const HORIZON_LABEL: Record<string, string> = {
-  random_forest_5m: "5 phút",
-  random_forest_10m: "10 phút",
-  random_forest_15m: "15 phút",
-  random_forest_30m: "30 phút",
-  random_forest_60m: "60 phút",
+  random_forest_5m:  TIME_LABEL["5m"],
+  random_forest_10m: TIME_LABEL["10m"],
+  random_forest_15m: TIME_LABEL["15m"],
+  random_forest_30m: TIME_LABEL["30m"],
+  random_forest_60m: TIME_LABEL["60m"],
 };
 
 /**

@@ -5,7 +5,7 @@ import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+import { SearchInput } from "@/components/custom/search-input"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/select"
 import {
   CameraIcon,
-  SearchIcon,
   WifiIcon,
   WifiOffIcon,
   TrendingUpIcon,
@@ -194,15 +193,13 @@ export function PgMonitoring() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex-1 min-w-[180px] relative">
-          <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-          <Input
-            placeholder="Tìm camera..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-8 h-8 text-sm"
-          />
-        </div>
+        <SearchInput
+          size="sm"
+          placeholder="Tìm camera..."
+          value={search}
+          onChange={setSearch}
+          className="flex-1 min-w-[180px]"
+        />
         <Select value={filter} onValueChange={setFilter}>
           <SelectTrigger className="w-36 h-8 text-xs">
             <SelectValue />

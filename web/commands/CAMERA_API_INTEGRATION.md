@@ -58,7 +58,7 @@ SocketProvider mount → getAllCameras() → Store in cameraInfoMap
 
 ### Real-time Updates:
 ```
-Socket "camera:update" → Merge: DB data (static) + Socket data (realtime)
+Socket "CAMERA_UPDATED" → Merge: DB data (static) + Socket data (realtime)
 ```
 
 ### Data Structure:
@@ -105,4 +105,4 @@ CREATE TABLE camera_data (
 ## Related Documentation
 - `/schemas/DATABASE_SCHEMA.md` - Database schema
 - `/schemas/FIWARE_ORION_DATA_TEMPLATE.md` - FIWARE format
-- `web/web-user/commands/PROJECT_CONTEXT_FRONTEND.md` - Frontend overview
+- `web/commands/PROJECT_CONTEXT_FRONTEND.md` - Frontend overview

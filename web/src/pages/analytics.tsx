@@ -19,10 +19,11 @@ import {
   type ModelMetricsHistoryRow,
 } from "@/services/model-metrics.service";
 import { getAllCameras } from "@/services/camera.service";
-import { IconBrain, IconChartBar, IconChevronDown, IconClock, IconTrendingUp } from "@tabler/icons-react";
+import { IconBrain, IconChartBar, IconChevronDown, IconClock, IconRefresh, IconTrendingUp } from "@tabler/icons-react";
 import { PageHeader } from "@/components/custom/page-header";
 import { TermTooltip } from "@/components/custom/info-tooltip";
 import { useLoading } from "@/contexts/LoadingContext";
+import { METRIC_LABELS, UI_LABELS, getTimeLabel, ANALYTICS_TERM } from "@/lib/app-constants";
 
 /**
  * Định dạng thời gian cho giao diện
@@ -120,6 +121,7 @@ export default function PredictiveAnalytics() {
   const [isLoading, setIsLoading] = React.useState<boolean>(true);
   const [errorMessage, setErrorMessage] = React.useState<string>("");
   const [isExplanationOpen, setIsExplanationOpen] = React.useState<boolean>(false);
+  const [refreshKey, setRefreshKey] = React.useState(0);
   const location = useLocation();
   const { startLoading, stopLoading } = useLoading();
 
@@ -170,7 +172,7 @@ export default function PredictiveAnalytics() {
 
     loadAnalyticsData();
     return () => { isMounted = false; };
-  }, [startLoading, stopLoading]);
+  }, [startLoading, stopLoading, refreshKey]);
 
   const overall = latestMetrics?.overall;
   const trendAccuracy = latestMetrics?.trend_accuracy?.trend_accuracy ?? 0;
@@ -180,10 +182,20 @@ export default function PredictiveAnalytics() {
     <div className="flex flex-1 flex-col gap-4 p-4">
       <PageHeader
         icon={<IconChartBar className="w-5 h-5" />}
-        title="Phân tích hiệu suất mô hình"
-        description="Theo dõi độ chính xác dự đoán từ dữ liệu lịch sử"
+        title={ANALYTICS_TERM.page_header.title}
+        description={ANALYTICS_TERM.page_header.description}
       >
         <Badge variant="outline">Cập nhật gần nhất: {latestGeneratedAt}</Badge>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setRefreshKey(k => k + 1)}
+          disabled={isLoading}
+          className="gap-1.5"
+        >
+          <IconRefresh className={`size-4 ${isLoading ? "animate-spin" : ""}`} />
+          Làm mới
+        </Button>
       </PageHeader>
 
       {!isLoading && errorMessage && (
@@ -276,7 +288,7 @@ export default function PredictiveAnalytics() {
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
                   <TermTooltip 
-                    term="MAE" 
+                    term={METRIC_LABELS.MAE} 
                     description="Mean Absolute Error - Sai số tuyệt đối trung bình. Đo lường chênh lệch trung bình giữa giá trị dự đoán và thực tế theo số xe." 
                   />
                 </CardTitle>
@@ -293,7 +305,7 @@ export default function PredictiveAnalytics() {
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
                   <TermTooltip 
-                    term="MAPE" 
+                    term={METRIC_LABELS.MAPE} 
                     description="Mean Absolute Percentage Error - Sai số phần trăm tuyệt đối trung bình. Tiện ích để so sánh chất lượng dự đoán giữa các camera khác nhau." 
                   />
                 </CardTitle>
@@ -310,7 +322,7 @@ export default function PredictiveAnalytics() {
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
                   <TermTooltip 
-                    term="Accuracy ≤5xe" 
+                    term={METRIC_LABELS.ACC_5} 
                     description="Tỷ lệ % dự đoán có sai số trong phạm vi ±5 xe. Chiềm 75% trở lên được coi là tốt." 
                   />
                 </CardTitle>
@@ -327,7 +339,7 @@ export default function PredictiveAnalytics() {
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
                   <TermTooltip 
-                    term="Trend Accuracy" 
+                    term={METRIC_LABELS.TREND_ACC} 
                     description="Độ chính xác khi dự đoán xu hướng tăng/giảm/ổn định của lưu lượng giao thông. Hữu ích cho việc ra quyết định vận hành." 
                   />
                 </CardTitle>
@@ -421,7 +433,7 @@ export default function PredictiveAnalytics() {
 
           <Card id="horizon-comparison">
             <CardHeader>
-              <CardTitle>So sánh theo các mốc</CardTitle>
+              <CardTitle>{UI_LABELS.COMPARE_BY}</CardTitle>
               <CardDescription>
                 Hiệu suất dự đoán theo các <TermTooltip term="mốc thời gian (Horizon)" description="Các khoảng thời gian dự đoán: 5, 10, 15, 30, 60 phút. Mỗi mốc có độ chính xác khác nhau." /> (bao gồm độ tin cậy)
               </CardDescription>
@@ -434,10 +446,10 @@ export default function PredictiveAnalytics() {
                       <TermTooltip term="Mốc" description="Khoảng thời gian dự đoán tính từ hiện tại (5/10/15/30/60 phút)." />
                     </TableHead>
                     <TableHead>
-                      <TermTooltip term="MAE" description="Mean Absolute Error - Sai số tuyệt đối trung bình theo số xe." />
+                      <TermTooltip term={METRIC_LABELS.MAE} description="Mean Absolute Error - Sai số tuyệt đối trung bình theo số xe." />
                     </TableHead>
                     <TableHead>
-                      <TermTooltip term="Accuracy ≤5xe" description="Tỷ lệ % dự đoán có sai số trong phạm vi ±5 xe." />
+                      <TermTooltip term={METRIC_LABELS.ACC_5} description="Tỷ lệ % dự đoán có sai số trong phạm vi ±5 xe." />
                     </TableHead>
                     <TableHead>
                       <TermTooltip term="Độ tin cậy dự đoán" description="Đánh giá chất lượng dữ liệu đầu vào cho mốc này dựa trên sample count." />
@@ -450,7 +462,7 @@ export default function PredictiveAnalytics() {
                 <TableBody>
                   {latestMetrics.by_horizon.map((row) => (
                     <TableRow key={row.horizon_minutes}>
-                      <TableCell>{row.horizon_minutes} phút</TableCell>
+                      <TableCell>{getTimeLabel(`${row.horizon_minutes}m`)}</TableCell>
                       <TableCell>{row.avg_error} xe</TableCell>
                       <TableCell>{row.accuracy_5xe}%</TableCell>
                       <TableCell>
@@ -515,9 +527,9 @@ export default function PredictiveAnalytics() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Thời điểm</TableHead>
-                    <TableHead>MAE</TableHead>
-                    <TableHead>MAPE</TableHead>
-                    <TableHead>Accuracy ≤5xe</TableHead>
+                    <TableHead>{METRIC_LABELS.MAE}</TableHead>
+                    <TableHead>{METRIC_LABELS.MAPE}</TableHead>
+                    <TableHead>{METRIC_LABELS.ACC_5}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

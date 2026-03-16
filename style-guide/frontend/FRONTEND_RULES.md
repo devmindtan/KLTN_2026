@@ -97,3 +97,12 @@
 ## 12. Navigate State
 
 - Sau khi consume `location.state`, BUỘC clear: `navigate(pathname, { replace: true, state: {} })`.
+
+---
+
+## 13. Ưu Tiên Custom Component Có Sẵn
+
+- **BẮT BUỘC**: Trước khi tạo mới một component, PHẢI kiểm tra xem đã có custom component phù hợp trong `web/src/components/` chưa.
+- Nếu component cần dùng ĐÃ được tham chiếu trong bản thiết kế (design doc, `assets/ideas/`), PHẢI ưu tiên sử dụng lại component đó thay vì tự implement lại.
+- Ví dụ các custom component cần ưu tiên: `<HighlightText>`, `<PageHeader>`, `<TopProgressBar>`, `<StatusBadge>`, v.v.
+- Chỉ tạo component mới khi: (1) chưa tồn tại, hoặc (2) yêu cầu behavior khác biệt không thể giải quyết qua props.

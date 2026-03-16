@@ -22,7 +22,6 @@ import {
   LoaderIcon,
   TrendingUpIcon,
   TrendingDownIcon,
-  SearchIcon,
   FilterIcon,
   XIcon,
   MonitorIcon,
@@ -41,9 +40,10 @@ import {
   ChartContainer,
   ChartTooltip,
 } from "@/components/ui/chart"
-import { Input } from "@/components/ui/input"
+import { SearchInput } from "@/components/custom/search-input"
 import { HighlightText } from "@/components/custom/highlight-text"
 import { useSocket } from "@/contexts/SocketContext"
+import { getLOSLabel, DASHBOARD_TERM } from "@/lib/app-constants"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -127,17 +127,7 @@ const getLOSBadgeClass = (status: string): string => {
   }
 };
 
-/** Trả về nhãn tiếng Việt cho trạng thái LOS */
-const getLOSLabel = (status: string): string => {
-  switch (status) {
-    case "free_flow": return "Thông thoáng";
-    case "smooth":   return "Trôi chảy";
-    case "moderate": return "Trung bình";
-    case "heavy":    return "Nặng";
-    case "congested":return "Ùn tắc";
-    default:         return "Không rõ";
-  }
-};
+// getLOSLabel imported từ @/lib/los-config (single source of truth)
 
 // Helper function to get trend explanation
 const getTrendExplanation = (trend: { direction: string; gti: number; current_ratio: number; diff: number }) => {
@@ -368,10 +358,10 @@ export function DataTable({
       <div className="px-4 lg:px-6">
         <CardSectionHeader
           icon={MonitorIcon}
-          title="Nguồn camera trực tiếp"
+          title={DASHBOARD_TERM.table1.title}
           iconBg="bg-teal-500/10"
           iconColor="text-teal-600"
-          description="Giám sát luồng giao thông thời gian thực"
+          description={DASHBOARD_TERM.table1.description}
           className="w-full"
           badge={
             <Badge variant="secondary" className="flex h-5 items-center justify-center rounded-full px-2 ml-0.5">
@@ -386,17 +376,13 @@ export function DataTable({
       <div className="px-4 lg:px-6">
           <div className="flex flex-col lg:flex-row gap-3">
             {/* Search by name */}
-            <div className="relative flex-1">
-              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Tìm kiếm theo tên đường..."
-                value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
-                onChange={(event) =>
-                  table.getColumn("name")?.setFilterValue(event.target.value)
-                }
-                className="pl-9"
-              />
-            </div>
+            <SearchInput
+              placeholder="Tìm kiếm theo tên đường..."
+              value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
+              onChange={(value) =>
+                table.getColumn("name")?.setFilterValue(value || undefined)
+              }
+            />
             
             {/* Status Filter */}
             <Select

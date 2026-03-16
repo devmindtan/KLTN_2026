@@ -10,7 +10,6 @@ const Setting       = React.lazy(() => import("@/pages/setting.tsx"));
 const DataLibrary   = React.lazy(() => import("@/pages/data-library.tsx"));
 const Monitoring    = React.lazy(() => import("@/pages/monitoring.tsx"));
 const Analytics     = React.lazy(() => import("@/pages/analytics.tsx"));
-const Projects      = React.lazy(() => import("@/pages/projects.tsx"));
 const Models        = React.lazy(() => import("@/pages/models.tsx"));
 const Team          = React.lazy(() => import("@/pages/team.tsx"));
 const Reports       = React.lazy(() => import("@/pages/reports-forecasts"));
@@ -122,7 +121,6 @@ const router = createBrowserRouter([
       {path: "dashboard",        element: <Dashboard/>,     loader: () => new Promise(r => setTimeout(r, 0))},
       {path: "monitoring",       element: <Monitoring/>,    loader: () => new Promise(r => setTimeout(r, 0))},
       {path: "analytics",        element: <Analytics/>,     loader: () => new Promise(r => setTimeout(r, 0))},
-      {path: "projects",         element: <Projects/>,      loader: () => new Promise(r => setTimeout(r, 0))},
       {path: "models",           element: <Models/>,        loader: () => new Promise(r => setTimeout(r, 0))},
       {path: "team",             element: <Team/>,          loader: () => new Promise(r => setTimeout(r, 0))},
       {path: "data-library",     element: <DataLibrary/>,   loader: () => new Promise(r => setTimeout(r, 0))},

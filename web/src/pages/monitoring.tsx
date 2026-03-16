@@ -1,17 +1,18 @@
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { IconMapPin, IconClock, IconActivity, IconSearch, IconFilter, IconX, IconLayoutGrid } from "@tabler/icons-react";
+import { SearchInput } from "@/components/custom/search-input";
+import { IconCar, IconMotorbike, IconClock, IconActivity, IconSearch, IconFilter, IconX, IconLayoutGrid } from "@tabler/icons-react";
+import { TrendingUpIcon, TrendingDownIcon } from "lucide-react";
 import { PageHeader } from "@/components/custom/page-header";
 import { HighlightText } from "@/components/custom/highlight-text";
 import { CameraWallView } from "@/components/monitoring/camera-wall-view";
-import { CameraDetailDialog } from "@/components/monitoring/camera-detail-dialog";
+import { CameraDetailSheet } from "@/components/monitoring/camera-detail-dialog";
 import { getStatusBadge } from "@/components/monitoring/camera-utils";
-import { useSocket } from "@/contexts/SocketContext";
+import { useSocket, type CameraData } from "@/contexts/SocketContext";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Separator } from "@/components/ui/separator";
 import * as React from "react";
+import { LOS_LABEL, TREND_LABEL, UI_LABELS, CAMERA_LABELS, TRAFFIC_TERMS, getTrendLabel, MONITORING_TERM } from "@/lib/app-constants";
 import {
   Select,
   SelectContent,
@@ -27,21 +28,29 @@ export default function TrafficMonitoring() {
 
   const autoOpenCamId: string | null =
     (location.state as { openCamId?: string } | null)?.openCamId ?? null;
-  React.useEffect(() => {
-    if (autoOpenCamId) {
-      navigate(location.pathname, { replace: true, state: {} });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<string>("all");
   const [trendFilter, setTrendFilter] = React.useState<string>("all");
   const [sortBy, setSortBy] = React.useState<string>("name");
 
+  const [selectedCamera, setSelectedCamera] = React.useState<CameraData | null>(null);
+
   const [viewMode, setViewMode] = React.useState<"cards" | "wall">("cards");
   const [wallPerPage, setWallPerPage] = React.useState<number>(9);
   const [wallCurrentPage, setWallCurrentPage] = React.useState<number>(1);
+
+  // Auto-open camera từ navigate state (ví dụ: từ trang tổng quan) + clear state
+  React.useEffect(() => {
+    if (autoOpenCamId && processedCameras.length > 0) {
+      const cam = processedCameras.find((c) => c.shortId === autoOpenCamId);
+      if (cam) {
+        setSelectedCamera(cam);
+        navigate(location.pathname, { replace: true, state: {} });
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenCamId, processedCameras.length]);
 
   /** Format thời gian relative từ ISO timestamp */
   const getRelativeTime = (timestamp: string) => {
@@ -96,13 +105,13 @@ export default function TrafficMonitoring() {
     <div className="flex flex-1 flex-col gap-4 p-4">
       <PageHeader
         icon={<IconActivity className="w-5 h-5" />}
-        title="Giám sát lưu lượng thời gian thực"
-        description="Theo dõi lưu lượng giao thông tại các điểm quan trọng trong thành phố"
+        title={MONITORING_TERM.page_header.title}
+        description={MONITORING_TERM.page_header.description}
       >
         <Badge
           variant="outline"
           className={`flex items-center gap-1 rounded-lg text-xs whitespace-nowrap shrink-0 ${
-            isConnected ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"
+            isConnected ? "bg-green-500/10 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400" : "bg-red-50 text-red-600 border-red-200 dark:bg-red-950/30 dark:text-red-400"
           }`}
         >
           <IconActivity className="size-3 shrink-0" />
@@ -119,15 +128,11 @@ export default function TrafficMonitoring() {
           <CardContent className="pt-6">
             <div className="flex flex-col gap-4">
               <div className="flex flex-col lg:flex-row gap-4">
-                <div className="relative flex-1">
-                  <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Tìm kiếm theo tên camera hoặc ID..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
+                <SearchInput
+                  placeholder="Tìm kiếm theo tên camera hoặc ID..."
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                />
                 <div className="flex gap-2">
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger className="w-[150px]">
@@ -135,12 +140,12 @@ export default function TrafficMonitoring() {
                       <SelectValue placeholder="Trạng thái" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Tất cả</SelectItem>
-                      <SelectItem value="free_flow">Thông thoáng</SelectItem>
-                      <SelectItem value="smooth">Ổn định</SelectItem>
-                      <SelectItem value="moderate">Trung bình</SelectItem>
-                      <SelectItem value="heavy">Nặng</SelectItem>
-                      <SelectItem value="congested">Ùn tắc</SelectItem>
+                      <SelectItem value="all">{UI_LABELS.ALL}</SelectItem>
+                      <SelectItem value="free_flow">{LOS_LABEL["free_flow"]}</SelectItem>
+                      <SelectItem value="smooth">{LOS_LABEL["smooth"]}</SelectItem>
+                      <SelectItem value="moderate">{LOS_LABEL["moderate"]}</SelectItem>
+                      <SelectItem value="heavy">{LOS_LABEL["heavy"]}</SelectItem>
+                      <SelectItem value="congested">{LOS_LABEL["congested"]}</SelectItem>
                     </SelectContent>
                   </Select>
                   <Select value={trendFilter} onValueChange={setTrendFilter}>
@@ -148,10 +153,10 @@ export default function TrafficMonitoring() {
                       <SelectValue placeholder="Xu hướng" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Tất cả</SelectItem>
-                      <SelectItem value="increasing">Tăng</SelectItem>
-                      <SelectItem value="stable">Ổn định</SelectItem>
-                      <SelectItem value="decreasing">Giảm</SelectItem>
+                      <SelectItem value="all">{UI_LABELS.ALL}</SelectItem>
+                      <SelectItem value="increasing">{TREND_LABEL["increasing"]}</SelectItem>
+                      <SelectItem value="stable">{TREND_LABEL["stable"]}</SelectItem>
+                      <SelectItem value="decreasing">{TREND_LABEL["decreasing"]}</SelectItem>
                     </SelectContent>
                   </Select>
                   <Select value={sortBy} onValueChange={setSortBy}>
@@ -174,7 +179,7 @@ export default function TrafficMonitoring() {
                 {hasActiveFilters && (
                   <Button variant="ghost" size="sm" onClick={clearFilters}>
                     <IconX className="w-4 h-4 mr-1" />
-                    Xóa bộ lọc
+                    {UI_LABELS.CLEAR_FILTER}
                   </Button>
                 )}
               </div>
@@ -188,8 +193,8 @@ export default function TrafficMonitoring() {
           <CardContent className="flex h-[400px] items-center justify-center">
             <div className="text-center text-muted-foreground">
               <IconActivity className="w-12 h-12 mx-auto mb-4 animate-pulse" />
-              <p className="text-lg font-medium">Đang tải dữ liệu camera...</p>
-              <p className="text-sm">Vui lòng đợi kết nối với hệ thống</p>
+              <p className="text-lg font-medium">{UI_LABELS.LOADING}</p>
+              <p className="text-sm">{UI_LABELS.WAIT_CONNECTION}</p>
             </div>
           </CardContent>
         </Card>
@@ -198,84 +203,124 @@ export default function TrafficMonitoring() {
           <CardContent className="flex h-[300px] items-center justify-center">
             <div className="text-center text-muted-foreground">
               <IconSearch className="w-12 h-12 mx-auto mb-4" />
-              <p className="text-lg font-medium">Không tìm thấy camera</p>
-              <p className="text-sm">Thử điều chỉnh bộ lọc hoặc tìm kiếm khác</p>
-              <Button variant="outline" className="mt-4" onClick={clearFilters}>Xóa bộ lọc</Button>
+              <p className="text-lg font-medium">{CAMERA_LABELS.NOT_FOUND}</p>
+              <p className="text-sm">{UI_LABELS.FILTER_HINT}</p>
+              <Button variant="outline" className="mt-4" onClick={clearFilters}>{UI_LABELS.CLEAR_FILTER}</Button>
             </div>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
-          {filteredAndSortedCameras.map((camera) => (
-            <Card key={camera.id} className="overflow-hidden">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <IconMapPin className="w-5 h-5 text-primary" />
-                    <CardTitle className="text-base">
-                      <HighlightText text={camera.name} query={searchQuery} />
-                    </CardTitle>
-                  </div>
-                  <div className="flex flex-col gap-1 items-end">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filteredAndSortedCameras.map((camera) => {
+            const vcRatio = camera.calculation?.vc_ratio ?? null;
+            const trendDir = camera.trend.direction;
+            return (
+              <div
+                key={camera.id}
+                className="group relative rounded-xl border bg-card overflow-hidden cursor-pointer hover:shadow-md hover:border-primary/40 transition-all"
+                onClick={() => setSelectedCamera(camera)}
+              >
+                {/* Camera image with status overlay */}
+                <div className="relative h-40 overflow-hidden bg-muted">
+                  <img
+                    src={camera.imageUrl || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='200'%3E%3Crect width='400' height='200' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239ca3af' font-family='sans-serif'%3EKhông có ảnh%3C/text%3E%3C/svg%3E"}
+                    alt={`Camera ${camera.shortId}`}
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                    onError={(e) => {
+                      e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='200'%3E%3Crect width='400' height='200' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239ca3af' font-family='sans-serif'%3EKhông có ảnh%3C/text%3E%3C/svg%3E";
+                    }}
+                  />
+                  {/* Status badge top-left */}
+                  <div className="absolute top-2 left-2">
                     {getStatusBadge(camera.status.current)}
                   </div>
-                </div>
-                <CardDescription>ID: <HighlightText text={camera.shortId} query={searchQuery} /></CardDescription>
-              </CardHeader>
-              {camera.imageUrl && (
-                <div className="px-6 pb-4">
-                  <div className="rounded-lg border overflow-hidden">
-                    <img
-                      src={camera.imageUrl}
-                      alt={`Camera ${camera.shortId}`}
-                      className="w-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='200'%3E%3Crect width='400' height='200' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239ca3af' font-family='sans-serif'%3EImage Not Available%3C/text%3E%3C/svg%3E";
-                      }}
-                    />
+                  {/* Trend badge top-right */}
+                  <div className="absolute top-2 right-2">
+                    <Badge
+                      variant="outline"
+                      className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 backdrop-blur-sm bg-background/80 ${
+                        trendDir === "increasing" ? "text-orange-700 border-orange-300" :
+                        trendDir === "decreasing" ? "text-green-700 border-green-300" :
+                        "text-gray-600 border-gray-300"
+                      }`}
+                    >
+                      {trendDir === "increasing" ? <TrendingUpIcon className="size-3" /> :
+                       trendDir === "decreasing" ? <TrendingDownIcon className="size-3" /> : null}
+                      {getTrendLabel(trendDir)}
+                    </Badge>
                   </div>
                 </div>
-              )}
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Tổng phương tiện hiện tại:</span>
-                    <span className="font-semibold">{camera.totalObjects} xe</span>
+
+                {/* Card body */}
+                <div className="p-3 flex flex-col gap-2">
+                  {/* Name + ID */}
+                  <div>
+                    <div className="font-semibold text-sm leading-snug line-clamp-2">
+                      <HighlightText text={camera.name} query={searchQuery} />
+                    </div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 font-mono">
+                      <HighlightText text={camera.shortId} query={searchQuery} />
+                    </div>
                   </div>
-                  {camera.inputValue !== undefined && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Trung bình 5p trước:</span>
-                      <span className="text-sm text-muted-foreground">{camera.inputValue}</span>
+
+                  {/* Vehicle count + breakdown */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl font-bold tabular-nums leading-none">{camera.totalObjects}</span>
+                    <span className="text-xs text-muted-foreground">xe</span>
+                    <div className="flex items-center gap-1 ml-auto">
+                      <Badge variant="outline" className="px-1.5 py-0 text-[10px] text-blue-700 border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:text-blue-400 flex items-center gap-0.5">
+                        <IconCar className="size-3 shrink-0" />{camera.carCount}
+                      </Badge>
+                      <Badge variant="outline" className="px-1.5 py-0 text-[10px] text-orange-700 border-orange-200 bg-orange-50 dark:bg-orange-950/30 dark:text-orange-400 flex items-center gap-0.5">
+                        <IconMotorbike className="size-3 shrink-0" />{camera.motorbikeCount}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* V/C ratio bar */}
+                  {vcRatio !== null && (
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-muted-foreground">{TRAFFIC_TERMS.VC_RATIO}</span>
+                        <span className="text-[10px] font-semibold tabular-nums">{Math.round(vcRatio * 100)}%</span>
+                      </div>
+                      <div className="h-1 rounded-full overflow-hidden bg-muted">
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            vcRatio <= 0.5 ? "bg-green-500" :
+                            vcRatio <= 0.8 ? "bg-yellow-400" : "bg-red-500"
+                          }`}
+                          style={{ width: `${Math.min(vcRatio * 100, 100)}%` }}
+                        />
+                      </div>
                     </div>
                   )}
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Ô tô:</span>
-                    <span className="text-sm">{camera.carCount} xe</span>
+
+                  {/* Forecast 5m */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground">Dự Báo 5'</span>
+                    {getStatusBadge(camera.status.forecast)}
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Xe máy:</span>
-                    <span className="text-sm">{camera.motorbikeCount} xe</span>
+
+                  {/* Last updated */}
+                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <IconClock className="size-3 shrink-0" />
+                    {getRelativeTime(camera.lastUpdated)}
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Xu hướng:</span>
-                    <span className="text-sm capitalize">
-                      {camera.trend.direction === "increasing" ? "Tăng" : camera.trend.direction === "decreasing" ? "Giảm" : "Ổn định"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground flex items-center gap-1">
-                      <IconClock className="w-3 h-3" />
-                      Cập nhật:
-                    </span>
-                    <span className="text-sm">{getRelativeTime(camera.lastUpdated)}</span>
-                  </div>
-                  <Separator className="my-3" />
-                  <CameraDetailDialog camera={camera} forceOpen={camera.shortId === autoOpenCamId} />
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              </div>
+            );
+          })}
         </div>
+      )}
+
+      {/* Detail Sheet – controlled, single instance */}
+      {selectedCamera && (
+        <CameraDetailSheet
+          camera={selectedCamera}
+          open={!!selectedCamera}
+          onOpenChange={(open) => !open && setSelectedCamera(null)}
+        />
       )}
     </div>
   );

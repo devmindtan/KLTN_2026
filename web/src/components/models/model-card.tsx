@@ -9,6 +9,7 @@ import {
 } from "@/services/model.service";
 import { useAuth } from "@/contexts/AuthContext";
 import { MetricChip, MODEL_ICON, HORIZON_LABEL } from "@/components/models/metric-chip";
+import { METRIC_LABELS, UI_LABELS, FORECAST_TERMS } from "@/lib/app-constants";
 
 /**
  * Card hiển thị thông tin tóm tắt của một mô hình đang active.
@@ -46,7 +47,7 @@ export function ModelCard({
               </CardTitle>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {model.base_model ?? "—"}
-                {horizon ? ` • Dự báo ${horizon}` : ""}
+                {horizon ? ` • ${FORECAST_TERMS.FORECAST} ${horizon}` : ""}
               </p>
             </div>
           </div>
@@ -63,17 +64,17 @@ export function ModelCard({
         {/* Metrics chips */}
         <div className="flex gap-2">
           <MetricChip
-            label="MAE"
+            label={METRIC_LABELS.MAE}
             value={mae !== undefined ? mae.toFixed(2) : undefined}
             unit=" xe"
           />
           <MetricChip
-            label="R²"
+            label={METRIC_LABELS.R2}
             value={r2 !== undefined ? r2.toFixed(3) : undefined}
           />
           {model.training_samples != null && (
             <MetricChip
-              label="Samples"
+              label={METRIC_LABELS.SAMPLES}
               value={(model.training_samples / 1000).toFixed(1)}
               unit="k"
             />
@@ -106,7 +107,7 @@ export function ModelCard({
             className="flex-1"
             onClick={() => onViewDetail(model)}
           >
-            Xem chi tiết
+            {UI_LABELS.DETAIL}
           </Button>
           {!isYolo && isTechnician && (
             <Button

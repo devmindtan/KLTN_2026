@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconBulb, IconAlertCircle, IconArrowRight, IconCircle } from "@tabler/icons-react";
 import { PageHeader } from "@/components/custom/page-header";
+import { WORD_ASSISTANT_TERM } from "@/lib/app-constants";
 
 export default function DecisionSupport() {
   const recommendations = [
@@ -69,8 +70,8 @@ export default function DecisionSupport() {
     <div className="flex flex-1 flex-col gap-4 p-4">
       <PageHeader
         icon={<IconBulb className="w-5 h-5" />}
-        title="Hỗ trợ ra quyết định"
-        description="Khuyến nghị tự động dựa trên phân tích AI và dự đoán lưu lượng"
+        title={WORD_ASSISTANT_TERM.page_header.title}
+        description={WORD_ASSISTANT_TERM.page_header.description}
       />
       <div className="grid gap-4 md:grid-cols-3">
         <Card>

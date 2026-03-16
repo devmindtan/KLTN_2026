@@ -10,6 +10,7 @@ import {
   IconCircleCheck,
   IconCircleX,
   IconDatabase,
+  IconRefresh,
   IconSparkles,
 } from "@tabler/icons-react";
 import { PageHeader } from "@/components/custom/page-header";
@@ -27,6 +28,7 @@ import {
 } from "@/components/models/activate-model-dialog";
 import { ModelCard } from "@/components/models/model-card";
 import { TrainNewVersionModal } from "@/components/models/train-new-version-modal";
+import { MODELS_TERM } from "@/lib/app-constants";
 
 // ============================================================
 // PAGE
@@ -180,9 +182,19 @@ export default function ModelsPage() {
       {/* Header */}
       <PageHeader
         icon={<IconBrain className="w-5 h-5" />}
-        title="Danh sách mô hình"
-        description="Quản lý và theo dõi các mô hình dự đoán lưu lượng giao thông"
+        title={MODELS_TERM.page_header.title}
+        description={MODELS_TERM.page_header.description}
       >
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={fetchModels}
+          disabled={loading}
+          className="gap-1.5"
+        >
+          <IconRefresh className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          Làm mới
+        </Button>
         {isTechnician && (
           <Button
             onClick={() => { setTrainModalMode('new'); setTrainTarget(null); setTrainModalOpen(true); }}

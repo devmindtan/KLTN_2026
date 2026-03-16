@@ -1,17 +1,19 @@
 /**
- * Dialog hiển thị thông tin chi tiết + dự báo của một camera giao thông
+ * Sheet hiển thị thông tin chi tiết + dự báo của một camera giao thông
+ * Controlled component: mở/đóng bằng props open/onOpenChange
  */
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getStatusBadge } from "@/components/monitoring/camera-utils";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -21,13 +23,13 @@ import {
 } from "@/components/ui/chart";
 import {
   IconCar,
-  IconInfoCircle,
   IconMotorbike,
 } from "@tabler/icons-react";
 import { TrendingDownIcon, TrendingUpIcon } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSocket, type CameraData } from "@/contexts/SocketContext";
+import { TIME_LABEL, TRAFFIC_TERMS, FORECAST_TERMS, getTrendLabel } from "@/lib/app-constants";
 
 
 
@@ -51,8 +53,14 @@ const PctForecastLabel = (props: any) => {
   );
 };
 
-/** Dialog chi tiết camera: ảnh, trạng thái, biểu đồ dự báo, thông số kỹ thuật */
-export function CameraDetailDialog({ camera, forceOpen = false }: { camera: CameraData; forceOpen?: boolean }) {
+interface CameraDetailSheetProps {
+  camera: CameraData;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+/** Sheet chi tiết camera: ảnh, trạng thái, V/C bar, biểu đồ dự báo, thông số kỹ thuật */
+export function CameraDetailSheet({ camera, open, onOpenChange }: CameraDetailSheetProps) {
   const isMobile = useIsMobile();
   const { cameraInfoMap } = useSocket();
   const cameraInfo = cameraInfoMap[camera.shortId];
@@ -60,28 +68,22 @@ export function CameraDetailDialog({ camera, forceOpen = false }: { camera: Came
   const capacity = camera.calculation?.capacity ?? 0;
   const baseline = camera.inputValue ?? camera.totalObjects;
   const forecastData = [
-    { time: "5 phút",  vehicles: Math.round(camera.forecasts["5m"]),  vcPct: capacity > 0 ? Math.round(camera.forecasts["5m"]  / capacity * 100) : 0, pctChange: baseline > 0 ? Math.round((camera.forecasts["5m"]  - baseline) / baseline * 100) : null },
-    { time: "10 phút", vehicles: Math.round(camera.forecasts["10m"]), vcPct: capacity > 0 ? Math.round(camera.forecasts["10m"] / capacity * 100) : 0, pctChange: baseline > 0 ? Math.round((camera.forecasts["10m"] - baseline) / baseline * 100) : null },
-    { time: "15 phút", vehicles: Math.round(camera.forecasts["15m"]), vcPct: capacity > 0 ? Math.round(camera.forecasts["15m"] / capacity * 100) : 0, pctChange: baseline > 0 ? Math.round((camera.forecasts["15m"] - baseline) / baseline * 100) : null },
-    { time: "30 phút", vehicles: Math.round(camera.forecasts["30m"]), vcPct: capacity > 0 ? Math.round(camera.forecasts["30m"] / capacity * 100) : 0, pctChange: baseline > 0 ? Math.round((camera.forecasts["30m"] - baseline) / baseline * 100) : null },
-    { time: "60 phút", vehicles: Math.round(camera.forecasts["60m"]), vcPct: capacity > 0 ? Math.round(camera.forecasts["60m"] / capacity * 100) : 0, pctChange: baseline > 0 ? Math.round((camera.forecasts["60m"] - baseline) / baseline * 100) : null },
+    { time: TIME_LABEL["5m"],  vehicles: Math.round(camera.forecasts["5m"]),  vcPct: capacity > 0 ? Math.round(camera.forecasts["5m"]  / capacity * 100) : 0, pctChange: baseline > 0 ? Math.round((camera.forecasts["5m"]  - baseline) / baseline * 100) : null },
+    { time: TIME_LABEL["10m"], vehicles: Math.round(camera.forecasts["10m"]), vcPct: capacity > 0 ? Math.round(camera.forecasts["10m"] / capacity * 100) : 0, pctChange: baseline > 0 ? Math.round((camera.forecasts["10m"] - baseline) / baseline * 100) : null },
+    { time: TIME_LABEL["15m"], vehicles: Math.round(camera.forecasts["15m"]), vcPct: capacity > 0 ? Math.round(camera.forecasts["15m"] / capacity * 100) : 0, pctChange: baseline > 0 ? Math.round((camera.forecasts["15m"] - baseline) / baseline * 100) : null },
+    { time: TIME_LABEL["30m"], vehicles: Math.round(camera.forecasts["30m"]), vcPct: capacity > 0 ? Math.round(camera.forecasts["30m"] / capacity * 100) : 0, pctChange: baseline > 0 ? Math.round((camera.forecasts["30m"] - baseline) / baseline * 100) : null },
+    { time: TIME_LABEL["60m"], vehicles: Math.round(camera.forecasts["60m"]), vcPct: capacity > 0 ? Math.round(camera.forecasts["60m"] / capacity * 100) : 0, pctChange: baseline > 0 ? Math.round((camera.forecasts["60m"] - baseline) / baseline * 100) : null },
   ];
 
   return (
-    <Dialog defaultOpen={forceOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="w-full" size="sm">
-          <IconInfoCircle className="w-4 h-4 mr-2" />
-          Xem thông tin chi tiết
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto scrollbar">
-        <DialogHeader>
-          <DialogTitle>{camera.name}</DialogTitle>
-          <DialogDescription>
-            Camera ID: {camera.shortId} • Thông tin chi tiết và dự đoán lưu lượng giao thông
-          </DialogDescription>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="flex flex-col overflow-y-auto scrollbar">
+        <SheetHeader className="gap-1">
+          <SheetTitle>{camera.name}</SheetTitle>
+          <SheetDescription>
+            Mã Camera: {camera.shortId} • Thông tin chi tiết và dự đoán lưu lượng giao thông
+          </SheetDescription>
+        </SheetHeader>
         <div className="flex flex-1 flex-col gap-4 py-4 text-sm">
           {/* Camera Image */}
           {camera.imageUrl && (
@@ -89,7 +91,7 @@ export function CameraDetailDialog({ camera, forceOpen = false }: { camera: Came
               <img
                 src={camera.imageUrl}
                 alt={`Camera ${camera.shortId}`}
-                className="w-full object-cover"
+                className="w-full h-48 object-cover"
                 onError={(e) => {
                   e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='200'%3E%3Crect width='400' height='200' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239ca3af' font-family='sans-serif'%3EImage Not Available%3C/text%3E%3C/svg%3E";
                 }}
@@ -99,32 +101,28 @@ export function CameraDetailDialog({ camera, forceOpen = false }: { camera: Came
 
           <Separator />
 
-          {/* Current Status */}
+          {/* Vehicle Counts */}
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-0.5">
-              <Label className="text-xs text-muted-foreground">Tổng phương tiện</Label>
+              <Label className="text-xs text-muted-foreground">{TRAFFIC_TERMS.VEHICLE_COUNT}</Label>
               <div className="text-2xl font-bold tabular-nums">{camera.totalObjects}</div>
+              <div className="flex items-center gap-3 mt-1">
+                <div className="flex items-center gap-1.5">
+                  <IconCar className="size-3.5 text-blue-500 shrink-0" />
+                  <span className="text-sm font-semibold tabular-nums">{camera.carCount}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <IconMotorbike className="size-3.5 text-orange-500 shrink-0" />
+                  <span className="text-sm font-semibold tabular-nums">{camera.motorbikeCount}</span>
+                </div>
+              </div>
             </div>
             {camera.inputValue !== undefined && (
               <div className="flex flex-col gap-0.5">
-                <Label className="text-xs text-muted-foreground">Trung bình 5 phút trước</Label>
+                <Label className="text-xs text-muted-foreground">Trung bình {TIME_LABEL["5m"]} trước</Label>
                 <div className="text-2xl font-bold tabular-nums">{Math.round(camera.inputValue)}</div>
               </div>
             )}
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <IconCar className="size-3.5 text-blue-500 shrink-0" />
-              <span className="text-xs text-muted-foreground">Ô tô:</span>
-              <span className="text-sm font-semibold tabular-nums">{camera.carCount}</span>
-            </div>
-            <span className="text-muted-foreground/40 text-xs">•</span>
-            <div className="flex items-center gap-1.5">
-              <IconMotorbike className="size-3.5 text-orange-500 shrink-0" />
-              <span className="text-xs text-muted-foreground">Xe máy:</span>
-              <span className="text-sm font-semibold tabular-nums">{camera.motorbikeCount}</span>
-            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -133,15 +131,17 @@ export function CameraDetailDialog({ camera, forceOpen = false }: { camera: Came
               {getStatusBadge(camera.status.current)}
             </div>
             <div className="flex flex-col gap-1">
-              <Label className="text-xs text-muted-foreground">Dự Báo 5 Phút</Label>
+              <Label className="text-xs text-muted-foreground">Dự Báo {TIME_LABEL["5m"]}</Label>
               {getStatusBadge(camera.status.forecast)}
             </div>
           </div>
 
           {camera.calculation && (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Mức tải V/C</span>
+            <>
+              <Separator />
+              <div className="rounded-lg border bg-muted/30 p-3 flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">{TRAFFIC_TERMS.VC_RATIO}</span>
                 <span className="text-xs font-semibold tabular-nums">
                   {Math.round(camera.calculation.predicted_volume)} / {Math.round(camera.calculation.capacity)} xe
                   <span className="ml-1 text-muted-foreground">({Math.round(camera.calculation.vc_ratio * 100)}%)</span>
@@ -157,6 +157,7 @@ export function CameraDetailDialog({ camera, forceOpen = false }: { camera: Came
                 />
               </div>
             </div>
+            </>
           )}
 
           <Separator />
@@ -165,7 +166,7 @@ export function CameraDetailDialog({ camera, forceOpen = false }: { camera: Came
           {!isMobile && forecastData.some(d => d.vehicles > 0) && (
             <>
               <div className="flex flex-col gap-2">
-                <Label className="text-sm font-medium">Dự báo lưu lượng giao thông</Label>
+                <Label className="text-sm font-medium">{FORECAST_TERMS.FORECAST_FULL}</Label>
                 <ChartContainer config={forecastChartConfig} className="h-[260px]">
                   <AreaChart
                     accessibilityLayer
@@ -223,11 +224,11 @@ export function CameraDetailDialog({ camera, forceOpen = false }: { camera: Came
 
           {/* Forecast Values */}
           <div className="flex flex-col gap-2">
-            <Label className="text-sm font-medium">Dự đoán số lượng phương tiện</Label>
+                    <Label className="text-xs text-muted-foreground">Dự đoán số lượng {TRAFFIC_TERMS.VEHICLES.toLowerCase()}</Label>
             <div className="grid grid-cols-3 gap-2">
               {(["5m", "15m", "60m"] as const).map((k, i) => (
                 <div key={k} className="flex flex-col gap-1 rounded-md border p-2">
-                  <span className="text-xs text-muted-foreground">{["5 phút", "15 phút", "60 phút"][i]}</span>
+              <span className="text-[10px] text-muted-foreground">{[TIME_LABEL["5m"], TIME_LABEL["15m"], TIME_LABEL["60m"]][i]}</span>
                   <span className="text-lg font-semibold tabular-nums">{Math.round(camera.forecasts[k])}</span>
                   {capacity > 0 && <span className="text-xs text-muted-foreground">{Math.round(camera.forecasts[k] / capacity * 100)}% mức tải</span>}
                 </div>
@@ -248,7 +249,7 @@ export function CameraDetailDialog({ camera, forceOpen = false }: { camera: Came
                   ) : camera.trend.direction === "decreasing" ? (
                     <TrendingDownIcon className="size-3 text-green-500" />
                   ) : null}
-                  {camera.trend.direction === "increasing" ? "Tăng" : camera.trend.direction === "decreasing" ? "Giảm" : "Ổn định"}
+                  {getTrendLabel(camera.trend.direction)}
                 </Badge>
               </div>
               <div className="text-[10px] text-muted-foreground bg-blue-50 dark:bg-blue-950/20 rounded px-2 py-1.5 border border-blue-200 dark:border-blue-800">
@@ -283,7 +284,13 @@ export function CameraDetailDialog({ camera, forceOpen = false }: { camera: Came
             )}
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+
+        <SheetFooter className="mt-auto">
+          <SheetClose asChild>
+            <Button variant="outline" className="w-full">Đóng</Button>
+          </SheetClose>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

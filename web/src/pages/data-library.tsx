@@ -48,6 +48,7 @@ import { useLoading } from "@/contexts/LoadingContext";
 import { CollectionDetailSheet } from "@/components/data-library/collection-detail-sheet";
 import { ImportDialog }          from "@/components/data-library/import-dialog";
 import { EditCollectionDialog }  from "@/components/data-library/edit-collection-dialog";
+import { DATA_LIBRARY_TERM } from "@/lib/app-constants";
 
 
 // ---- Helpers ----
@@ -347,8 +348,8 @@ export default function TrafficDataLibrary() {
     <div className="flex flex-1 flex-col gap-4 p-4">
       <PageHeader
         icon={<IconDatabase className="w-5 h-5" />}
-        title="Thư viện dữ liệu"
-        description="Quản lý và truy cập các bộ sưu tập dữ liệu giao thông"
+        title={DATA_LIBRARY_TERM.page_header.title}
+        description={DATA_LIBRARY_TERM.page_header.description}
       >
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={loadCollections} disabled={loading}>

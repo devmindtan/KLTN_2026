@@ -40,9 +40,10 @@
   - Icon ưu tiên Lucide React hoặc bộ icon thống nhất của dự án.
   - Hiển thị giao diện hãy sử dụng từ Tiếng Việt.
   - **Design System**: `style-guide/frontend/UI_STYLE_GUIDE.md` là nguồn sự thật cho màu sắc, badge, stats card, table row, threshold badge, LOS colors, chart pattern, empty state.
-  - → **Đọc `style-guide/frontend/FRONTEND_RULES.md` khi implement UI** (component org, dialog, tooltip, text overflow, scroll, chart tooltip, loading, scrollbar, highlight, theme, navigate state).
+  - → **Đọc `style-guide/frontend/FRONTEND_RULES.md` khi implement UI** (component org, dialog, tooltip, text overflow, scroll, chart tooltip, loading, scrollbar, highlight, theme, navigate state, custom components).
   - **BẮT BUỘC**: filter/search list → dùng `<HighlightText>` từ `@/components/highlight-text`.
   - **BẮT BUỘC**: Page mới → 2-layer loading (`loader` trong App.tsx + `useLoading()` API-level).
+  - **BẮT BUỘC**: Trước khi tạo component mới → kiểm tra `web/src/components/` xem đã có custom component phù hợp chưa. Ưu tiên tái sử dụng nếu bản thiết kế đã tham chiếu component đó (xem Rule #13 trong `FRONTEND_RULES.md`).
 
 - **Documentation (Function Headers)**:
   - Mọi hàm (Function/Method) và API Route PHẢI có JSDoc/docstring ngắn gọn ngay phía trên.
@@ -52,6 +53,13 @@
     - [Phương thức HTTP + Path - nếu là API]
       \*/
   - Yêu cầu: Ngôn ngữ súc tích, đi thẳng vào mục đích của hàm.
+- **Mock Data (Frontend)**:
+  - **LUÔN dùng JSON file** thay vì generate tự động − dễ đọc, dễ debug, mô phỏng API response thực tế.
+  - JSON structure PHẢI khớp với format API sẽ trả về (ví dụ: `{ metadata: {...}, data: [...] }`).
+  - Đặt file JSON cùng folder với component sử dụng (ví dụ: `components/dashboard/forecast/forecast-mock-data.json`).
+  - Trong JSON: bao gồm metadata (nowIndex, timeRange, description) + data arrays đầy đủ cho test cases.
+  - Component chỉ import JSON và transform nếu cần − KHÔNG tự generate random/noise/math patterns.
+  - Lợi ích: (1) Dễ share/review data, (2) Thay đổi data không cần rebuild logic, (3) Clear separation data/presentation, (4) Visual diff-friendly trong Git.
 - **Docker + Timezone**: → `style-guide/backend/BACKEND_RULES.md#6-7`.
 
 # Backend Server (Node.js) Rules
@@ -59,6 +67,7 @@
 > **Đọc `style-guide/backend/BACKEND_RULES.md` khi thực hiện task backend** (migration, API, swagger, docker, timezone).
 
 **Critical (luôn nhớ — không cần đọc lại):**
+
 - `runMigrations()` PHẢI chạy trước khi server nhận request (`backend/server/src/migrations/runner.ts`).
 - Mọi API route mới → PHẢI bổ sung Swagger tại `backend/server/src/config/swagger.ts` trong cùng task.
 - Migration: chỉ DDL, `IF NOT EXISTS`, KHÔNG INSERT/seed, lỗi chỉ log không throw.

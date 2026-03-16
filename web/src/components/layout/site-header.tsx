@@ -31,13 +31,11 @@ export function SiteHeader() {
 
         <Breadcrumb>
           <BreadcrumbList>
-            {pathSegments.map((segment, index) => {
-              let href = `/${pathSegments.slice(0, index + 1).join("/")}`
-              // First segment is the route prefix – always point to its dashboard
-              if (index === 0) {
-                href = `/${segment}/dashboard`
-              }
-              const isLast = index === pathSegments.length - 1
+            {/* Bỏ qua segment đầu tiên (role prefix: user/technician/admin) — không hiển thị */}
+            {pathSegments.slice(1).map((segment, index, arr) => {
+              const fullIndex = index + 1 // vị trí thực trong pathSegments
+              const href = `/${pathSegments.slice(0, fullIndex + 1).join("/")}`
+              const isLast = index === arr.length - 1
               const title = segment
                 .split("-")
                 .map((word) => word.charAt(0).toUpperCase() + word.slice(1))

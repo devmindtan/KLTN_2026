@@ -1,3 +1,10 @@
+---
+## 8. Kiểm tra lỗi trước khi hoàn thành (Python services)
+- Trước khi xác nhận hoàn thành bất kỳ task backend (Python service), **BẮT BUỘC** chạy kiểm tra lỗi (get_errors) cho tất cả file bị sửa.
+- Chỉ xác nhận hoàn thành khi không còn compile/lint errors.
+- Nếu có lỗi, phải fix triệt để trước khi update AGENT_LOG/FUNCTION_LIST.
+
+---
 # Backend Coding Rules
 
 > Đọc file này khi thực hiện task liên quan đến Node.js server, API route, migration, Swagger, Docker, hoặc Python services.

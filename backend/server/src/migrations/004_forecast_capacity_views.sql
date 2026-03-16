@@ -3,18 +3,14 @@
 -- Mục tiêu: tách phần nặng (CAPACITY_CTE scan 7 ngày camera_detections + LOS calc)
 --           ra khỏi request path → refresh định kỳ 5 phút qua Node.js timer.
 --
--- Thứ tự CREATE bắt buộc:
---   1. mv_forecast_capacity        (không phụ thuộc MV khác)
---   2. mv_forecast_daily_stats     (chỉ đọc camera_forecasts)
---   3. mv_forecast_hourly          (JOIN mv_forecast_capacity)
---   4. mv_forecast_slots_recent    (JOIN mv_forecast_capacity + camera_data)
---
--- REFRESH order (Node.js timer): capacity → [daily_stats, hourly, slots_recent] parallel
+-- NOTE (Updated 15/03/26): Chỉ giữ lại mv_forecast_capacity
+-- Các MVs khác (daily_stats, hourly, slots_recent) đã DEPRECATED - sử dụng
+-- mv_forecast_rolling_today thay thế (migration 005)
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- ── MV 1: Capacity per-camera (MAX avg 5-min window, last 7 days) ────────────
 -- Đây là phần nặng nhất — scan toàn bộ camera_detections 7 ngày
--- Được JOIN bởi mv_forecast_hourly và mv_forecast_slots_recent
+-- Được JOIN bởi mv_forecast_rolling_today
 CREATE MATERIALIZED VIEW IF NOT EXISTS mv_forecast_capacity AS
 SELECT
   camera_id,
@@ -37,9 +33,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_forecast_capacity
 
 REFRESH MATERIALIZED VIEW mv_forecast_capacity;
 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- DEPRECATED MVs (commented out 15/03/26) - replaced by mv_forecast_rolling_today
+-- ─────────────────────────────────────────────────────────────────────────────
+
+/*
 -- ── MV 2: Daily accuracy stats (last 30 days, horizon=5m) ───────────────────
--- Dùng cho GET /api/forecast/summary?date=YYYY-MM-DD
--- Chỉ chứa các ngày có actual_value đã được sync-actual điền
+-- DEPRECATED: không sử dụng nữa
 CREATE MATERIALIZED VIEW IF NOT EXISTS mv_forecast_daily_stats AS
 SELECT
   (f.forecast_for_time AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS slot_date,
@@ -79,9 +79,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_forecast_daily_stats
 REFRESH MATERIALIZED VIEW mv_forecast_daily_stats;
 
 -- ── MV 3: Hourly aggregates per-camera (last 7 days, horizon=5m) ─────────────
--- Dùng cho GET /api/forecast/timeline?date=YYYY-MM-DD&camId=all|<id>
--- camId="all" → controller SUM tất cả camera theo hour
--- camId=<id>  → controller lọc WHERE camera_id = <id>
+-- DEPRECATED: không sử dụng nữa
 CREATE MATERIALIZED VIEW IF NOT EXISTS mv_forecast_hourly AS
 SELECT
   (f.forecast_for_time AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS slot_date,
@@ -92,8 +90,6 @@ SELECT
     WHEN bool_and(f.actual_value IS NULL) THEN NULL
     ELSE ROUND(SUM(f.actual_value))::int
   END                                                          AS actual,
-  -- capacity nhân COUNT(*) để đơn vị khớp với predicted/actual (cả 2 đều là tổng giờ)
-  -- COUNT(*) = số slot 5-phút thực tế trong giờ đó (thường 12, partial hour có thể ít hơn)
   ROUND(COALESCE(cap.capacity, 100) * COUNT(*))::int           AS capacity
 FROM camera_forecasts f
 LEFT JOIN mv_forecast_capacity cap ON cap.camera_id = f.camera_id
@@ -107,8 +103,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_forecast_hourly
 REFRESH MATERIALIZED VIEW mv_forecast_hourly;
 
 -- ── MV 4: Slot detail per-camera (last 7 days, all horizons) ─────────────────
--- Dùng cho GET /api/forecast/slots?date=YYYY-MM-DD&horizon=5&limit=200
--- Pre-compute LOS, riskLevel, error_pct để controller chỉ cần SELECT + filter
+-- DEPRECATED: không sử dụng nữa
 CREATE MATERIALIZED VIEW IF NOT EXISTS mv_forecast_slots_recent AS
 SELECT
   f.camera_id,
@@ -129,7 +124,6 @@ SELECT
   END                                                           AS error_pct,
   f.input_value,
   COALESCE(cap.capacity, 100)                                   AS capacity,
-  -- predicted_los
   CASE
     WHEN f.predicted_value / NULLIF(COALESCE(cap.capacity, 100), 0) < 0.60 THEN 'free_flow'
     WHEN f.predicted_value / NULLIF(COALESCE(cap.capacity, 100), 0) < 0.75 THEN 'smooth'
@@ -137,7 +131,6 @@ SELECT
     WHEN f.predicted_value / NULLIF(COALESCE(cap.capacity, 100), 0) < 1.00 THEN 'heavy'
     ELSE 'congested'
   END                                                           AS predicted_los,
-  -- actual_los
   CASE
     WHEN f.actual_value IS NULL THEN NULL
     WHEN f.actual_value / NULLIF(COALESCE(cap.capacity, 100), 0) < 0.60 THEN 'free_flow'
@@ -146,12 +139,9 @@ SELECT
     WHEN f.actual_value / NULLIF(COALESCE(cap.capacity, 100), 0) < 1.00 THEN 'heavy'
     ELSE 'congested'
   END                                                           AS actual_los,
-  -- vc_pct ( 0–100 )
   ROUND(
     LEAST(100, f.predicted_value / NULLIF(COALESCE(cap.capacity, 100), 0) * 100)
   )::int                                                        AS vc_pct,
-  -- risk_level (V/C >= 0.90 → high, >= 0.70 → medium, else low)
-  -- Không dùng "critical": frontend type chỉ biết low|medium|high
   CASE
     WHEN f.predicted_value / NULLIF(COALESCE(cap.capacity, 100), 0) >= 0.90 THEN 'high'
     WHEN f.predicted_value / NULLIF(COALESCE(cap.capacity, 100), 0) >= 0.70 THEN 'medium'
@@ -165,8 +155,8 @@ WHERE f.forecast_for_time >= NOW() - INTERVAL '7 days';
 CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_forecast_slots
   ON mv_forecast_slots_recent (camera_id, forecast_for_time, horizon_minutes);
 
--- Index bổ sung để tăng tốc filter by (slot_date, horizon_minutes)
 CREATE INDEX IF NOT EXISTS idx_mv_forecast_slots_date_horizon
   ON mv_forecast_slots_recent (slot_date, horizon_minutes, forecast_for_time DESC);
 
 REFRESH MATERIALIZED VIEW mv_forecast_slots_recent;
+*/

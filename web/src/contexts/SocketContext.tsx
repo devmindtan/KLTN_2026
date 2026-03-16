@@ -232,6 +232,8 @@ interface SocketContextType {
   cameraInfoMap: Record<string, CameraInfo>; // Map cam_id -> camera info from database
   trainingJob: TrainingJobData | null;
   modelReload:  ModelReloadData | null; // Trạng thái realtime khi reload model sau activate
+  /** Tăng lên 1 mỗi khi nhận FORECAST_UPDATED → chart re-fetch */
+  forecastVersion: number;
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
@@ -243,6 +245,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [cameraInfoMap, setCameraInfoMap] = useState<Record<string, CameraInfo>>({});
   const [trainingJob, setTrainingJob] = useState<TrainingJobData | null>(null);
   const [modelReload, setModelReload] = useState<ModelReloadData | null>(null);
+  const [forecastVersion, setForecastVersion] = useState<number>(0);
 
   // Chờ AuthProvider hoàn tất khởi tạo (fetch guest token) trước khi gọi API
   const { isLoading: authLoading } = useAuth();
@@ -457,6 +460,11 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       logger.log(`🤖 TrainingJob update: ${job.model_type} [${job.status}] ${job.progress_pct}%`);
     });
 
+    socketInstance.on("FORECAST_UPDATED", () => {
+      setForecastVersion((v) => v + 1);
+      logger.log("📊 FORECAST_UPDATED – tăng forecastVersion");
+    });
+
     socketInstance.on("MODEL_RELOAD_UPDATED", (raw: RawModelReloadEntity) => {
       const reload: ModelReloadData = {
         reload_id:     raw.reload_id?.value     ?? "",
@@ -517,6 +525,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       socketInstance.off("disconnect");
       socketInstance.off("CAMERA_UPDATED");
       socketInstance.off("TRAINING_JOB_UPDATED");
+      socketInstance.off("FORECAST_UPDATED");
       socketInstance.off("MODEL_RELOAD_UPDATED");
       socketInstance.off("connect_error");
       socketInstance.off("reconnect");
@@ -622,6 +631,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     cameraInfoMap,
     trainingJob,
     modelReload,
+    forecastVersion,
   };
 
   return (

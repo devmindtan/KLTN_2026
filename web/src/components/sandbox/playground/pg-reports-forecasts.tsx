@@ -4,27 +4,26 @@
  */
 import { useState, useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { SearchInput } from "@/components/custom/search-input"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
-  IconFileText, IconChartBar, IconHistory, IconSearch,
+  IconFileText, IconChartBar, IconHistory,
   IconList, IconLayoutGrid, IconPlus, IconRefresh,
 } from "@tabler/icons-react"
 
-import { ReportRow }              from "@/components/reports-forecasts/report-row"
-import { ReportCard }             from "@/components/reports-forecasts/report-card"
-import { ForecastSummaryBar }     from "@/components/reports-forecasts/forecast-summary-bar"
-import { ForecastTimelineChart }  from "@/components/reports-forecasts/forecast-timeline-chart"
-import { ForecastNextPanel }      from "@/components/reports-forecasts/forecast-next-panel"
-import { ForecastHistoryTable }   from "@/components/reports-forecasts/forecast-history-table"
-import { HistoryTable }           from "@/components/reports-forecasts/history-table"
+import { ReportRow }              from "@/components/reports/report-row"
+import { ReportCard }             from "@/components/reports/report-card"
+import { ForecastStatCards }      from "@/components/dashboard/forecast/forecast-stat-cards"
+import { ForecastRollingChart }   from "@/components/dashboard/forecast/forecast-rolling-chart"
+import { ForecastHistoryTable }   from "@/components/dashboard/forecast/forecast-history-table"
+import { HistoryTable }           from "@/components/reports/history-table"
 import {
-  MOCK_REPORTS, MOCK_FORECAST_SLOTS, MOCK_FORECAST_SUMMARY, MOCK_HISTORY,
+  MOCK_REPORTS, MOCK_HISTORY,
   type ReportData,
-} from "@/components/reports-forecasts/reports-types"
+} from "@/components/reports/reports-types"
 
 type ViewMode     = "list" | "grid"
 type ReportType   = "all" | "daily" | "weekly" | "monthly" | "incident"
@@ -107,15 +106,13 @@ export function PgReportsForecasts() {
         <TabsContent value="reports" className="mt-0 flex flex-col gap-3">
           {/* Filter bar */}
           <div className="flex flex-wrap items-center gap-2">
-            <div className="relative flex-1 min-w-[180px] max-w-sm">
-              <IconSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Tìm kiếm báo cáo..."
-                className="pl-8 h-8 text-xs"
-              />
-            </div>
+            <SearchInput
+              size="sm"
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Tìm kiếm báo cáo..."
+              className="flex-1 min-w-[180px] max-w-sm"
+            />
             <Select value={typeFilter} onValueChange={v => setTypeFilter(v as ReportType)}>
               <SelectTrigger className="h-8 w-[110px] text-xs"><SelectValue placeholder="Loại" /></SelectTrigger>
               <SelectContent>
@@ -177,12 +174,9 @@ export function PgReportsForecasts() {
 
         {/* ══ TAB DỰ BÁO ══ */}
         <TabsContent value="forecast" className="mt-0 flex flex-col gap-4">
-          <ForecastSummaryBar summary={MOCK_FORECAST_SUMMARY} />
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_300px]">
-            <ForecastTimelineChart />
-            <ForecastNextPanel slots={MOCK_FORECAST_SLOTS} />
-          </div>
-          <ForecastHistoryTable slots={MOCK_FORECAST_SLOTS} />
+          <ForecastStatCards />
+          <ForecastRollingChart />
+          <ForecastHistoryTable />
         </TabsContent>
 
         {/* ══ TAB LỊCH SỬ ══ */}

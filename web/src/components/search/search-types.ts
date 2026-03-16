@@ -2,6 +2,7 @@
  * Kiểu dữ liệu, hằng số, và các hàm tiện ích dùng chung cho trang Search
  */
 import type { ElementType } from "react";
+import { LOS_LABEL as _LOS_LABEL } from "@/lib/app-constants";
 import {
   IconCameraPlus,
   IconBrain,
@@ -30,13 +31,8 @@ export interface SearchResult {
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-export const LOS_LABELS: Record<string, string> = {
-  free_flow: "Thông thoáng",
-  smooth:    "Ổn định",
-  moderate:  "Trung bình",
-  heavy:     "Lưu lượng cao",
-  congested: "Ùn tắc",
-};
+/** Re-export từ @/lib/los-config – single source of truth */
+export const LOS_LABELS = _LOS_LABEL;
 
 export const MOCK_REPORT_FORECAST: SearchResult[] = [
   { id: "r1", type: "report", title: "Báo cáo lưu lượng tháng 2/2026", subtitle: "Tổng 2.4M lượt • Giờ cao điểm: 17:00–19:00", meta: "Tạo: 01/03/2026", badge: "PDF", badgeVariant: "outline" },

@@ -16,7 +16,7 @@ import {
   getLatestModelMetrics,
   type HorizonMetric,
 } from "@/services/model-metrics.service"
-
+import { DASHBOARD_TERM } from "@/lib/app-constants"
 /**
  * Trả về Badge màu dựa trên accuracy ≤5 xe
  */
@@ -75,8 +75,8 @@ export const ForecastAccuracyCard = React.memo(function ForecastAccuracyCard() {
       <CardHeader className="pb-6">
         <CardSectionHeader
           icon={IconShieldCheck}
-          title="Độ tin cậy dự đoán"
-          description="Tỷ lệ dự đoán sai số ≤5 xe theo mốc"
+          title={DASHBOARD_TERM.card5.title}
+          description={DASHBOARD_TERM.card5.description}
         />
       </CardHeader>
 

@@ -34,7 +34,7 @@ import {
 } from "@/services/model.service";
 import { useAuth } from "@/contexts/AuthContext";
 import { MetricChip } from "@/components/models/metric-chip";
-import { METRIC_LABELS, UI_LABELS } from "@/lib/app-constants";
+import { METRIC_LABELS } from "@/lib/app-constants";
 
 /**
  * Hàng thông tin label – value dùng trong Sheet chi tiết mô hình.

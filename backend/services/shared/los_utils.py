@@ -2,6 +2,7 @@
 Shared utilities cho Level of Service (LOS) calculation
 Module này được dùng chung bởi image-process và image-predict services
 """
+import os
 import logging
 from typing import Dict
 
@@ -18,6 +19,17 @@ LOS_THRESHOLDS = {
     "moderate": 0.85,     # LOS D: 75-85% capacity
     "heavy": 1.0,         # LOS E: 85-100% capacity
     # "congested": >= 1.0 # LOS F: >= 100% capacity
+}
+
+# Nhãn tiếng Việt cho từng mức LOS
+# Đọc từ env (LOS_FREE_FLOW, LOS_SMOOTH, ...) với fallback mặc định.
+# Single source of truth cho toàn bộ Python services.
+LOS_LABEL_MAP: Dict[str, str] = {
+    "free_flow": os.getenv("LOS_FREE_FLOW", "Thông thoáng"),
+    "smooth":    os.getenv("LOS_SMOOTH",    "Trôi chảy"),
+    "moderate":  os.getenv("LOS_MODERATE",  "Vừa phải"),
+    "heavy":     os.getenv("LOS_HEAVY",     "Đông đúc"),
+    "congested": os.getenv("LOS_CONGESTED", "Ùn tắc"),
 }
 
 # -------------------------------------------------------

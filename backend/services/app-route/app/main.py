@@ -90,6 +90,15 @@ def fiware_webhook():
             elif entity_type == 'ModelReload':
                 socketio.emit('MODEL_RELOAD_UPDATED', entity)
                 logger.info(f"🔄 Emit MODEL_RELOAD_UPDATED: {entity_id}")
+            elif entity_type == 'ForecastReady':
+                # Phát event FORECAST_UPDATED → frontend chart re-fetch dữ liệu mới
+                triggered_at = entity.get('triggered_at', {}).get('value', '')
+                cycle_cameras = entity.get('cycle_cameras', {}).get('value', 0)
+                socketio.emit('FORECAST_UPDATED', {
+                    'triggered_at': triggered_at,
+                    'cycle_cameras': cycle_cameras,
+                })
+                logger.info(f"📈 Emit FORECAST_UPDATED: {cycle_cameras} cameras @ {triggered_at}")
             else:
                 logger.warning(f"⚠️ Unknown entity type: {entity_type}")
 

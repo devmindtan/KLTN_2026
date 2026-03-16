@@ -337,6 +337,41 @@ async def update_fiware(session, camera_id, total_objects, forecasts, capacity):
         logger.error(f"Lỗi kết nối FIWARE cho camera {camera_id}: {e}")
 
 
+async def push_forecast_ready(session, camera_count: int):
+    """
+    Upsert entity ForecastReady lên FIWARE Orion để trigger subscription → app-route webhook
+    → socket.io emit FORECAST_UPDATED → frontend chart re-fetch dữ liệu mới.
+    Gọi một lần sau khi tất cả camera predictions đã được push xong.
+    """
+    payload = {
+        "id": "urn:ngsi-ld:ForecastReady:latest",
+        "type": "ForecastReady",
+        "triggered_at": {
+            "type": "DateTime",
+            "value": datetime.utcnow().isoformat(),
+        },
+        "cycle_cameras": {
+            "type": "Integer",
+            "value": camera_count,
+        },
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "fiware-service": "traffic_monitor",
+        "fiware-servicepath": "/",
+    }
+    try:
+        url = f"{FIWARE_ORION_URL}?options=upsert"
+        async with session.post(url, json=payload, headers=headers, timeout=5) as resp:
+            if resp.status in [201, 204]:
+                logger.info(f"[ForecastReady] FIWARE Upsert OK – {camera_count} cameras")
+            else:
+                error_text = await resp.text()
+                logger.error(f"[ForecastReady] FIWARE Error: {resp.status} - {error_text}")
+    except Exception as e:
+        logger.error(f"[ForecastReady] Lỗi kết nối FIWARE: {e}")
+
+
 @monitor_performance
 def predict_realtime(current_data_from_db):
     """
@@ -493,6 +528,8 @@ async def run_cycle():
             # Thực thi gửi toàn bộ 20 camera cùng lúc
             if tasks:
                 await asyncio.gather(*tasks)
+                # Notify frontend: chu kỳ forecast xong → chart re-fetch
+                await push_forecast_ready(session, camera_count=len(tasks))
 
     # Note: sync_actual_values() được chạy riêng biệt bởi sync_actual.py
     # với schedule offset 2-3 phút sau prediction để đảm bảo data đủ

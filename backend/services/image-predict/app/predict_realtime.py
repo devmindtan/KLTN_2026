@@ -344,7 +344,7 @@ async def push_forecast_ready(session, camera_count: int):
     Gọi một lần sau khi tất cả camera predictions đã được push xong.
     """
     payload = {
-        "id": "urn:ngsi-ld:ForecastReady:latest",
+        "id": "urn:ngsi-ld:ForecastReady:signal",
         "type": "ForecastReady",
         "triggered_at": {
             "type": "DateTime",
@@ -566,6 +566,16 @@ class ReloadHandler(BaseHTTPRequestHandler):
     Nhận trigger từ backend server sau khi activate model mới,
     chạy reload trong background thread để không block HTTP response.
     """
+
+    def do_OPTIONS(self):
+        # Trả 405 thay vì 501 để rõ ràng hơn; OPTIONS không thuộc về service này
+        self.send_response(405)
+        self.send_header("Allow", "POST")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def do_GET(self):
+        self._send(405, {"error": "Method not allowed. Only POST /reload is supported."})
 
     def do_POST(self):
         if self.path != "/reload":

@@ -2,7 +2,6 @@
 Shared utilities cho Level of Service (LOS) calculation
 Module này được dùng chung bởi image-process và image-predict services
 """
-import os
 import logging
 from typing import Dict
 
@@ -19,17 +18,6 @@ LOS_THRESHOLDS = {
     "moderate": 0.85,     # LOS D: 75-85% capacity
     "heavy": 1.0,         # LOS E: 85-100% capacity
     # "congested": >= 1.0 # LOS F: >= 100% capacity
-}
-
-# Nhãn tiếng Việt cho từng mức LOS
-# Đọc từ env (LOS_FREE_FLOW, LOS_SMOOTH, ...) với fallback mặc định.
-# Single source of truth cho toàn bộ Python services.
-LOS_LABEL_MAP: Dict[str, str] = {
-    "free_flow": os.getenv("LOS_FREE_FLOW", "Thông thoáng"),
-    "smooth":    os.getenv("LOS_SMOOTH",    "Trôi chảy"),
-    "moderate":  os.getenv("LOS_MODERATE",  "Vừa phải"),
-    "heavy":     os.getenv("LOS_HEAVY",     "Đông đúc"),
-    "congested": os.getenv("LOS_CONGESTED", "Ùn tắc"),
 }
 
 # -------------------------------------------------------
@@ -196,9 +184,9 @@ def get_camera_capacity_map(lookback_days: int = 7, camera_list=None) -> Dict[st
 def get_capacity_from_mv(camera_list=None) -> Dict[str, float]:
     """
     Đọc capacity từ Materialized View mv_forecast_capacity (PostgreSQL).
-    Thay thế get_camera_capacity_map() để tránh tính toán nặng mỗi chu kỳ 5 phút.
-    MV được refresh định kỳ bởi CronJob k8s (forecast-mv-refresh).
-    Dùng bởi: image-predict service (prediction capacity)
+    Capacity = MAX(avg_objects theo bucket 5 phút) trong 7 ngày — nhất quán với image-predict.
+    MV được refresh định kỳ bởi CronJob k8s (forecast-mv-capacity-refresh).
+    DÙNG BỞI: image-process service (status.current realtime) thay thế get_camera_max_realtime_capacity.
 
     Args:
         camera_list: List camera_id dùng fallback khi MV trống (optional)
@@ -233,7 +221,7 @@ def get_capacity_from_mv(camera_list=None) -> Dict[str, float]:
             return {}
 
         capacity_dict = dict(zip(df["camera_id"], df["capacity"]))
-        logger.info(f"✅ Loaded capacity từ MV cho {len(capacity_dict)} cameras")
+        logger.info(f"✅ Loaded capacity từ MV cho {len(capacity_dict)} cameras (MAX avg 5p)")
         return capacity_dict
 
     except Exception as e:

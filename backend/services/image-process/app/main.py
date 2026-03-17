@@ -1,4 +1,4 @@
-from shared.los_utils import calculate_los_status, DEFAULT_CAPACITY, get_camera_max_realtime_capacity
+from shared.los_utils import calculate_los_status, DEFAULT_CAPACITY, get_capacity_from_mv
 import asyncio
 import gc
 import io
@@ -121,16 +121,16 @@ CAPACITY_REFRESH_INTERVAL = timedelta(hours=6)
 
 def refresh_capacity_map_if_needed():
     """
-    Refresh capacity map nếu đã quá 6 giờ hoặc chưa load lần đầu
-    Sử dụng get_camera_max_realtime_capacity() - Lấy MAX dòng lớn nhất (không qua trung bình)
+    Refresh capacity map nếu đã quá 6 giờ hoặc chưa load lần đầu.
+    Sử dụng get_capacity_from_mv() — đọc từ MV mv_forecast_capacity (MAX avg_objects 5p)
+    để nhất quán với capacity của image-predict service.
     """
     global capacity_map, last_capacity_refresh
 
     now = datetime.now(timezone.utc)
     if last_capacity_refresh is None or (now - last_capacity_refresh) > CAPACITY_REFRESH_INTERVAL:
-        logger.info("🔄 Refreshing realtime capacity map...")
-        capacity_map = get_camera_max_realtime_capacity(
-            lookback_days=7, camera_list=CAMERA_LIST)
+        logger.info("🔄 Refreshing capacity map từ MV...")
+        capacity_map = get_capacity_from_mv(camera_list=CAMERA_LIST)
         last_capacity_refresh = now
 
 
@@ -166,7 +166,7 @@ async def update_fiware(session, camera_id, detections, total_objects, minio_key
                 "realtime": {  # Thông tin chi tiết real-time (giống calculation trong prediction)
                     "current_volume": total_objects,  # Số phương tiện thực tế phát hiện
                     "detections": detections,  # Chi tiết theo loại xe
-                    "capacity": capacity,  # Capacity camera (MAX 7 ngày)
+                    "capacity": capacity,  # Capacity camera (MAX avg 5p từ MV)
                     "vc_ratio": vc_ratio,  # Tỷ lệ volume/capacity
                     # Timestamp detection
                     "timestamp": datetime.utcnow().isoformat()

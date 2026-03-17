@@ -67,9 +67,23 @@ def calculate_prediction_confidence(input_count: int, lag_count: int) -> Dict:
     max_count = max(input_count, lag_count)
     diff_percent = abs(input_count - lag_count) / max_count * 100
 
-    # Tính confidence score (0-1)
-    # Công thức: 1 - (diff_percent / 100), bounded [0, 1]
-    score = max(0.0, min(1.0, 1 - (diff_percent / 100)))
+    # Tính base score từ diff% (1.0 = hoàn toàn nhất quán)
+    diff_score = max(0.0, min(1.0, 1 - (diff_percent / 100)))
+
+    # Tính sufficiency factor: score bị penalize khi số mẫu < 30
+    # >= 30 samples: full weight (1.0)
+    # 10-29 samples: scale tuyến tính từ 0.5 → 0.90
+    # < 10: đã xử lý ở trên (return Low sớm)
+    min_samples = min(input_count, lag_count)
+    if min_samples >= 30:
+        sufficiency = 1.0
+    else:
+        # Linear: 10 samples → 0.50, 29 samples → 0.90
+        sufficiency = 0.5 + 0.4 * (min_samples - 10) / 20
+        sufficiency = min(sufficiency, 0.90)  # cap 0.90 khi < 30
+
+    # Combined score: phản ánh cả độ nhất quán lẫn độ đủ mẫu
+    score = diff_score * sufficiency
 
     # Phân loại level
     if input_count >= 30 and lag_count >= 30 and diff_percent < 20:
@@ -77,7 +91,7 @@ def calculate_prediction_confidence(input_count: int, lag_count: int) -> Dict:
         reason = f"Both buckets have sufficient samples (input:{input_count}, lag:{lag_count})"
     elif diff_percent < 40:
         level = "Medium"
-        reason = f"Moderate difference ({diff_percent:.1f}%) between input and lag samples"
+        reason = f"Moderate difference ({diff_percent:.1f}%) or insufficient samples (input:{input_count}, lag:{lag_count})"
     else:
         level = "Low"
         reason = f"Large difference ({diff_percent:.1f}%) between input:{input_count} and lag:{lag_count}"

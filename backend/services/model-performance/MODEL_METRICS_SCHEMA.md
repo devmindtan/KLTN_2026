@@ -42,22 +42,33 @@
 
 | Trường | Ý nghĩa |
 |---|---|
-| `score` | Điểm tin cậy 0–1. Công thức: `1 - (diff% / 100)`, clamp [0,1] |
+| `score` | Điểm tin cậy 0–1. Công thức: `diff_score × sufficiency` (xem bên dưới) |
 | `level` | `High` / `Medium` / `Low` (xem bảng phân loại bên dưới) |
 | `avg_input_samples` | Trung bình số mẫu đầu vào |
 | `avg_lag_samples` | Trung bình số mẫu LAG |
 | `low_sample_count` | Số dự đoán thiếu mẫu (input < 10 hoặc lag < 10) |
 
+**Công thức score (2 thành phần):**
+
+```
+diff_score   = 1 - (diff% / 100)   # đo độ nhất quán input vs lag
+sufficiency  = 1.0                  # nếu min(input,lag) >= 30
+             = 0.5 + 0.4×(min-10)/20  # nếu 10 <= min < 30  (cap 0.90)
+             = 0.3 (fixed)          # nếu min < 10 → trả về Low ngay
+
+score = diff_score × sufficiency
+```
+
 **Quy tắc phân loại level:**
 
-| Điều kiện | Level | Score |
+| Điều kiện | Level | Score (ví dụ) |
 |---|---|---|
 | input < 10 hoặc lag < 10 | Low | 0.3 (cố định) |
-| Cả hai ≥ 30 VÀ diff% < 20% | High | `1 - diff%/100` |
-| diff% < 40% | Medium | `1 - diff%/100` |
-| diff% ≥ 40% | Low | `1 - diff%/100` |
+| Cả hai ≥ 30 VÀ diff% < 20% | High | tới 1.0 |
+| diff% < 40% (hoặc count < 30) | Medium | tới ~0.90 |
+| diff% ≥ 40% | Low | thấp |
 
-> Ví dụ thực tế: avg_input=25.4, avg_lag=25.6 → diff% = |25.4-25.6|/25.6 × 100 ≈ 0.8% → score ≈ 0.992 ≈ 1.0. Nhưng vì cả hai < 30 → level = **Medium**.
+> Ví dụ thực tế: avg_input=25, avg_lag=25 → diff%=0% → diff_score=1.0; min_samples=25 → sufficiency=0.5+0.4×15/20≈0.80. **Score≈0.80 (80%) Medium** — nhất quán nhưng thiếu mẫu so với ngưỡng 30.
 
 ### `overall.error_confidence` — Độ tin cậy sai số
 

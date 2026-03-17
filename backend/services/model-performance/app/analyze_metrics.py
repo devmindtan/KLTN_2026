@@ -484,133 +484,70 @@ class ModelPerformanceAnalyzer:
     @monitor_performance
     def calculate_trend_accuracy(self, period_days: int = 7) -> Dict:
         """
-        Tính accuracy của trend predictions dựa trên công thức GTI (General Trend Index).
-        GTI = weighted_sum_available / effective_weight / max_capacity × 100
-        (Trọng số được chuẩn hóa theo số horizon có sẵn, tránh bias về 0 khi thiếu horizon)
-        Predicted trend: GTI vs current_ratio (input_value / max_capacity × 100), ngưỡng ±5%
-        Actual trend: actual_value (5m) vs prev_actual (LAG theo thời gian, cùng camera)
-        Yêu cầu tối thiểu: pred_5m phải có (weight cao nhất 0.35), input_value phải có.
+        Tính accuracy của trend predictions: model có dự đoán đúng CHIỀU THAY ĐỔI trong 5 phút tiếp theo không?
+
+        Cả 2 vế đều so với cùng baseline = input_value (traffic tại thời điểm dự đoán T-5m):
+          - predicted_trend: pred_5m   vs input_value  (model dự đoán T như thế nào?)
+          - actual_trend:    actual_5m vs input_value  (thực tế T như thế nào?)
+          - Threshold thích nghi: GREATEST(3 xe, 5% × input_value) — tránh noise ở low-traffic
+
+        Kết quả đo lường trực tiếp: "Bao nhiêu % trường hợp model dự đoán đúng tăng/giảm/ổn định?"
+
         Args:
             period_days: Số ngày lịch sử
         Returns:
-            Dict chứa trend accuracy metrics + incomplete_groups count + method identifier
+            Dict chứa trend accuracy metrics + method identifier
         """
         query = text("""
-            -- Bước 1: Tính max capacity của từng camera trong kỳ (dùng actual_value)
-            WITH capacity AS (
+            -- Lấy dữ liệu horizon=5m: input_value (T-5m), pred_5m (dự đoán T), actual_5m (thực tế T)
+            WITH period_data AS (
                 SELECT
                     camera_id,
-                    NULLIF(MAX(actual_value), 0) AS max_capacity
+                    forecast_for_time,
+                    input_value,
+                    actual_value    AS actual_5m,
+                    predicted_value AS pred_5m
                 FROM camera_forecasts
                 WHERE forecast_for_time >= NOW() - make_interval(days => :days)
-                  AND actual_value IS NOT NULL
-                GROUP BY camera_id
+                  AND horizon_minutes = 5
+                  AND error_value      IS NOT NULL
+                  AND actual_value     IS NOT NULL
+                  AND predicted_value  IS NOT NULL
+                  AND input_value      IS NOT NULL
             ),
-            -- Bước 2: Pivot 5 horizon thành 1 row per (camera_id, forecast_for_time)
-            -- Dùng actual_value của horizon=5m làm đại diện cho actual trend
-            pivot AS (
-                SELECT
-                    cf.camera_id,
-                    cf.forecast_for_time,
-                    MAX(cf.input_value)                                               AS input_value,
-                    MAX(cf.actual_value) FILTER (WHERE cf.horizon_minutes = 5)        AS actual_5m,
-                    MAX(cf.predicted_value) FILTER (WHERE cf.horizon_minutes = 5)     AS pred_5m,
-                    MAX(cf.predicted_value) FILTER (WHERE cf.horizon_minutes = 10)    AS pred_10m,
-                    MAX(cf.predicted_value) FILTER (WHERE cf.horizon_minutes = 15)    AS pred_15m,
-                    MAX(cf.predicted_value) FILTER (WHERE cf.horizon_minutes = 30)    AS pred_30m,
-                    MAX(cf.predicted_value) FILTER (WHERE cf.horizon_minutes = 60)    AS pred_60m
-                FROM camera_forecasts cf
-                WHERE cf.forecast_for_time >= NOW() - make_interval(days => :days)
-                  AND cf.error_value IS NOT NULL
-                GROUP BY cf.camera_id, cf.forecast_for_time
-            ),
-            -- Bước 3: Tính GTI với trọng số chuẩn hóa (normalized weights)
-            -- Không loại bỏ row thiếu horizon, thay vào đó phân phối lại trọng số
-            -- cho các horizon có sẵn để tránh bias GTI về 0
-            gti_calc AS (
-                SELECT
-                    p.*,
-                    c.max_capacity,
-                    -- Đếm số horizon có sẵn
-                    (
-                        CASE WHEN p.pred_5m  IS NOT NULL THEN 1 ELSE 0 END +
-                        CASE WHEN p.pred_10m IS NOT NULL THEN 1 ELSE 0 END +
-                        CASE WHEN p.pred_15m IS NOT NULL THEN 1 ELSE 0 END +
-                        CASE WHEN p.pred_30m IS NOT NULL THEN 1 ELSE 0 END +
-                        CASE WHEN p.pred_60m IS NOT NULL THEN 1 ELSE 0 END
-                    ) AS available_horizons,
-                    -- Tổng trọng số của horizon có sẵn (dùng làm mẫu số chuẩn hóa)
-                    (
-                        CASE WHEN p.pred_5m  IS NOT NULL THEN 0.35 ELSE 0 END +
-                        CASE WHEN p.pred_10m IS NOT NULL THEN 0.25 ELSE 0 END +
-                        CASE WHEN p.pred_15m IS NOT NULL THEN 0.20 ELSE 0 END +
-                        CASE WHEN p.pred_30m IS NOT NULL THEN 0.15 ELSE 0 END +
-                        CASE WHEN p.pred_60m IS NOT NULL THEN 0.05 ELSE 0 END
-                    ) AS effective_weight,
-                    -- Normalized GTI (%): weighted_sum / effective_weight / max_capacity * 100
-                    -- Nếu chỉ có 5m (weight=0.35): GTI = pred_5m * 0.35 / 0.35 / max * 100 = pred_5m / max * 100
-                    -- Nếu đủ 5 horizon: effective_weight = 1.0 → công thức gốc không đổi
-                    ROUND(
-                        (
-                            COALESCE(p.pred_5m,  0) * 0.35 +
-                            COALESCE(p.pred_10m, 0) * 0.25 +
-                            COALESCE(p.pred_15m, 0) * 0.20 +
-                            COALESCE(p.pred_30m, 0) * 0.15 +
-                            COALESCE(p.pred_60m, 0) * 0.05
-                        ) / NULLIF(
-                            CASE WHEN p.pred_5m  IS NOT NULL THEN 0.35 ELSE 0 END +
-                            CASE WHEN p.pred_10m IS NOT NULL THEN 0.25 ELSE 0 END +
-                            CASE WHEN p.pred_15m IS NOT NULL THEN 0.20 ELSE 0 END +
-                            CASE WHEN p.pred_30m IS NOT NULL THEN 0.15 ELSE 0 END +
-                            CASE WHEN p.pred_60m IS NOT NULL THEN 0.05 ELSE 0 END,
-                        0) / c.max_capacity * 100,
-                    2) AS gti,
-                    -- Current ratio (%) = input_value / max_capacity * 100
-                    ROUND((p.input_value / c.max_capacity * 100)::numeric, 2) AS current_ratio,
-                    -- LAG actual_5m để xác định actual trend
-                    LAG(p.actual_5m) OVER (
-                        PARTITION BY p.camera_id ORDER BY p.forecast_for_time
-                    ) AS prev_actual
-                FROM pivot p
-                JOIN capacity c ON c.camera_id = p.camera_id
-                -- Chỉ cần pred_5m (horizon quan trọng nhất, weight 0.35) và input_value
-                WHERE p.pred_5m      IS NOT NULL
-                  AND p.input_value  IS NOT NULL
-            ),
-            -- Bước 4: Phân loại xu hướng dự đoán (GTI) và xu hướng thực tế (actual)
+            -- Phân loại xu hướng: cả 2 vế dùng cùng baseline (input_value) và cùng ngưỡng
+            -- Ngưỡng = GREATEST(3 xe, 5% × input_value) — tránh noise ở traffic thấp
             trend_comp AS (
                 SELECT
                     *,
-                    -- Predicted trend: GTI vs current_ratio, ngưỡng ±5%
+                    GREATEST(3.0, input_value * 0.05) AS threshold,
+                    -- Predicted trend: model kỳ vọng traffic tại T so với T-5m
                     CASE
-                        WHEN gti > current_ratio + 5 THEN 'increasing'
-                        WHEN gti < current_ratio - 5 THEN 'decreasing'
+                        WHEN pred_5m > input_value + GREATEST(3.0, input_value * 0.05) THEN 'increasing'
+                        WHEN pred_5m < input_value - GREATEST(3.0, input_value * 0.05) THEN 'decreasing'
                         ELSE 'stable'
                     END AS predicted_trend,
-                    -- Actual trend: actual_5m vs prev_actual
+                    -- Actual trend: thực tế traffic tại T so với T-5m (cùng baseline, cùng ngưỡng)
                     CASE
-                        WHEN actual_5m > prev_actual THEN 'increasing'
-                        WHEN actual_5m < prev_actual THEN 'decreasing'
+                        WHEN actual_5m > input_value + GREATEST(3.0, input_value * 0.05) THEN 'increasing'
+                        WHEN actual_5m < input_value - GREATEST(3.0, input_value * 0.05) THEN 'decreasing'
                         ELSE 'stable'
                     END AS actual_trend
-                FROM gti_calc
-                WHERE prev_actual IS NOT NULL
-                  AND actual_5m   IS NOT NULL
+                FROM period_data
             )
             SELECT
                 ROUND(
                     COUNT(*) FILTER (WHERE predicted_trend = actual_trend)::numeric
                     / NULLIF(COUNT(*), 0) * 100,
                 1) AS trend_accuracy,
-                COUNT(*) AS total_checks,
-                COUNT(*) FILTER (WHERE predicted_trend = actual_trend)                                        AS correct_predictions,
+                COUNT(*)                                                                                      AS total_checks,
+                COUNT(*) FILTER (WHERE predicted_trend = actual_trend)                                       AS correct_predictions,
                 COUNT(*) FILTER (WHERE predicted_trend = 'increasing' AND actual_trend = 'increasing')       AS correct_increasing,
                 COUNT(*) FILTER (WHERE predicted_trend = 'decreasing' AND actual_trend = 'decreasing')       AS correct_decreasing,
                 COUNT(*) FILTER (WHERE predicted_trend = 'stable'     AND actual_trend = 'stable')           AS correct_stable,
-                -- Số nhóm có horizon không đầy đủ (< 5 horizon)
-                COUNT(*) FILTER (WHERE available_horizons < 5)                                               AS incomplete_groups,
-                -- Trung bình số horizon có sẵn (1.0 = tốt nhất = đủ 5)
-                ROUND(AVG(available_horizons)::numeric / 5 * 100, 1)                                        AS horizon_coverage_pct
+                -- Để null = không còn dùng multi-horizon, giữ field cho backward compat
+                0                                                                                            AS incomplete_groups,
+                100.0                                                                                        AS horizon_coverage_pct
             FROM trend_comp
         """)
 
@@ -628,24 +565,83 @@ class ModelPerformanceAnalyzer:
                         "correct_decreasing": 0,
                         "correct_stable": 0,
                         "incomplete_groups": 0,
-                        "horizon_coverage_pct": 0.0,
-                        "method": "gti_normalized"
+                        "horizon_coverage_pct": 100.0,
+                        "method": "direct_5m_vs_input",
+                        "per_horizon": []
                     }
 
                 trend_metrics = dict(result._mapping)
-                trend_metrics["method"] = "gti_normalized"
+                trend_metrics["method"] = "direct_5m_vs_input"
+
+                # Per-horizon trend accuracy breakdown (5 / 10 / 15 / 30 / 60 phút)
+                per_horizon_query = text("""
+                    WITH period_data AS (
+                        SELECT
+                            horizon_minutes,
+                            input_value,
+                            actual_value    AS actual_val,
+                            predicted_value AS pred_val
+                        FROM camera_forecasts
+                        WHERE forecast_for_time >= NOW() - make_interval(days => :days)
+                          AND error_value      IS NOT NULL
+                          AND actual_value     IS NOT NULL
+                          AND predicted_value  IS NOT NULL
+                          AND input_value      IS NOT NULL
+                    ),
+                    trend_comp AS (
+                        SELECT
+                            horizon_minutes,
+                            CASE
+                                WHEN pred_val  > input_value + GREATEST(3.0, input_value * 0.05) THEN 'increasing'
+                                WHEN pred_val  < input_value - GREATEST(3.0, input_value * 0.05) THEN 'decreasing'
+                                ELSE 'stable'
+                            END AS predicted_trend,
+                            CASE
+                                WHEN actual_val > input_value + GREATEST(3.0, input_value * 0.05) THEN 'increasing'
+                                WHEN actual_val < input_value - GREATEST(3.0, input_value * 0.05) THEN 'decreasing'
+                                ELSE 'stable'
+                            END AS actual_trend
+                        FROM period_data
+                    )
+                    SELECT
+                        horizon_minutes,
+                        ROUND(
+                            COUNT(*) FILTER (WHERE predicted_trend = actual_trend)::numeric
+                            / NULLIF(COUNT(*), 0) * 100,
+                        1) AS trend_accuracy,
+                        COUNT(*) AS total_checks,
+                        COUNT(*) FILTER (WHERE predicted_trend = actual_trend)                                        AS correct_predictions,
+                        COUNT(*) FILTER (WHERE predicted_trend = 'increasing' AND actual_trend = 'increasing')       AS correct_increasing,
+                        COUNT(*) FILTER (WHERE predicted_trend = 'decreasing' AND actual_trend = 'decreasing')       AS correct_decreasing,
+                        COUNT(*) FILTER (WHERE predicted_trend = 'stable'     AND actual_trend = 'stable')           AS correct_stable
+                    FROM trend_comp
+                    GROUP BY horizon_minutes
+                    ORDER BY horizon_minutes
+                """)
+                per_horizon_rows = conn.execute(per_horizon_query, {"days": period_days}).fetchall()
+                trend_metrics["per_horizon"] = [
+                    {
+                        "horizon_minutes":    int(row.horizon_minutes),
+                        "trend_accuracy":     float(row.trend_accuracy or 0),
+                        "total_checks":       int(row.total_checks),
+                        "correct_predictions": int(row.correct_predictions),
+                        "correct_increasing": int(row.correct_increasing),
+                        "correct_decreasing": int(row.correct_decreasing),
+                        "correct_stable":     int(row.correct_stable),
+                    }
+                    for row in per_horizon_rows
+                ]
 
                 logger.info(
-                    f"Trend accuracy (GTI normalized): {trend_metrics['trend_accuracy']}% "
-                    f"({trend_metrics['correct_predictions']}/{trend_metrics['total_checks']}), "
-                    f"incomplete_groups={trend_metrics['incomplete_groups']}, "
-                    f"horizon_coverage={trend_metrics['horizon_coverage_pct']}%"
+                    f"Trend accuracy (direct 5m vs input): {trend_metrics['trend_accuracy']}% "
+                    f"({trend_metrics['correct_predictions']}/{trend_metrics['total_checks']}) "
+                    f"↑{trend_metrics['correct_increasing']} ↓{trend_metrics['correct_decreasing']} ={trend_metrics['correct_stable']}"
                 )
 
                 return trend_metrics
 
         except Exception as e:
-            logger.error(f"Error calculating trend accuracy (GTI normalized): {e}")
+            logger.error(f"Error calculating trend accuracy (direct 5m vs input): {e}")
             return {
                 "trend_accuracy": 0.0,
                 "total_checks": 0,
@@ -654,8 +650,9 @@ class ModelPerformanceAnalyzer:
                 "correct_decreasing": 0,
                 "correct_stable": 0,
                 "incomplete_groups": 0,
-                "horizon_coverage_pct": 0.0,
-                "method": "gti_normalized"
+                "horizon_coverage_pct": 100.0,
+                "method": "direct_5m_vs_input",
+                "per_horizon": []
             }
 
     @monitor_performance

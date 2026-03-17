@@ -88,6 +88,50 @@ export const ANALYTICS_TERM = {
     title: "Phân tích hiệu suất mô hình",
     description: "Theo dõi độ chính xác dự đoán từ dữ liệu lịch sử",
   },
+  card1: {
+    title: "MAE",
+    description: "Sai số tuyệt đối trung bình",
+    tooltips: "Mean Absolute Error - Sai số tuyệt đối trung bình. Đo lường chênh lệch trung bình giữa giá trị dự đoán và thực tế theo số xe."
+  },
+  card2: {
+    title: "MAPE",
+    description: "Sai số phần trăm trung bình",
+    tooltips: "Mean Absolute Percentage Error - Sai số phần trăm tuyệt đối trung bình. Tiện ích để so sánh chất lượng dự đoán giữa các camera khác nhau."
+  },
+  card3: {
+    title: "Accuracy ≤ 5xe",
+    description: "Tỷ lệ dự đoán trong ±5 xe",
+    tooltips: "Tỷ lệ % dự đoán có sai số trong phạm vi ±5 xe. Chiềm 75% trở lên được coi là tốt."
+  },
+  card4: {
+    title: "Trend Accuracy",
+    description: "Độ chính xác dự đoán xu hướng",
+    tooltips: "Độ chính xác khi dự đoán xu hướng tăng/giảm/ổn định của lưu lượng giao thông. Hữu ích cho việc ra quyết định vận hành."
+  },
+  card5: {
+    title: "Độ tin cậy dự đoán",
+    description: "",
+    tooltips: "Đánh giá chất lượng dữ liệu đầu vào (input samples) so với dữ liệu quá khứ (LAG samples) để xác định độ tin cậy của dự đoán."
+  },
+  card6: {
+    title: "Độ tin cậy sai số",
+    description: "",
+    tooltips: "Đánh giá độ khớp giữa dữ liệu đầu vào khi dự đoán và dữ liệu thực tế khi đồng bộ, ảnh hưởng đến độ tin cậy của error value."
+  },
+  table1: {
+    title: "So sánh theo các mốc",
+  },
+  table2: {
+    title: "Top 5 khu vực (máy quay) tốt nhất",
+  },
+  table3: {
+    title: "Top 5 khu vực (máy quay) thấp nhất",
+  },
+  table4: {
+    title: "Lịch sử kiểm tra gần đây",
+    description: "Dữ liệu được lưu định kỳ để hiển thị quá khứ"
+  }
+
 } satisfies Record<string, Term>;
 
 // ─── Models ──────────────────────────────────────────────────────────────────
@@ -330,7 +374,7 @@ export const PAGE_TITLES = {
   ANALYTICS:    import.meta.env.VITE_PAGE_ANALYTICS    ?? "Phân tích mô hình",
   MODELS:       import.meta.env.VITE_PAGE_MODELS       ?? "Danh sách mô hình",
   DATA_LIBRARY: import.meta.env.VITE_PAGE_DATA_LIBRARY ?? "Dữ liệu giao thông",
-  REPORTS:      import.meta.env.VITE_PAGE_REPORTS      ?? "Báo cáo & Dự báo",
+  REPORTS:      import.meta.env.VITE_PAGE_REPORTS      ?? "Báo cáo giao thông",
   SEARCH:       import.meta.env.VITE_PAGE_SEARCH       ?? "Tìm kiếm nhanh",
   HELP:         "Liên hệ & Hướng dẫn",
   TEAM:         "Đội ngũ phát triển",
@@ -340,18 +384,18 @@ export const PAGE_TITLES = {
 // ─── 9. Camera Labels ────────────────────────────────────────────────────────
 
 export const CAMERA_LABELS = {
-  CAMERA:         "Camera",
-  ACTIVE:         "Camera hoạt động",
-  SELECT:         "Chọn camera",
-  ALL:            "Tất cả camera",
+  CAMERA:         "Máy quay",
+  ACTIVE:         "Máy quay hoạt động",
+  SELECT:         "Chọn máy quay",
+  ALL:            "Tất cả máy quay",
   ALL_AVERAGE:    "Toàn mạng lưới",
-  ID:             "Mã Camera",
-  NAME:           "Tên Camera",
-  LIST:           "Danh sách camera",
-  MONITOR_TITLE:  "Giám sát Camera",
-  NOT_FOUND:      "Không tìm thấy camera nào",
-  OFFLINE_MSG:    "Camera offline — kiểm tra kết nối mạng và nguồn điện",
-  SEARCH_HINT:    "Tìm camera, mã ID...",
+  ID:             "Mã máy quay",
+  NAME:           "Tên máy quay",
+  LIST:           "Danh sách máy quay",
+  MONITOR_TITLE:  "Giám sát lưu lượng",
+  NOT_FOUND:      "Không tìm thấy máy quay nào nào",
+  OFFLINE_MSG:    "Máy quay mất kết nối — kiểm tra kết nối mạng và nguồn điện",
+  SEARCH_HINT:    "Tìm máy quay, mã ID...",
 } as const;
 
 // ─── 10. Common UI Labels ────────────────────────────────────────────────────

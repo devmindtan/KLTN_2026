@@ -39,14 +39,16 @@ import { PgDashboard }        from "@/components/sandbox/playground/pg-dashboard
 import { PgDashboard2 }       from "@/components/sandbox/playground/pg-dashboard-2"
 import { PgMonitoring }       from "@/components/sandbox/playground/pg-monitoring"
 import { PgAnalytics }        from "@/components/sandbox/playground/pg-analytics"
+import { PgAnalyticsNew }     from "@/components/sandbox/playground/pg-analytics-new"
 import { PgReportsForecasts } from "@/components/sandbox/playground/pg-reports-forecasts"
 
 const PLAYGROUND_PAGES = [
   { value: "dashboard",  label: "Tổng quan Dashboard",   icon: LayoutDashboardIcon },
   { value: "dashboard2", label: "Tổng quan Dashboard 2",  icon: LayoutDashboardIcon },
   { value: "monitoring", label: "Giám sát Camera",        icon: CameraIcon          },
-  { value: "analytics",  label: "Phân tích Mô hình",      icon: BrainCircuitIcon    },
-  { value: "reports",    label: "Báo cáo & Dự báo",      icon: IconFileText        },
+  { value: "analytics",     label: "Phân tích Mô hình",        icon: BrainCircuitIcon    },
+  { value: "analytics-new", label: "Phân tích Mô hình (Mới)",  icon: IconChartAreaLine   },
+  { value: "reports",       label: "Báo cáo & Dự báo",        icon: IconFileText        },
 ] as const
 
 type PlaygroundPage = typeof PLAYGROUND_PAGES[number]["value"]
@@ -152,8 +154,9 @@ export default function SandboxPage() {
               {pgPage === "dashboard"  && <PgDashboard        />}
               {pgPage === "dashboard2" && <PgDashboard2       />}
               {pgPage === "monitoring" && <PgMonitoring        />}
-              {pgPage === "analytics"  && <PgAnalytics         />}
-              {pgPage === "reports"    && <PgReportsForecasts  />}
+              {pgPage === "analytics"     && <PgAnalytics         />}
+              {pgPage === "analytics-new" && <PgAnalyticsNew      />}
+              {pgPage === "reports"        && <PgReportsForecasts  />}
             </CardContent>
           </Card>
         </div>

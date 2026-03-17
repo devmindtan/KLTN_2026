@@ -90,7 +90,7 @@ export function ForecastHistoryTable({ slots = MOCK_FORECAST_SLOTS, loading = fa
     const seen = new Map<string, string>();
     slots.forEach(s => { if (!seen.has(s.camId)) seen.set(s.camId, s.camName); });
     return [
-      { id: "all", name: "Tất cả camera" },
+      { id: "all", name: "Tất cả máy quay" },
       ...Array.from(seen.entries()).map(([id, name]) => ({ id, name })),
     ];
   }, [slots]);
@@ -161,7 +161,7 @@ export function ForecastHistoryTable({ slots = MOCK_FORECAST_SLOTS, loading = fa
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b">
-                {["Khung giờ", "Camera", "Dự báo", "Thực tế", "LOS TT", "Sai số", "Tin cậy", "Trạng thái"].map(h => (
+                {["Khung giờ", "Máy quay", "Dự báo", "Thực tế", "LOS TT", "Sai số", "Tin cậy", "Trạng thái"].map(h => (
                   <th key={h} className="text-left font-medium text-muted-foreground py-2 px-2 whitespace-nowrap">{h}</th>
                 ))}
               </tr>

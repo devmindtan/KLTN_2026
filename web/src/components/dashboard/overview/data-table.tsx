@@ -28,21 +28,15 @@ import {
 } from "lucide-react"
 import { IconCar, IconMotorbike } from "@tabler/icons-react"
 import { CardSectionHeader } from "@/components/custom/card-section-header"
-import { Area, AreaChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts"
+import { CameraDetailSheet } from "@/components/custom/camera-detail-sheet"
 // import { toast } from "sonner"
 import { z } from "zod"
 
-import { useIsMobile } from "@/hooks/use-mobile"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  type ChartConfig,
-  ChartContainer,
-  ChartTooltip,
-} from "@/components/ui/chart"
 import { SearchInput } from "@/components/custom/search-input"
 import { HighlightText } from "@/components/custom/highlight-text"
-import { useSocket } from "@/contexts/SocketContext"
+import { type CameraData } from "@/contexts/SocketContext"
 import { getLOSLabel, DASHBOARD_TERM } from "@/lib/app-constants"
 import { Label } from "@/components/ui/label"
 import {
@@ -52,16 +46,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
 import {
   Table,
   TableBody,
@@ -113,6 +97,13 @@ export const schema = z.object({
     capacity: z.number(),
     vc_ratio: z.number(),
   }).optional(),
+  realtimeData: z.object({
+    current_volume: z.number(),
+    detections: z.object({ car: z.number(), motorbike: z.number() }),
+    capacity: z.number(),
+    vc_ratio: z.number(),
+    timestamp: z.number(),
+  }).optional(),
 })
 
 /** Trả về Tailwind class cho badge LOS (Level of Service) */
@@ -128,21 +119,6 @@ const getLOSBadgeClass = (status: string): string => {
 };
 
 // getLOSLabel imported từ @/lib/los-config (single source of truth)
-
-// Helper function to get trend explanation
-const getTrendExplanation = (trend: { direction: string; gti: number; current_ratio: number; diff: number }) => {
-  const d = trend.diff?.toFixed(1) ?? "?";
-  switch (trend.direction) {
-    case "increasing":
-      return `GTI (${trend.gti?.toFixed(1)}%) cao hơn hiện tại (${trend.current_ratio?.toFixed(1)}%) → chênh lệch +${d}%`;
-    case "decreasing":
-      return `GTI (${trend.gti?.toFixed(1)}%) thấp hơn hiện tại (${trend.current_ratio?.toFixed(1)}%) → chênh lệch ${d}%`;
-    case "stable":
-      return `GTI (${trend.gti?.toFixed(1)}%) ổn định so với hiện tại (${trend.current_ratio?.toFixed(1)}%)`;
-    default:
-      return "Không có dữ liệu xu hướng";
-  }
-};
 
 const columns: ColumnDef<z.infer<typeof schema>>[] = [
   {
@@ -319,8 +295,13 @@ export function DataTable({
   // Filter states
   const [statusFilter, setStatusFilter] = React.useState("all")
   const [trendFilter, setTrendFilter] = React.useState("all")
-  // Detail modal state
-  const [selectedItem, setSelectedItem] = React.useState<z.infer<typeof schema> | null>(null)
+  // Detail modal state: lưu ID thay vì snapshot để tự nhận socket updates
+  const [selectedItemId, setSelectedItemId] = React.useState<string | null>(null)
+  // Derive live item từ data state theo ID
+  const selectedItem = React.useMemo(
+    () => selectedItemId ? data.find((d) => d.id === selectedItemId) ?? null : null,
+    [selectedItemId, data]
+  )
 
   // Sync data với initialData khi props thay đổi (từ socket updates)
   React.useEffect(() => {
@@ -477,7 +458,7 @@ export function DataTable({
                       <ClickableRow
                         key={row.id}
                         row={row}
-                        onRowClick={(item) => setSelectedItem(item)}
+                        onRowClick={(item) => setSelectedItemId(item.id)}
                       />
                   ))
                 ) : (
@@ -574,318 +555,12 @@ export function DataTable({
       
       {/* Detail Modal - Controlled by selectedItem state */}
       {selectedItem && (
-        <TableCellViewerModal 
-          item={selectedItem} 
+        <CameraDetailSheet
+          camera={selectedItem as unknown as CameraData}
           open={!!selectedItem}
-          onOpenChange={(open) => !open && setSelectedItem(null)}
+          onOpenChange={(open) => !open && setSelectedItemId(null)}
         />
       )}
     </Tabs>
-  )
-}
-
-// Separate controlled modal component for row click
-
-/** Nhãn % thay đổi so với baseline – module-level để tránh Recharts re-mount */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const PctForecastLabel = (props: any) => {
-  const { x, y, value } = props;
-  if (value === null || value === undefined) return null;
-  const pct = value as number;
-  const color = pct > 0 ? "#f97316" : pct < 0 ? "#22c55e" : "#9ca3af";
-  const sign = pct > 0 ? "+" : "";
-  return (
-    <text x={Number(x)} y={Math.max(Number(y) - 8, 14)} textAnchor="middle" fill={color} fontSize={10} fontWeight={700}>
-      {sign}{pct}%
-    </text>
-  );
-};
-
-const forecastChartConfig = {
-  vehicles: {
-    label: "Dự báo",
-    color: "var(--primary)",
-  },
-  vcPct: {
-    label: "Mức tải (%)",
-    color: "var(--chart-2)",
-  },
-} satisfies ChartConfig
-
-function TableCellViewerModal({ item, open, onOpenChange }: { item: z.infer<typeof schema>, open: boolean, onOpenChange: (open: boolean) => void }) {
-  const isMobile = useIsMobile()
-  const { cameraInfoMap } = useSocket()
-  const cameraInfo = cameraInfoMap[item.shortId]
-
-  // Transform forecasts to chart data (pctChange vs baseline + vcPct V/C ratio)
-  const capacity = item.calculation?.capacity ?? 0;
-  const baseline = item.inputValue ?? item.totalObjects;
-  const forecastData = [
-    { time: "5 phút",  vehicles: Math.round(item.forecasts["5m"]),  vcPct: capacity > 0 ? Math.round(item.forecasts["5m"]  / capacity * 100) : 0, pctChange: baseline > 0 ? Math.round((item.forecasts["5m"]  - baseline) / baseline * 100) : null },
-    { time: "10 phút", vehicles: Math.round(item.forecasts["10m"]), vcPct: capacity > 0 ? Math.round(item.forecasts["10m"] / capacity * 100) : 0, pctChange: baseline > 0 ? Math.round((item.forecasts["10m"] - baseline) / baseline * 100) : null },
-    { time: "15 phút", vehicles: Math.round(item.forecasts["15m"]), vcPct: capacity > 0 ? Math.round(item.forecasts["15m"] / capacity * 100) : 0, pctChange: baseline > 0 ? Math.round((item.forecasts["15m"] - baseline) / baseline * 100) : null },
-    { time: "30 phút", vehicles: Math.round(item.forecasts["30m"]), vcPct: capacity > 0 ? Math.round(item.forecasts["30m"] / capacity * 100) : 0, pctChange: baseline > 0 ? Math.round((item.forecasts["30m"] - baseline) / baseline * 100) : null },
-    { time: "60 phút", vehicles: Math.round(item.forecasts["60m"]), vcPct: capacity > 0 ? Math.round(item.forecasts["60m"] / capacity * 100) : 0, pctChange: baseline > 0 ? Math.round((item.forecasts["60m"] - baseline) / baseline * 100) : null },
-  ];
-
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex flex-col overflow-y-auto scrollbar">
-        <SheetHeader className="gap-1">
-          <SheetTitle>{item.name}</SheetTitle>
-          <SheetDescription>
-            Mã Camera: {item.shortId} • Thông tin chi tiết và dự đoán giao thông
-          </SheetDescription>
-        </SheetHeader>
-        <div className="flex flex-1 flex-col gap-4 py-4 text-sm">
-          {/* Camera Image */}
-          {item.imageUrl && (
-            <div className="rounded-lg border overflow-hidden">
-              <img
-                src={item.imageUrl}
-                alt={`Camera ${item.shortId}`}
-                className="w-full h-48 object-cover"
-                onError={(e) => {
-                  e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='200'%3E%3Crect width='400' height='200' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239ca3af' font-family='sans-serif'%3EImage Not Available%3C/text%3E%3C/svg%3E";
-                }}
-              />
-            </div>
-          )}
-
-          <Separator />
-
-          {/* Current Status */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-0.5">
-              <p className="text-xs text-muted-foreground">Tổng phương tiện</p>
-              <p className="text-2xl font-bold tabular-nums">{item.totalObjects}</p>
-              <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <IconCar className="size-3.5 text-blue-500 shrink-0" />
-              <span className="text-sm font-semibold tabular-nums">{item.carCount}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <IconMotorbike className="size-3.5 text-orange-500 shrink-0" />
-              <span className="text-sm font-semibold tabular-nums">{item.motorbikeCount}</span>
-            </div>
-          </div>
-            </div>
-            {item.inputValue !== undefined && (
-              <div className="flex flex-col gap-0.5">
-                <p className="text-xs text-muted-foreground">Trung bình 5 phút trước</p>
-                <p className="text-2xl font-bold tabular-nums">{Math.round(item.inputValue)}</p>
-              </div>
-            )}
-          </div>
-        
-          <Separator />
-
-          {/* Status Section */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs text-muted-foreground">Trạng Thái Hiện Tại</Label>
-              <Badge variant="outline" className={`w-fit ${getLOSBadgeClass(item.status.current)}`}>
-                {getLOSLabel(item.status.current)}
-              </Badge>
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs text-muted-foreground">Dự Báo 5 Phút</Label>
-              <Badge variant="outline" className={`w-fit ${getLOSBadgeClass(item.status.forecast)}`}>
-                {getLOSLabel(item.status.forecast)}
-              </Badge>
-            </div>
-          </div>
-          <Separator />
-
-          {item.calculation && (
-            <div className="rounded-lg border bg-muted/30 p-3 flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Mức tải V/C</span>
-                <span className="text-xs font-semibold tabular-nums">
-                  {Math.round(item.calculation.predicted_volume)} / {Math.round(item.calculation.capacity)} xe
-                  <span className="ml-1 text-muted-foreground">({Math.round(item.calculation.vc_ratio * 100)}%)</span>
-                </span>
-              </div>
-              <div className="h-1.5 rounded-full overflow-hidden bg-muted">
-                <div
-                  className={`h-full rounded-full transition-all ${item.calculation.vc_ratio <= 0.5 ? "bg-green-500" : item.calculation.vc_ratio <= 0.8 ? "bg-yellow-400" : "bg-red-500"}`}
-                  style={{ width: `${Math.min(item.calculation.vc_ratio * 100, 100)}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          <Separator />
-
-          {/* Forecast Chart */}
-          {!isMobile && forecastData.some(d => d.vehicles > 0) && (
-            <>
-              <div className="flex flex-col gap-2">
-                <Label className="text-sm font-medium">Dự báo lưu lượng giao thông</Label>
-                <ChartContainer config={forecastChartConfig} className="h-[200px]">
-                  <AreaChart
-                    accessibilityLayer
-                    data={forecastData}
-                    margin={{ left: -30, right: -18, top: 28, bottom: 0 }}
-                  >
-                    <CartesianGrid vertical={false} />
-                    <XAxis
-                      dataKey="time"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                    />
-                    <YAxis
-                      yAxisId="left"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                      tick={{ fontSize: 10 }}
-                    />
-                    <YAxis
-                      yAxisId="right"
-                      orientation="right"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                      tick={{ fontSize: 10 }}
-                      tickFormatter={(v) => `${v}%`}
-                      domain={[0, 100]}
-                    />
-                    <ChartTooltip
-                      cursor={false}
-                      content={({ active, payload, label }) => {
-                        if (!active || !payload?.length) return null;
-                        const visibleRows = payload.filter((p) => p.value !== null && p.value !== undefined && p.value !== 0 || p.dataKey === "vehicles");
-                        const labelMap: Record<string, string> = { vehicles: "Dự báo", vcPct: "Mức tải" };
-                        return (
-                          <div className="rounded-lg border bg-background px-3 py-2 shadow-md text-sm min-w-[140px]">
-                            <p className="font-medium mb-1.5">{label}</p>
-                            {visibleRows.map((p) => (
-                              <div key={String(p.dataKey)} className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="size-2 rounded-full shrink-0" style={{ background: p.color }} />
-                                  <span className="text-muted-foreground">{labelMap[String(p.dataKey)] ?? String(p.dataKey)}</span>
-                                </div>
-                                <span className="font-semibold tabular-nums">
-                                  {p.dataKey === "vcPct" ? `${p.value}%` : `${p.value} xe`}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      }}
-                    />
-                    <Area
-                      yAxisId="left"
-                      dataKey="vehicles"
-                      type="monotone"
-                      fill="var(--color-vehicles)"
-                      fillOpacity={0.4}
-                      stroke="var(--color-vehicles)"
-                    >
-                      <LabelList dataKey="pctChange" content={PctForecastLabel} />
-                    </Area>
-                    {capacity > 0 && (
-                      <Area
-                        yAxisId="right"
-                        dataKey="vcPct"
-                        type="monotone"
-                        fill="var(--color-vcPct)"
-                        fillOpacity={0.15}
-                        stroke="var(--color-vcPct)"
-                        strokeDasharray="4 2"
-                      />
-                    )}
-                  </AreaChart>
-                </ChartContainer>
-              </div>
-              <Separator />
-            </>
-          )}
-
-          {/* Forecast Values */}
-          <div className="flex flex-col gap-2">
-            <Label className="text-sm font-medium">Dự đoán số lượng phương tiện</Label>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="flex flex-col gap-1 rounded-md border p-2">
-                <span className="text-xs text-muted-foreground">5 phút</span>
-                <span className="text-sm font-semibold tabular-nums">{Math.round(item.forecasts["5m"])}</span>
-                {capacity > 0 && <span className="text-xs text-muted-foreground">{Math.round(item.forecasts["5m"] / capacity * 100)}% mức tải</span>}
-              </div>
-              <div className="flex flex-col gap-1 rounded-md border p-2">
-                <span className="text-xs text-muted-foreground">15 phút</span>
-                <span className="text-sm font-semibold tabular-nums">{Math.round(item.forecasts["15m"])}</span>
-                {capacity > 0 && <span className="text-xs text-muted-foreground">{Math.round(item.forecasts["15m"] / capacity * 100)}% mức tải</span>}
-              </div>
-              <div className="flex flex-col gap-1 rounded-md border p-2">
-                <span className="text-xs text-muted-foreground">60 phút</span>
-                <span className="text-sm font-semibold tabular-nums">{Math.round(item.forecasts["60m"])}</span>
-                {capacity > 0 && <span className="text-xs text-muted-foreground">{Math.round(item.forecasts["60m"] / capacity * 100)}% mức tải</span>}
-              </div>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Additional Info */}
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs text-muted-foreground">Xu hướng</Label>
-                <Badge variant="outline" className="flex gap-1">
-                  {item.trend.direction === "increasing" ? (
-                    <TrendingUpIcon className="size-3 text-orange-500" />
-                  ) : item.trend.direction === "decreasing" ? (
-                    <TrendingDownIcon className="size-3 text-green-500" />
-                  ) : null}
-                  {item.trend.direction === "increasing" ? "Tăng" : item.trend.direction === "decreasing" ? "Giảm" : "Ổn định"}
-                </Badge>
-              </div>
-              <div className="text-[10px] text-muted-foreground bg-blue-50 dark:bg-blue-950/20 rounded px-2 py-1.5 border border-blue-200 dark:border-blue-800">
-                💡 {getTrendExplanation(item.trend)}
-              </div>
-            </div>
-            <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground">Cập nhật cuối</Label>
-              <span className="text-xs">
-                {item.lastUpdated
-                  ? new Date(item.lastUpdated).toLocaleString("vi-VN")
-                  : "N/A"}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground">Dự đoán cuối</Label>
-              <span className="text-xs">
-                {item.lastPredicted
-                  ? new Date(item.lastPredicted).toLocaleString("vi-VN")
-                  : "N/A"}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground">Mã Camera</Label>
-              <span className="font-mono text-xs">{item.shortId}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground">Tên đường</Label>
-              <span className="text-xs text-right break-words max-w-[60%]">{item.name}</span>
-            </div>
-            {cameraInfo?.location && (
-              <div className="flex items-center justify-between">
-                <Label className="text-xs text-muted-foreground">Tọa độ</Label>
-                <span className="text-xs text-right break-all font-mono max-w-[60%]">{cameraInfo.location}</span>
-              </div>
-            )}
-          </div>
-        </div>
-        <SheetFooter className="mt-auto">
-          <SheetClose asChild>
-            <Button variant="outline" className="w-full">
-              Đóng
-            </Button>
-          </SheetClose>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
   )
 }

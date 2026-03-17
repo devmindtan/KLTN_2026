@@ -52,13 +52,13 @@ export function TabPageHeader() {
       <div className="border rounded-md p-4">
         <PageHeader
           icon={<FileTextIcon className="size-5" />}
-          title="Báo cáo & Dự báo"
+          title="Báo cáo"
           description="Xem lại lịch sử báo cáo và kết quả dự báo lưu lượng giao thông theo ngày/tuần/tháng."
         />
       </div>
       <CodeBlock>{`<PageHeader
   icon={<FileTextIcon className="size-5" />}
-  title="Báo cáo & Dự báo"
+  title="Báo cáo"
   description="Xem lại lịch sử báo cáo và kết quả dự báo."
 />`}</CodeBlock>
 

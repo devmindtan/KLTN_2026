@@ -197,11 +197,12 @@ export default function ModelsPage() {
         </Button>
         {isTechnician && (
           <Button
+            className="text-xs px-2 py-2 h-auto"
             onClick={() => { setTrainModalMode('new'); setTrainTarget(null); setTrainModalOpen(true); }}
             disabled={isTrainingRunning}
             title={isTrainingRunning ? "Đang có tiến trình huấn luyện đang chạy" : undefined}
           >
-            <IconSparkles className="w-4 h-4 mr-2" />
+            <IconSparkles className="w-3 h-3 mr-1" />
             Huấn luyện phiên bản mới
           </Button>
         )}

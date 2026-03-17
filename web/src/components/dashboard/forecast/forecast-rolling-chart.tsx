@@ -483,15 +483,19 @@ export function ForecastRollingChart() {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div>
-            <p className="text-sm font-semibold">{FORECAST_TERMS.ROLLING} – 5 mốc thời gian</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
+        <div className="flex items-start justify-between gap-2 flex-wrap">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sm font-semibold">{FORECAST_TERMS.ROLLING} – 5 mốc thời gian</p>
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-emerald-700 border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-700">Quá khứ</Badge>
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-orange-700 border-orange-200 bg-orange-50 dark:bg-orange-950/30 dark:text-orange-300 dark:border-orange-700">Tương lai</Badge>
+            </div>
+            <p className="hidden sm:block text-xs text-muted-foreground mt-0.5">
               Hiển thị từ 07:00 đến hiện tại (dự báo 60p tương lai đến 23:00). Quá khứ: 5 horizon bám thực tế. Tương lai: <b>tối đa 60 phút</b>.
               <span className="text-primary ml-1">Nhấn vào biểu đồ</span> để xem chi tiết.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-1.5">
             {/* Camera selector */}
             <SelectWithSearch
               value={selectedCam}
@@ -502,7 +506,7 @@ export function ForecastRollingChart() {
               searchPlaceholder="Tìm camera, mã ID..."
               emptyText="Không tìm thấy camera nào"
               size="sm"
-              triggerClassName="w-40"
+              triggerClassName="w-32 sm:w-40"
               ariaLabel="Chọn camera"
             />
             
@@ -540,19 +544,18 @@ export function ForecastRollingChart() {
               </Button>
             </div>
             
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-emerald-700 border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-700">Quá khứ</Badge>
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-orange-700 border-orange-200 bg-orange-50 dark:bg-orange-950/30 dark:text-orange-300 dark:border-orange-700">Tương lai</Badge>
           </div>
         </div>
       </CardHeader>
 
       <CardContent className="pt-0 space-y-4">
         {/* Chart */}
-        <div className="w-full h-[300px]">
+        <div className="w-full h-[300px] relative">
+          {/* Label trục phải – HTML tuyệt đối để không đẩy vào chart */}
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart
               data={chartData}
-              margin={{ top: 8, right: 48, left: -8, bottom: 4 }}
+              margin={{ top: 8, right: 10, left: -8, bottom: 4 }}
               onClick={handleChartClick}
               style={{ cursor: "pointer" }}
             >
@@ -581,7 +584,7 @@ export function ForecastRollingChart() {
               <YAxis yAxisId="currentRatio" orientation="right" domain={[0, 100]} fontSize={10}
                 tick={{ fill: "#8b5cf6" }} tickLine={false} axisLine={false}
                 tickFormatter={(v: number) => `${v}%`}
-                label={{ value: "Mức tải", angle: 90, position: "insideRight", offset: -4, fontSize: 11, fill: "#8b5cf6" }}
+                width={36}
               />
 
               <Tooltip content={renderTooltip} />
@@ -683,7 +686,8 @@ export function ForecastRollingChart() {
 
               <Legend
                 verticalAlign="bottom"
-                height={32}
+                height={40}
+                wrapperStyle={{ paddingTop: 8 }}
                 iconType="plainline"
                 formatter={(v) => {
                   // Recharts formatter nhận name prop, không phải dataKey
@@ -701,14 +705,18 @@ export function ForecastRollingChart() {
 
         {/* Detail Table */}
         <div className="border border-border rounded-lg overflow-hidden">
-          <div className="flex items-center justify-between px-3 py-2 bg-muted/40 border-b border-border">
+          <div className="flex flex-wrap items-center justify-between gap-y-1 px-3 py-2 bg-muted/40 border-b border-border">
             <span className="text-xs font-semibold">
-              {isNowOrFuture ? "Chi tiết dự báo – Từ thời điểm hiện tại" : `Chi tiết dự báo – Slot ${selRow.t}`}
+              {isNowOrFuture ? (
+                <><span className="hidden sm:inline">Chi tiết dự báo – </span>Từ thời điểm hiện tại</>
+              ) : (
+                <><span className="hidden sm:inline">Chi tiết dự báo – </span>Slot {selRow.t}</>
+              )}
             </span>
             <div className="flex items-center gap-2">
               <span className="text-[11px] text-muted-foreground">
                 Baseline: <b className="font-mono">{f1(tableBaseline)} xe</b>
-                {isNowOrFuture && <span className="text-orange-600 ml-1">(Hiện tại)</span>}
+                {isNowOrFuture && <span className="hidden sm:inline text-orange-600 ml-1">(Hiện tại)</span>}
               </span>
               <Badge
                 variant="outline"
@@ -720,7 +728,8 @@ export function ForecastRollingChart() {
             </div>
           </div>
 
-          <table className="w-full text-xs">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[400px] text-xs">
             <thead>
               <tr className="border-b border-border bg-muted/20">
                 <th className="text-left px-3 py-1.5 font-medium text-muted-foreground">Horizon</th>
@@ -775,6 +784,7 @@ export function ForecastRollingChart() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       </CardContent>
     </Card>

@@ -1,6 +1,6 @@
 "use client"
 import React from "react";
-import {createBrowserRouter, RouterProvider, Outlet, Navigate} from "react-router-dom";
+import {createBrowserRouter, RouterProvider, Outlet, Navigate, useParams} from "react-router-dom";
 import {CustomSidebarProvider, SidebarInset} from "@/components/layout/custom-sidebar";
 import {AppSidebar} from "@/components/layout/app-sidebar";
 
@@ -45,6 +45,28 @@ const RouteScrollReset = () => {
     if (container) container.scrollTop = 0;
   }, [pathname]);
   return null;
+};
+
+/**
+ * Guard: Đảm bảo URL prefix luôn khớp với routePrefix của user.
+ * - viewer (anonymous) → prefix phải là "user"
+ * - technician         → prefix phải là email prefix của họ
+ * Nếu sai → redirect về đúng prefix, giữ nguyên sub-path.
+ */
+const PrefixGuardedLayout = () => {
+  const { prefix } = useParams<{ prefix: string }>();
+  const { routePrefix, isLoading } = useAuth();
+  const location = useLocation();
+
+  if (isLoading) return null;
+
+  if (prefix !== routePrefix) {
+    const segments = location.pathname.split("/"); // ['', prefix, 'dashboard', ...]
+    segments[1] = routePrefix;
+    return <Navigate to={segments.join("/")} replace />;
+  }
+
+  return <Outlet />;
 };
 
 /**
@@ -114,24 +136,30 @@ const router = createBrowserRouter([
     path: "/:prefix",
     element: <RootLayout/>,
     children: [
-      {index: true, element: <Navigate to="dashboard" replace />},
-      // loader dùng setTimeout(0) thay vì Promise.resolve() để tạo macrotask,
-      // cho React kịp re-render với navigation.state==="loading" trước khi loader resolve,
-      // giúp TopProgressBar hiển thị đúng khi chuyển route.
-      {path: "dashboard",        element: <Dashboard/>,     loader: () => new Promise(r => setTimeout(r, 0))},
-      {path: "monitoring",       element: <Monitoring/>,    loader: () => new Promise(r => setTimeout(r, 0))},
-      {path: "analytics",        element: <Analytics/>,     loader: () => new Promise(r => setTimeout(r, 0))},
-      {path: "models",           element: <Models/>,        loader: () => new Promise(r => setTimeout(r, 0))},
-      {path: "team",             element: <Team/>,          loader: () => new Promise(r => setTimeout(r, 0))},
-      {path: "data-library",     element: <DataLibrary/>,   loader: () => new Promise(r => setTimeout(r, 0))},
-      {path: "reports-forecasts",element: <Reports/>,       loader: () => new Promise(r => setTimeout(r, 0))},
-      {path: "assistant",        element: <WordAssistant/>, loader: () => new Promise(r => setTimeout(r, 0))},
-      {path: "settings",         element: <Setting/>,       loader: () => new Promise(r => setTimeout(r, 0))},
-      {path: "help",             element: <Help/>,          loader: () => new Promise(r => setTimeout(r, 0))},
-      {path: "search",           element: <Search/>,        loader: () => new Promise(r => setTimeout(r, 0))},
-      ...(import.meta.env.DEV && SandboxPage
-        ? [{ path: "sandbox", element: <React.Suspense fallback={null}><SandboxPage /></React.Suspense>, loader: () => new Promise(r => setTimeout(r, 0)) }]
-        : []),
+      {
+        // PrefixGuardedLayout: enforce URL prefix = routePrefix user hiện tại
+        element: <PrefixGuardedLayout />,
+        children: [
+          {index: true, element: <Navigate to="dashboard" replace />},
+          // loader dùng setTimeout(0) thay vì Promise.resolve() để tạo macrotask,
+          // cho React kịp re-render với navigation.state==="loading" trước khi loader resolve,
+          // giúp TopProgressBar hiển thị đúng khi chuyển route.
+          {path: "dashboard",        element: <Dashboard/>,     loader: () => new Promise(r => setTimeout(r, 0))},
+          {path: "monitoring",       element: <Monitoring/>,    loader: () => new Promise(r => setTimeout(r, 0))},
+          {path: "analytics",        element: <Analytics/>,     loader: () => new Promise(r => setTimeout(r, 0))},
+          {path: "models",           element: <Models/>,        loader: () => new Promise(r => setTimeout(r, 0))},
+          {path: "team",             element: <Team/>,          loader: () => new Promise(r => setTimeout(r, 0))},
+          {path: "data-library",     element: <DataLibrary/>,   loader: () => new Promise(r => setTimeout(r, 0))},
+          {path: "reports-forecasts",element: <Reports/>,       loader: () => new Promise(r => setTimeout(r, 0))},
+          {path: "assistant",        element: <WordAssistant/>, loader: () => new Promise(r => setTimeout(r, 0))},
+          {path: "settings",         element: <Setting/>,       loader: () => new Promise(r => setTimeout(r, 0))},
+          {path: "help",             element: <Help/>,          loader: () => new Promise(r => setTimeout(r, 0))},
+          {path: "search",           element: <Search/>,        loader: () => new Promise(r => setTimeout(r, 0))},
+          ...(import.meta.env.DEV && SandboxPage
+            ? [{ path: "sandbox", element: <React.Suspense fallback={null}><SandboxPage /></React.Suspense>, loader: () => new Promise(r => setTimeout(r, 0)) }]
+            : []),
+        ],
+      },
     ],
   },
   // Redirect gốc về dashboard

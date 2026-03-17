@@ -57,6 +57,11 @@ export interface ModelMetricsHistoryRow {
     accuracy_10xe: number;
     accuracy_15xe: number;
     verification_rate: number;
+    avg_input_samples?: number;
+    avg_lag_samples?: number;
+    avg_sync_samples?: number;
+    low_sample_forecasts?: number;
+    mismatched_syncs?: number;
     prediction_confidence?: {
       score: number;
       level: string;
@@ -91,6 +96,18 @@ export interface ModelMetricsHistoryRow {
     correct_increasing: number;
     correct_decreasing: number;
     correct_stable: number;
+    incomplete_groups?: number;
+    horizon_coverage_pct?: number;
+    method?: string;
+    per_horizon?: {
+      horizon_minutes: number;
+      trend_accuracy: number;
+      total_checks: number;
+      correct_predictions: number;
+      correct_increasing: number;
+      correct_decreasing: number;
+      correct_stable: number;
+    }[];
   };
   confidence_distribution?: {
     total_records: number;

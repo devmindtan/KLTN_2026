@@ -9,7 +9,7 @@ import { HighlightText } from "@/components/custom/highlight-text";
 import { CameraWallView } from "@/components/monitoring/camera-wall-view";
 import { CameraDetailSheet } from "@/components/monitoring/camera-detail-dialog";
 import { getStatusBadge } from "@/components/monitoring/camera-utils";
-import { useSocket, type CameraData } from "@/contexts/SocketContext";
+import { useSocket } from "@/contexts/SocketContext";
 import { useLocation, useNavigate } from "react-router-dom";
 import * as React from "react";
 import { LOS_LABEL, TREND_LABEL, UI_LABELS, CAMERA_LABELS, TRAFFIC_TERMS, getTrendLabel, MONITORING_TERM } from "@/lib/app-constants";
@@ -34,7 +34,12 @@ export default function TrafficMonitoring() {
   const [trendFilter, setTrendFilter] = React.useState<string>("all");
   const [sortBy, setSortBy] = React.useState<string>("name");
 
-  const [selectedCamera, setSelectedCamera] = React.useState<CameraData | null>(null);
+  const [selectedCameraId, setSelectedCameraId] = React.useState<string | null>(null);
+  // Derive live camera từ processedCameras theo ID → tự động nhận socket updates
+  const selectedCamera = React.useMemo(
+    () => selectedCameraId ? processedCameras.find((c) => c.shortId === selectedCameraId) ?? null : null,
+    [selectedCameraId, processedCameras]
+  );
 
   const [viewMode, setViewMode] = React.useState<"cards" | "wall">("cards");
   const [wallPerPage, setWallPerPage] = React.useState<number>(9);
@@ -43,9 +48,9 @@ export default function TrafficMonitoring() {
   // Auto-open camera từ navigate state (ví dụ: từ trang tổng quan) + clear state
   React.useEffect(() => {
     if (autoOpenCamId && processedCameras.length > 0) {
-      const cam = processedCameras.find((c) => c.shortId === autoOpenCamId);
-      if (cam) {
-        setSelectedCamera(cam);
+      const camExists = processedCameras.some((c) => c.shortId === autoOpenCamId);
+      if (camExists) {
+        setSelectedCameraId(autoOpenCamId);
         navigate(location.pathname, { replace: true, state: {} });
       }
     }
@@ -218,7 +223,7 @@ export default function TrafficMonitoring() {
               <div
                 key={camera.id}
                 className="group relative rounded-xl border bg-card overflow-hidden cursor-pointer hover:shadow-md hover:border-primary/40 transition-all"
-                onClick={() => setSelectedCamera(camera)}
+                onClick={() => setSelectedCameraId(camera.shortId)}
               >
                 {/* Camera image with status overlay */}
                 <div className="relative h-40 overflow-hidden bg-muted">
@@ -319,7 +324,7 @@ export default function TrafficMonitoring() {
         <CameraDetailSheet
           camera={selectedCamera}
           open={!!selectedCamera}
-          onOpenChange={(open) => !open && setSelectedCamera(null)}
+          onOpenChange={(open) => !open && setSelectedCameraId(null)}
         />
       )}
     </div>

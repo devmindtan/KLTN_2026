@@ -1,13 +1,9 @@
 /**
- * Help Service — API calls và mock data cho hệ thống tài liệu hướng dẫn
- * Mock mode được dùng khi backend chưa có endpoint /api/help
+ * Help Service — API calls cho hệ thống tài liệu hướng dẫn
  */
 import { apiFetch } from "@/lib/apiFetch";
 
 const BASE = import.meta.env.VITE_BACKEND_URL;
-
-// ─── Cờ tạm thời: true = dùng mock, false = gọi API thật ───────────────────
-const USE_MOCK = false;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // INTERFACES
@@ -63,39 +59,6 @@ export interface ArticlesResponse {
 
 /** Lấy tất cả articles đã publish, sorted theo sort_order */
 export async function getHelpArticles(): Promise<HelpArticle[]> {
-  if (USE_MOCK) {
-    try {
-      // Dynamic import để tránh lỗi build khi file không có trên production
-      const { default: mockData } = await import("@/components/help/help-mock-data.json");
-      return new Promise(resolve =>
-        setTimeout(() => resolve(mockData as HelpArticle[]), 300)
-      );
-    } catch {
-      // Fallback nếu file mock không tồn tại (production build)
-      console.warn("Mock data file không tồn tại, dùng dữ liệu mặc định");
-      const fallbackData: HelpArticle[] = [
-        {
-          id: "fallback-1",
-          section_key: "overview-fallback",
-          parent_key: null,
-          type: "document",
-          title: "Tổng quan hệ thống",
-          summary: "Hướng dẫn sử dụng cơ bản",
-          content: "# Tổng quan\n\nHệ thống giám sát giao thông thông minh.",
-          tech_detail: null,
-          sort_order: 1,
-          is_published: true,
-          created_by: null,
-          updated_by: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }
-      ];
-      return new Promise(resolve =>
-        setTimeout(() => resolve(fallbackData), 300)
-      );
-    }
-  }
   const res = await apiFetch(`${BASE}/api/help/articles`);
   const json = await res.json() as ArticlesResponse;
   return json.data;
@@ -103,25 +66,6 @@ export async function getHelpArticles(): Promise<HelpArticle[]> {
 
 /** Tạo article mới (chỉ technician) */
 export async function createHelpArticle(payload: CreateArticlePayload): Promise<HelpArticle> {
-  if (USE_MOCK) {
-    const article: HelpArticle = {
-      id: `temp-${Date.now()}`,
-      section_key: payload.section_key,
-      parent_key: payload.parent_key,
-      type: payload.type ?? "document",
-      title: payload.title,
-      summary: payload.summary,
-      content: payload.content,
-      tech_detail: payload.tech_detail ?? null,
-      sort_order: payload.sort_order ?? 999,
-      is_published: true,
-      created_by: null,
-      updated_by: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    return Promise.resolve(article);
-  }
   const res = await apiFetch(
     `${BASE}/api/help/articles`,
     { method: "POST", body: JSON.stringify(payload) }
@@ -143,9 +87,6 @@ export async function updateHelpArticle(
   id: string,
   payload: UpdateArticlePayload
 ): Promise<HelpArticle> {
-  if (USE_MOCK) {
-    return Promise.resolve({ id } as unknown as HelpArticle);
-  }
   const res = await apiFetch(
     `${BASE}/api/help/articles/${id}`,
     { method: "PUT", body: JSON.stringify(payload) }
@@ -156,13 +97,11 @@ export async function updateHelpArticle(
 
 /** Toggle is_published (chỉ technician) */
 export async function togglePublishArticle(id: string): Promise<void> {
-  if (USE_MOCK) return Promise.resolve();
   await apiFetch(`${BASE}/api/help/articles/${id}/publish`, { method: "PATCH" });
 }
 
 /** Xóa article (chỉ technician) */
 export async function deleteHelpArticle(id: string): Promise<void> {
-  if (USE_MOCK) return Promise.resolve();
   await apiFetch(`${BASE}/api/help/articles/${id}`, { method: "DELETE" });
 }
 

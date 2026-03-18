@@ -77,7 +77,7 @@ export function CameraDetailSheet({ camera, open, onOpenChange }: CameraDetailSh
         <SheetHeader className="gap-1">
           <SheetTitle>{camera.name}</SheetTitle>
           <SheetDescription>
-            Mã Camera: {camera.shortId} • Thông tin chi tiết và dự đoán lưu lượng giao thông
+           {camera.shortId} • Thông tin chi tiết và dự đoán lưu lượng giao thông
           </SheetDescription>
         </SheetHeader>
 
@@ -88,7 +88,7 @@ export function CameraDetailSheet({ camera, open, onOpenChange }: CameraDetailSh
               <img
                 src={camera.imageUrl}
                 alt={`Camera ${camera.shortId}`}
-                className="w-full h-48 object-cover"
+                className="w-full h-55 object-cover"
                 onError={(e) => {
                   e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='200'%3E%3Crect width='400' height='200' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239ca3af' font-family='sans-serif'%3EImage Not Available%3C/text%3E%3C/svg%3E";
                 }}
@@ -151,8 +151,10 @@ export function CameraDetailSheet({ camera, open, onOpenChange }: CameraDetailSh
                     <div className="h-1.5 rounded-full overflow-hidden bg-muted">
                       <div
                         className={`h-full rounded-full transition-all ${
-                          camera.realtimeData.vc_ratio <= 0.5 ? "bg-green-500" :
-                          camera.realtimeData.vc_ratio <= 0.8 ? "bg-yellow-400" : "bg-red-500"
+                          camera.realtimeData.vc_ratio < 0.60 ? "bg-green-500" :
+                          camera.realtimeData.vc_ratio < 0.75 ? "bg-emerald-400" :
+                          camera.realtimeData.vc_ratio < 0.85 ? "bg-yellow-400" :
+                          camera.realtimeData.vc_ratio < 1.0  ? "bg-orange-500" : "bg-red-500"
                         }`}
                         style={{ width: `${Math.min(camera.realtimeData.vc_ratio * 100, 100)}%` }}
                       />
@@ -171,8 +173,10 @@ export function CameraDetailSheet({ camera, open, onOpenChange }: CameraDetailSh
                     <div className="h-1.5 rounded-full overflow-hidden bg-muted">
                       <div
                         className={`h-full rounded-full transition-all ${
-                          camera.calculation.vc_ratio <= 0.5 ? "bg-green-500" :
-                          camera.calculation.vc_ratio <= 0.8 ? "bg-yellow-400" : "bg-red-500"
+                          camera.calculation.vc_ratio < 0.60 ? "bg-green-500" :
+                          camera.calculation.vc_ratio < 0.75 ? "bg-emerald-400" :
+                          camera.calculation.vc_ratio < 0.85 ? "bg-yellow-400" :
+                          camera.calculation.vc_ratio < 1.0  ? "bg-orange-500" : "bg-red-500"
                         }`}
                         style={{ width: `${Math.min(camera.calculation.vc_ratio * 100, 100)}%` }}
                       />
@@ -190,7 +194,7 @@ export function CameraDetailSheet({ camera, open, onOpenChange }: CameraDetailSh
             <>
               <div className="flex flex-col gap-2">
                 <Label className="text-sm font-medium">{FORECAST_TERMS.FORECAST_FULL}</Label>
-                <ChartContainer config={forecastChartConfig} className="h-[260px]">
+                <ChartContainer config={forecastChartConfig} className="h-[200px]">
                   <AreaChart
                     accessibilityLayer
                     data={forecastData}

@@ -160,10 +160,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /** Trả về token hiện tại (dùng trong services) */
   const getToken = useCallback(() => token, [token]);
 
-  /** Route prefix: email trước @ nếu là technician, ngược lại "user" */
+  /** Route prefix: email trước @ nếu là technician, ngược lại "" (viewer dùng bare path) */
   const routePrefix = isAuthenticated && user?.email
     ? user.email.split("@")[0].toLowerCase()
-    : "user";
+    : "";
 
   return (
     <AuthContext.Provider value={{ isAuthenticated, role, routePrefix, user, token, isLoading, login, logout, getToken }}>

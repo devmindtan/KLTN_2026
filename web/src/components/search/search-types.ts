@@ -11,12 +11,14 @@ import {
   IconRefresh,
   IconMapPin,
   IconSearch,
+  IconBook,
 } from "@tabler/icons-react";
 import type { CameraInfo } from "@/services/camera.service";
 import type { MLModelMetadata } from "@/services/model.service";
+import type { HelpArticle } from "@/services/help.service";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-export type ResultType = "camera" | "model" | "report" | "forecast";
+export type ResultType = "camera" | "model" | "report" | "forecast" | "doc";
 
 export interface SearchResult {
   id: string;
@@ -51,11 +53,12 @@ export const QUICK_ACTIONS: { label: string; icon: ElementType; desc: string }[]
 ];
 
 export const TAB_CONFIG: { value: string; label: string; type?: ResultType; icon: ElementType }[] = [
-  { value: "all",      label: "Tất cả",  icon: IconSearch    },
-  { value: "camera",   label: "Camera",  type: "camera",   icon: IconCameraPlus },
-  { value: "model",    label: "Mô hình", type: "model",    icon: IconBrain      },
-  { value: "report",   label: "Báo cáo", type: "report",   icon: IconFileText   },
-  { value: "forecast", label: "Dự báo",  type: "forecast", icon: IconChartBar   },
+  { value: "all",      label: "Tất cả",    icon: IconSearch    },
+  { value: "camera",   label: "Camera",    type: "camera",   icon: IconCameraPlus },
+  { value: "model",    label: "Mô hình",   type: "model",    icon: IconBrain      },
+  { value: "report",   label: "Báo cáo",   type: "report",   icon: IconFileText   },
+  { value: "forecast", label: "Dự báo",    type: "forecast", icon: IconChartBar   },
+  { value: "doc",      label: "Tài liệu",  type: "doc",      icon: IconBook       },
 ];
 
 export const LS_KEY = "search_history";
@@ -69,7 +72,27 @@ export function getTypeMeta(type: ResultType) {
     case "model":    return { icon: IconBrain,       color: "text-purple-500", bg: "bg-purple-500/10", label: "Mô hình"  };
     case "report":   return { icon: IconFileText,    color: "text-orange-500", bg: "bg-orange-500/10", label: "Báo cáo"  };
     case "forecast": return { icon: IconChartBar,    color: "text-green-500",  bg: "bg-green-500/10",  label: "Dự báo"   };
+    case "doc":      return { icon: IconBook,         color: "text-teal-500",   bg: "bg-teal-500/10",   label: "Tài liệu" };
   }
+}
+
+/** Chuyển danh sách bài viết trợ giúp thành SearchResult */
+export function buildDocResults(articles: HelpArticle[]): SearchResult[] {
+  return articles
+    .filter((a) => a.is_published)
+    .map((a) => ({
+      id:           `doc-${a.section_key}`,
+      type:         "doc" as ResultType,
+      title:        a.title,
+      subtitle:     a.summary ?? (a.type === "question" ? "Câu hỏi thường gặp" : "Tài liệu hướng dẫn"),
+      meta:         a.type === "question" ? "FAQ" : "Hướng dẫn",
+      badge:        a.type === "question" ? "FAQ" : "Tài liệu",
+      badgeVariant: (a.type === "question" ? "outline" : "secondary") as SearchResult["badgeVariant"],
+      details: {
+        section_key: a.section_key,
+        type:        a.type,
+      },
+    }));
 }
 
 /** Chuyển dữ liệu camera tĩnh + realtime thành SearchResult */

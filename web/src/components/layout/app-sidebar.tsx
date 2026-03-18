@@ -2,6 +2,7 @@
 import * as React from "react"
 import { NavLink, useLocation } from "react-router-dom"
 import {
+  IconBook,
   IconChartBar,
   IconDashboard,
   IconDatabase,
@@ -35,30 +36,32 @@ import {
 } from "@/components/ui/tooltip"
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils"
-
 import { PAGE_TITLES } from "@/lib/app-constants";
 
 // ─── Nav data factory — labels từ PAGE_TITLES trong app-constants ──────────
+const u = (p: string, page: string) => p ? `/${p}/${page}` : `/${page}`;
+
 function buildNavMain(p: string) { return [
-  { title: PAGE_TITLES.DASHBOARD,  url: `/${p}/dashboard`, icon: IconDashboard },
-  { title: PAGE_TITLES.MONITORING, url: `/${p}/monitoring`, icon: IconListDetails },
-  { title: PAGE_TITLES.ANALYTICS,  url: `/${p}/analytics`, icon: IconChartBar },
-  { title: PAGE_TITLES.MODELS,     url: `/${p}/models`,    icon: IconFolder },
+  { title: PAGE_TITLES.DASHBOARD,  url: u(p, "dashboard"), icon: IconDashboard },
+  { title: PAGE_TITLES.MONITORING, url: u(p, "monitoring"), icon: IconListDetails },
+  { title: PAGE_TITLES.ANALYTICS,  url: u(p, "analytics"), icon: IconChartBar },
+  { title: PAGE_TITLES.MODELS,     url: u(p, "models"),    icon: IconFolder },
 ]}
 
-function buildNavDocuments(p: string) { return [
-  { name: PAGE_TITLES.DATA_LIBRARY, url: `/${p}/data-library`,      icon: IconDatabase },
-  { name: PAGE_TITLES.REPORTS,      url: `/${p}/reports-forecasts`, icon: IconReport },
-  { name: "Hỗ trợ ra quyết định",  url: `/${p}/assistant`,         icon: IconFileWord },
+function buildNavReports(p: string) { return [
+  { name: PAGE_TITLES.DATA_LIBRARY, url: u(p, "data-library"),      icon: IconDatabase },
+  { name: PAGE_TITLES.REPORTS,      url: u(p, "reports-forecasts"), icon: IconReport },
+  { name: "Hỗ trợ ra quyết định",  url: u(p, "assistant"),         icon: IconFileWord },
+  { name: PAGE_TITLES.DOCS,         url: u(p, "documentation"),     icon: IconBook },
 ]}
 function buildNavSecondary(p: string) { return [
-  { title: PAGE_TITLES.SEARCH,   url: `/${p}/search`,   icon: IconSearch },
-  { title: PAGE_TITLES.HELP,     url: `/${p}/help`,     icon: IconHelp },
-  { title: PAGE_TITLES.TEAM,     url: `/${p}/team`,     icon: IconUsers },
-  { title: PAGE_TITLES.SETTINGS, url: `/${p}/settings`, icon: IconSettings },
+  { title: PAGE_TITLES.SEARCH,   url: u(p, "search"),   icon: IconSearch },
+  { title: PAGE_TITLES.HELP,     url: u(p, "help"),     icon: IconHelp },
+  { title: PAGE_TITLES.TEAM,     url: u(p, "team"),     icon: IconUsers },
+  { title: PAGE_TITLES.SETTINGS, url: u(p, "settings"), icon: IconSettings },
 ]}
 
-// ─── Document item (simple NavLink, no dropdown) ────────────────────────────
+// ─── Document item (simple NavLink, no dropdown) ─────────────────────────────
 function DocItem({ name, url, icon: Icon }: { name: string; url: string; icon: React.ElementType }) {
   const { pathname } = useLocation()
   const { open } = useSidebar()
@@ -114,7 +117,7 @@ function LogoButton({ prefix }: { prefix: string }) {
   const { open } = useSidebar()
   return (
     <NavLink
-      to={`/${prefix}/dashboard`}
+      to={prefix ? `/${prefix}/dashboard` : "/dashboard"}
       className={cn(
         "flex items-center gap-2 rounded-md px-0 py-0 text-xl font-bold",
         "hover:bg-sidebar-accent transition-colors",
@@ -163,12 +166,12 @@ export function AppSidebar() {
           ))}
         </SidebarGroup>
 
-        {/* Documents – collapsible */}
+        {/* Báo cáo – collapsible */}
         <SidebarGroup className="mt-2" collapsible defaultOpen>
-          <SidebarGroupLabel>Tài liệu</SidebarGroupLabel>
+          <SidebarGroupLabel>Báo cáo</SidebarGroupLabel>
           <SidebarGroupContent>
             <motion.div variants={containerVariants} initial="hidden" animate="visible">
-              {buildNavDocuments(p).map((item) => (
+              {buildNavReports(p).map((item) => (
                 <motion.div key={item.url} variants={itemVariants}>
                   <DocItem name={item.name} url={item.url} icon={item.icon} />
                 </motion.div>
@@ -176,7 +179,6 @@ export function AppSidebar() {
             </motion.div>
           </SidebarGroupContent>
         </SidebarGroup>
-
         {/* Secondary – collapsible, push to bottom */}
         <SidebarGroup className="mt-auto pt-2 border-t" collapsible defaultOpen>
           <SidebarGroupLabel>Tiện ích</SidebarGroupLabel>
@@ -201,10 +203,10 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenuItem
                 as={NavLink}
-                to={`/${p}/sandbox`}
+                to={u(p, "sandbox")}
                 icon={<IconFlask className="size-4" />}
                 label="Thử nghiệm giao diện"
-                isActive={pathname === `/${p}/sandbox`}
+                isActive={pathname === u(p, "sandbox")}
               />
             </SidebarGroupContent>
           </SidebarGroup>

@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import avatarImage from "@/assets/avatar.jpg";
+import teachImage from "@/assets/teacher.jpeg"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconMail, IconPhone, IconUsers } from "@tabler/icons-react";
@@ -29,9 +30,9 @@ export default function Team() {
       name: "Võ Anh Tiến",
       role: "Giảng viên hướng dẫn",
       email: "tien.va@vlu.edu.vn",
-      phone: "Chưa có",
+      phone: "+84 906 112 514",
       specialty: "Giảng viên",
-      avatarUrl: undefined
+      avatarUrl: teachImage
     },
   ];
 

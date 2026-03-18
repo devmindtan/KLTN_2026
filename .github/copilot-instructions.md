@@ -69,7 +69,7 @@
 **Critical (luôn nhớ — không cần đọc lại):**
 
 - `runMigrations()` PHẢI chạy trước khi server nhận request (`backend/server/src/migrations/runner.ts`).
-- Mọi API route mới → PHẢI bổ sung Swagger tại `backend/server/src/config/swagger.ts` trong cùng task.
+- Swagger tạm đóng — **KHÔNG cập nhật** `swagger.ts` cho đến khi có kế hoạch revamp riêng.
 - Migration: chỉ DDL, `IF NOT EXISTS`, KHÔNG INSERT/seed, lỗi chỉ log không throw.
 
 # Context Reference Strategy

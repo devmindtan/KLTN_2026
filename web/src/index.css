@@ -179,4 +179,14 @@
     .scrollbar::-webkit-scrollbar-corner {
         background: transparent;
     }
+
+    /* Ẩn thanh cuộn hoàn toàn — scroll vẫn hoạt động, không hiện UI thanh cuộn */
+    .scrollbar-hidden {
+        scrollbar-width: none;          /* Firefox */
+        -ms-overflow-style: none;       /* IE / Edge cũ */
+    }
+
+    .scrollbar-hidden::-webkit-scrollbar {
+        display: none;                  /* Chrome / Safari / WebKit */
+    }
 }

@@ -8,6 +8,8 @@ import { SectionCards } from "@/components/dashboard/overview/section-cards";
 import { TrafficDensityChart } from "@/components/dashboard/overview/traffic-density-chart";
 import { ForecastStatCards }    from "@/components/dashboard/forecast/forecast-stat-cards";
 import { ForecastRollingChart } from "@/components/dashboard/forecast/forecast-rolling-chart";
+import { getForecastRolling }   from "@/services/forecast.service";
+import type { ForecastRollingResponse } from "@/services/forecast.service";
 import { PageHeader } from "@/components/custom/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,8 +20,17 @@ import { useSocket } from "@/contexts/SocketContext";
 
 export default function Dashboard() {
   // Lấy dữ liệu từ Global Socket Context
-  const { processedCameras, isConnected } = useSocket();
+  const { processedCameras, isConnected, forecastVersion } = useSocket();
   const [activeTab, setActiveTab] = useState("overview");
+
+  // ── Shared rolling forecast data – fetch once, pass to cả StatCards + RollingChart ─
+  // Đảm bảo cả 2 component dùng CÙNG snapshot data (tránh race condition + logic lệch)
+  const [rollingData, setRollingData] = useState<ForecastRollingResponse | null>(null);
+  useEffect(() => {
+    getForecastRolling("all")
+      .then(setRollingData)
+      .catch((e) => console.error("[Dashboard] rollingData fetch error:", e));
+  }, [forecastVersion]);
   const location  = useLocation();
   const navigate  = useNavigate();
 
@@ -146,8 +157,8 @@ export default function Dashboard() {
 
         {/* ══════════════ TAB DỰ BÁO ══════════════ */}
         <TabsContent value="forecast" className="mt-0 flex flex-col gap-4">
-          <ForecastStatCards />
-          <ForecastRollingChart />
+          <ForecastStatCards apiData={rollingData} />
+          <ForecastRollingChart sharedAllData={rollingData} />
         </TabsContent>
       </Tabs>
     </div>

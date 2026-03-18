@@ -271,7 +271,7 @@ async def update_fiware(session, camera_id, total_objects, forecasts, capacity):
     # ── LOS: dùng dự đoán 5m để tính trạng thái ngay kế tiếp ──────────────────
     next_val = forecasts.get("5m", 0)
     status_forecast = calculate_los_status(next_val, capacity)
-    vc_ratio = round(next_val / capacity, 2) if capacity > 0 else 0
+    vc_ratio = round(next_val / capacity, 4) if capacity > 0 else 0
 
     # ── GTI: tổng hợp xu hướng từ TẤT CẢ 5 mốc dự đoán ──────────────────────
     # Trả về dict: direction, gti, current_ratio, diff, gti_state
@@ -301,7 +301,7 @@ async def update_fiware(session, camera_id, total_objects, forecasts, capacity):
                     "forecast": status_forecast,  # Trạng thái LOS dự báo 5 phút sau
                     "calculation": {
                         "predicted_volume": round(next_val, 1),  # Giá trị dự đoán 5p
-                        "capacity": round(capacity, 1),           # Capacity camera (MAX 7 ngày)
+                        "capacity": capacity,                     # Capacity camera (MAX 7 ngày) – KHÔNG làm tròn
                         "vc_ratio": vc_ratio,                     # Tỉ lệ Volume/Capacity
                     },
                 },

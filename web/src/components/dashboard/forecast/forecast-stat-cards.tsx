@@ -1,6 +1,7 @@
 /**
  * ForecastStatCards – 4 thẻ thống kê tổng quan cho tab Dự báo
- * Tạm thời dùng mock data; thay bằng API khi backend sẵn sàng
+ * Nhận `apiData` từ dashboard cha (đảm bảo cùng snapshot với ForecastRollingChart)
+ * Card 1: Mức tải V/C hiện tại | Card 2: Đếm ngược | Card 3: Đỉnh 60p | Card 4: Xu hướng 1h
  */
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,47 +12,44 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  IconTarget,
   IconHourglassHigh,
-  IconLeaf,
   IconTrendingUp,
   IconTrendingDown,
   IconMinus,
   IconInfoCircle,
+  IconGauge,
+  IconChartBar,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
-import { MOCK_FORECAST_SLOTS, MOCK_FORECAST_SUMMARY } from "./forecast-types";
-import { getLOSLabel, METRIC_LABELS, TIME_LABEL } from "@/lib/app-constants";
-
-// ─── LOS weight cho GTI ────────────────────────────────────────────────────
-const LOS_WEIGHT: Record<string, number> = {
-  free_flow: 0,
-  smooth:    1,
-  moderate:  2,
-  heavy:     3,
-  congested: 4,
-};
-
-/** Tính GTI (0–100) từ danh sách slot, scale: Σ(weight)/N × 25 */
-function calcGti(los: string[]): number {
-  if (!los.length) return 0;
-  const sum = los.reduce((acc, l) => acc + (LOS_WEIGHT[l] ?? 2), 0);
-  return Math.round((sum / los.length) * 25);
-}
-
-/** Phân loại trạng thái GTI theo ngưỡng (0–30 / 31–60 / 61–85 / >85) */
-function classifyGti(score: number): string {
-  if (score <= 30) return "Thông thoáng";
-  if (score <= 60) return "Bình thường";
-  if (score <= 85) return "Tắc nghẽn";
-  return "Nguy cơ tắc nghẽn cao";
-}
+import { getLOSLabel } from "@/lib/app-constants";
+import type { ForecastRollingResponse } from "@/services/forecast.service";
 
 /** Format giây thành MM:SS */
 function fmtCountdown(sec: number): string {
   const m = Math.floor(sec / 60);
   const s = sec % 60;
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+/** Trả về Tailwind className theo LOS key */
+function losTextClass(los: string): string {
+  switch (los) {
+    case "free_flow":  return "text-green-600 dark:text-green-400";
+    case "smooth":     return "text-emerald-600 dark:text-emerald-400";
+    case "moderate":   return "text-yellow-600 dark:text-yellow-400";
+    case "heavy":      return "text-orange-600 dark:text-orange-400";
+    case "congested":  return "text-red-600 dark:text-red-400";
+    default:           return "text-muted-foreground";
+  }
+}
+
+/** Suy ra LOS key từ V/C ratio (%) để có màu khi slot chỉ có currentRatio */
+function ratioToLos(ratio: number): string {
+  if (ratio <= 30)  return "free_flow";
+  if (ratio <= 55)  return "smooth";
+  if (ratio <= 75)  return "moderate";
+  if (ratio <= 100) return "heavy";
+  return "congested";
 }
 
 /** Component 1 stat card với tooltip info */
@@ -105,8 +103,8 @@ function StatCard({
   );
 }
 
-/** 4 stat cards tổng quan dự báo – dùng mock data nội bộ */
-export function ForecastStatCards() {
+/** 4 stat cards tổng quan dự báo – nhận apiData từ dashboard cha (cùng snapshot với RollingChart) */
+export function ForecastStatCards({ apiData }: { apiData: ForecastRollingResponse | null }) {
   // ── Card 2: Đếm ngược đến chu kỳ tiếp theo ──────────────────────────────
   const [secondsLeft, setSecondsLeft] = useState<number>(() => {
     const now = new Date();
@@ -121,124 +119,209 @@ export function ForecastStatCards() {
     return () => clearInterval(id);
   }, []);
 
-  // ── Card 3: Số camera thông thoáng trong slot tiếp theo ─────────────────
-  const goodCameraCount = useMemo(() => {
-    // Lấy slot chưa có actual (slot tiếp theo)
-    const nextSlots = MOCK_FORECAST_SLOTS.filter(
-      (s) => s.actualVehicles === null && s.duration === 5,
-    );
-    // Chọn timeSlot sớm nhất trong tương lai
-    if (!nextSlots.length) return 0;
-    const earliest = nextSlots.reduce((a, b) =>
-      a.timeSlot < b.timeSlot ? a : b,
-    ).timeSlot;
-    const atEarliest = nextSlots.filter((s) => s.timeSlot === earliest);
-    // Đếm unique camera có LOS thông thoáng hoặc trôi chảy
-    const goodIds = new Set(
-      atEarliest
-        .filter((s) => s.predictedLos === "free_flow" || s.predictedLos === "smooth")
-        .map((s) => s.camId),
-    );
-    return goodIds.size;
-  }, []);
+  // ── Các metric từ rolling API ──────────────────────────────────────────
+  const { card1, card3, card4 } = useMemo(() => {
+    const empty = { card1: null, card3: null, card4: null };
+    if (!apiData) return empty;
 
-  const totalCamInNextSlot = useMemo(() => {
-    const nextSlots = MOCK_FORECAST_SLOTS.filter(
-      (s) => s.actualVehicles === null && s.duration === 5,
-    );
-    if (!nextSlots.length) return 0;
-    const earliest = nextSlots.reduce((a, b) =>
-      a.timeSlot < b.timeSlot ? a : b,
-    ).timeSlot;
-    return new Set(nextSlots.filter((s) => s.timeSlot === earliest).map((s) => s.camId)).size;
-  }, []);
+    const allSlots = apiData.cameras["all"]?.slots ?? [];
+    const capacity = apiData.capacities?.["all"] ?? apiData.cameras["all"]?.capacity ?? 100;
+    const nowTime  = apiData.metadata.nowTime; // "HH:MM"
 
-  // ── Card 4: GTI hiện tại vs hôm qua cùng giờ ───────────────────────────
-  const { gtiCurrent, gtiDelta } = useMemo(() => {
-    const nextSlots = MOCK_FORECAST_SLOTS.filter(
-      (s) => s.actualVehicles === null && s.duration === 5,
-    );
-    const earliest = nextSlots.length
-      ? nextSlots.reduce((a, b) => (a.timeSlot < b.timeSlot ? a : b)).timeSlot
+    // Build map time → slot để lookup chính xác như chart (tránh lỗi index arithmetic trên mảng sparse)
+    const slotByTime = new Map(allSlots.map((s) => [s.t, s]));
+
+    /** Tính thời điểm HH:MM từ nowTime + offsetMinutes */
+    function addMinutes(base: string, offsetMin: number): string {
+      const [h, m] = base.split(":").map(Number);
+      const total  = h * 60 + m + offsetMin;
+      return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+    }
+
+    // Slot NOW chính xác theo nowTime (giống chart's CLIENT_NOW_INDEX)
+    const nowSlotRaw = slotByTime.get(nowTime);
+
+    // Slot NOW: dùng trực tiếp nowTime, fallback backward (giống chart's actualAtNow = actual ?? f5m)
+    // KHÔNG search backward cho actual-only vì sync có thể chậm hơn forecast MV
+    const nowIdx = allSlots.findIndex((s) => s.t === nowTime);
+    const baseIdx = nowIdx >= 0 ? nowIdx : allSlots.length - 1;
+    const nowSlotIdx = (() => {
+      for (let i = baseIdx; i >= 0; i--) {
+        if (allSlots[i].actual != null || allSlots[i].f5m != null) return i;
+      }
+      return -1;
+    })();
+
+    if (nowSlotIdx < 0) return empty;
+
+    const nowSlot    = allSlots[nowSlotIdx];
+    // Khớp với chart's actualAtNow: actual ?? f5m tại chính slot nowTime
+    const currentVeh = nowSlot.actual ?? nowSlot.f5m!;
+    // Tính ratio trực tiếp từ currentVeh / capacity để khớp với hiển thị "X / Y xe"
+    // KHÔNG dùng nowSlot.currentRatio vì đó là trung bình vc_ratio từng camera (có thể lệch)
+    // 1 chữ số thập phân để tránh sai số khi hiển thị (e.g. 17.4/37 = 47.0% chứ không phải 47%)
+    const currentRatio = Math.round((currentVeh / capacity) * 1000) / 10;
+    const losKey       = ratioToLos(currentRatio);
+    const losLabel     = getLOSLabel(losKey);
+
+    // Δ vs 30 phút trước (6 slots back từ nowSlotIdx)
+    const prevIdx   = Math.max(0, nowSlotIdx - 6);
+    const prevSlot  = allSlots[prevIdx];
+    const prevVeh   = prevSlot?.actual ?? prevSlot?.f5m ?? null;
+    const prevRatio = prevVeh != null ? Math.round((prevVeh / capacity) * 1000) / 10 : null;
+    const deltaRatio = prevRatio != null ? currentRatio - prevRatio : null;
+
+    // ── Card 3: Đỉnh dự báo trong 5 mốc tới (toàn mạng lưới) ─────────────
+    // Tra cứu theo time string để đảm bảo đúng slot, bất kể mảng sparse hay dense
+    const HORIZON_LABELS: Record<string, string> = {
+      f5m: "5 phút", f10m: "10 phút", f15m: "15 phút", f30m: "30 phút", f60m: "60 phút",
+    };
+    const HORIZON_MINUTES: Record<string, number> = {
+      f5m: 5, f10m: 10, f15m: 15, f30m: 30, f60m: 60,
+    };
+
+    let peakVeh      = -1;
+    let peakRatio    = -1;
+    let peakTime     = "—";
+    let peakLos      = "moderate";
+    let peakHorizon  = "";
+
+    Object.entries(HORIZON_MINUTES).forEach(([key, offsetMin]) => {
+      const targetTime = addMinutes(nowTime, offsetMin);
+      const targetSlot = slotByTime.get(targetTime) ?? (nowSlotRaw ? undefined : null);
+      if (!targetSlot) return;
+      const fVal = targetSlot[key as keyof typeof targetSlot] as number | null;
+      if (fVal == null) return;
+      // Ưu tiên so sánh số xe thực để consistent với chart (không phụ thuộc capacity)
+      if (fVal > peakVeh) {
+        peakVeh     = fVal;
+        peakRatio   = Math.round(Math.min(1500, (fVal / capacity) * 1000)) / 10;
+        peakTime    = targetSlot.t;
+        peakLos     = ratioToLos(peakRatio);
+        peakHorizon = HORIZON_LABELS[key] ?? key;
+      }
+    });
+
+    // ── Card 4: Xu hướng 60 phút tới ──────────────────────────────────
+    // Dùng time-string lookup, khớp chính xác với chart's f60m dot
+    const f60mTime = addMinutes(nowTime, 60);
+    const f60mSlot = slotByTime.get(f60mTime);
+    const f60mVal  = (f60mSlot?.["f60m"] as number | null) ?? null;
+    const trendDelta = f60mVal != null ? f60mVal - currentVeh : null;
+    const trendPct   = f60mVal != null && currentVeh > 0
+      ? Math.round(((f60mVal - currentVeh) / currentVeh) * 1000) / 10
       : null;
-    const losValues = earliest
-      ? MOCK_FORECAST_SLOTS.filter((s) => s.timeSlot === earliest).map((s) => s.predictedLos)
-      : MOCK_FORECAST_SLOTS.map((s) => s.predictedLos);
 
-    const current = calcGti(losValues);
-    // Mock: hôm qua cùng giờ thấp hơn ~8%
-    const yesterday = Math.round(current * 0.92);
-    return { gtiCurrent: current, gtiYesterday: yesterday, gtiDelta: current - yesterday };
-  }, []);
+    return {
+      card1: { currentVeh, capacity, currentRatio, losKey, losLabel, deltaRatio },
+      card3: peakVeh >= 0
+        ? { peakVeh, peakRatio, peakTime, peakLos, peakLosLabel: getLOSLabel(peakLos), peakHorizon }
+        : null,
+      card4: trendDelta != null ? { trendDelta, trendPct, currentVeh, f60mVal: f60mVal! } : null,
+    };
+  }, [apiData]);
 
-  const gtiTrendIcon =
-    gtiDelta > 0 ? <IconTrendingUp  className="size-5 text-orange-500" /> :
-    gtiDelta < 0 ? <IconTrendingDown className="size-5 text-green-500"  /> :
-                   <IconMinus        className="size-5 text-muted-foreground" />;
+  // ── Card 1: Mức tải V/C hiện tại ─────────────────────────────────────
+  const c1ValueClass = card1 ? losTextClass(card1.losKey) : "text-muted-foreground";
+  // Format: "30 / 40 xe"  (actual / capacity)
+  const c1Value      = card1 ? `${card1.currentVeh} / ${card1.capacity} xe` : "—";
+  const c1DeltaStr   = card1?.deltaRatio != null && card1.deltaRatio !== 0
+    ? card1.deltaRatio > 0
+      ? `↑ ${card1.deltaRatio.toFixed(1)}% so 30p trước`
+      : `↓ ${Math.abs(card1.deltaRatio).toFixed(1)}% so 30p trước`
+    : "";
+  // Sub: "(47.0%) · Đông đúc · ↑ +3.2% so 30p trước"
+  const c1Sub        = card1
+    ? `${card1.currentRatio.toFixed(1)}% · ${card1.losLabel}${c1DeltaStr ? " · " + c1DeltaStr : ""}`
+    : "Đang tải...";
 
-  const gtiValueClass =
-    gtiDelta > 0 ? "text-orange-600 dark:text-orange-400" :
-    gtiDelta < 0 ? "text-green-600 dark:text-green-400"   :
-                   "text-foreground";
+  const c1Icon = <IconGauge className={cn("size-5", card1 ? losTextClass(card1.losKey) : "text-muted-foreground")} />;
 
-  const gtiTrendLabel =
-    gtiDelta > 0 ? `↑ +${gtiDelta} so hôm qua` :
-    gtiDelta < 0 ? `↓ ${gtiDelta} so hôm qua`   :
-                   "Bằng hôm qua";
+  // ── Card 3: Đỉnh dự báo 5 mốc tới ────────────────────────────────────
+  const c3ValueClass = card3 ? losTextClass(card3.peakLos) : "text-muted-foreground";
+  // Format: "68 xe"  (số xe dự báo cao nhất)
+  const c3Value      = card3 ? `${card3.peakVeh.toFixed(1)} xe` : "—";
+  // Sub: "87.0% · Đông đúc · +60 phút (lúc 18:30)"
+  const c3Sub        = card3
+    ? `${card3.peakRatio.toFixed(1)}% · ${card3.peakLosLabel} · +60p (lúc ${card3.peakTime})`
+    : "Chưa có dự báo";
 
-  // ── Card 1: Độ chính xác ─────────────────────────────────────────────────
-  const summary = MOCK_FORECAST_SUMMARY;
-  const accuracyClass =
-    (summary.avgAccuracy ?? 0) >= 90 ? "text-green-600 dark:text-green-400" :
-    (summary.avgAccuracy ?? 0) >= 75 ? "text-yellow-600 dark:text-yellow-400" :
-                                       "text-red-600 dark:text-red-400";
+  const c3Icon = <IconChartBar className={cn("size-5", card3 ? losTextClass(card3.peakLos) : "text-muted-foreground")} />;
+
+  // ── Card 4: Xu hướng 1 giờ tới ────────────────────────────────────────
+  const trendUp          = (card4?.trendDelta ?? 0) > 0;
+  const trendDown        = (card4?.trendDelta ?? 0) < 0;
+  const c4ValueClass     =
+    trendUp   ? "text-orange-600 dark:text-orange-400" :
+    trendDown ? "text-green-600 dark:text-green-400"   :
+                "text-foreground";
+  const c4Value          = card4
+    ? card4.trendPct != null
+      ? `${card4.trendPct > 0 ? "+" : ""}${card4.trendPct.toFixed(1)}%`
+      : (card4.trendDelta > 0 ? `+${card4.trendDelta.toFixed(1)}` : `${card4.trendDelta.toFixed(1)}`) + " xe"
+    : "—";
+  const c4Sub  = card4 ? `${card4.currentVeh} xe → ${card4.f60mVal.toFixed(1)} xe (dự báo +60p)` : "Chưa có dự báo";
+  const c4Icon =
+    trendUp   ? <IconTrendingUp  className="size-5 text-orange-500" /> :
+    trendDown ? <IconTrendingDown className="size-5 text-green-500"  /> :
+                <IconMinus        className="size-5 text-muted-foreground" />;
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {/* Card 1 – Độ chính xác */}
+      {/* Card 1 – Mức tải V/C hiện tại */}
       <StatCard
-        label="Độ chính xác hôm nay"
-        value={summary.avgAccuracy != null ? `${summary.avgAccuracy}%` : "—"}
-        sub={`${METRIC_LABELS.MAE}: ${summary.mae} xe / ${TIME_LABEL["5m"]}`}
-        icon={<IconTarget className="size-5 text-green-500" />}
-        valueClass={accuracyClass}
-        tooltip={<span>Độ chính xác = 100% − MAPE. <strong>{METRIC_LABELS.MAE}</strong> = sai lệch trung bình tuyệt đối (xe / {TIME_LABEL["5m"]}).</span>}
+        label="Lưu lượng / Năng lực"
+        value={c1Value}
+        sub={c1Sub}
+        icon={c1Icon}
+        valueClass={cn("text-xl", c1ValueClass)}
+        tooltip={
+          <span>
+            <strong>Lưu lượng thực tế / Năng lực camera</strong> (xe/5 phút). Tỉ lệ V/C cho thấy
+            mức độ sử dụng hạ tầng: dưới 55% = thông thoáng, 75–100% = đông đúc, trên 100% = quá tải.
+            Δ so sánh với 30 phút trước.
+          </span>
+        }
       />
 
       {/* Card 2 – Đếm ngược */}
       <StatCard
         label="Chu kỳ tiếp theo"
         value={fmtCountdown(secondsLeft < 0 ? 0 : secondsLeft)}
-        sub="Chu kỳ dự báo: mỗi 5 phút"
+        sub="Chu kỳ dự báo: mỗi 5p"
         icon={<IconHourglassHigh className="size-5 text-blue-500" />}
         valueClass="text-blue-600 dark:text-blue-400 font-mono"
-        tooltip={<span>Dự báo chạy <strong>mỗi 5 phút cố định</strong>. Đếm ngược đến chu kỳ tiếp theo.</span>}
+        tooltip={<span>Dự báo chạy <strong>mỗi 5p cố định</strong>. Đếm ngược đến chu kỳ tiếp theo.</span>}
       />
 
-      {/* Card 3 – Camera thông thoáng */}
+      {/* Card 3 – Đỉnh dự báo trong 5 mốc tới */}
       <StatCard
-        label="Camera thông thoáng"
-        value={`${goodCameraCount} / ${totalCamInNextSlot}`}
-        sub="dự báo slot tiếp theo"
-        icon={<IconLeaf className="size-5 text-teal-500" />}
-        valueClass={
-          goodCameraCount === totalCamInNextSlot && totalCamInNextSlot > 0
-            ? "text-teal-600 dark:text-teal-400"
-            : goodCameraCount > 0
-            ? "text-yellow-600 dark:text-yellow-400"
-            : "text-muted-foreground"
+        label="Đỉnh dự báo 5 mốc tới"
+        value={c3Value}
+        sub={c3Sub}
+        icon={c3Icon}
+        valueClass={c3ValueClass}
+        tooltip={
+          <span>
+            Lưu lượng <strong>cao nhất dự báo</strong> trong 5 thời điểm tiếp theo (5p / 10p / 15p / 30p / 60p).
+            Dữ liệu toàn mạng lưới. Cho biết đỉnh căng thẳng sắp xảy ra và thời điểm chính xác.
+          </span>
         }
-        tooltip={<span>Camera có <strong>LOS dự báo</strong> {getLOSLabel("free_flow")} hoặc {getLOSLabel("smooth")} trong slot 5 phút tiếp theo.</span>}
       />
 
-      {/* Card 4 – GTI */}
+      {/* Card 4 – Xu hướng 1 giờ tới */}
       <StatCard
-        label="Chỉ số tắc nghẽn (GTI)"
-        value={`${gtiCurrent}%`}
-        sub={`${classifyGti(gtiCurrent)} · ${gtiTrendLabel}`}
-        icon={gtiTrendIcon}
-        valueClass={gtiValueClass}
-        tooltip={<span>GTI 0–100: Thông thoáng ≤30 · Bình thường 31–60 · Bắt đầu tắc 61–85 · Nguy cơ cao &gt;85.</span>}
+        label="Xu hướng 60p tới"
+        value={c4Value}
+        sub={c4Sub}
+        icon={c4Icon}
+        valueClass={c4ValueClass}
+        tooltip={
+          <span>
+            So sánh <strong>dự báo h=60p</strong> với lưu lượng hiện tại. Tăng (cam) nghĩa là
+            mạng lưới sẽ đông hơn; giảm (xanh) nghĩa là sẽ thông thoáng hơn.
+          </span>
+        }
       />
     </div>
   );

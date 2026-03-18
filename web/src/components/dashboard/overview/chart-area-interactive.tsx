@@ -181,13 +181,13 @@ export function ChartAreaInteractive({ cameras }: ChartAreaInteractiveProps) {
               value={selectedCamera}
               onChange={setSelectedCamera}
               options={cameraOptions}
-              defaultOption={{ value: "all", label: "Tất cả camera (trung bình)" }}
-              placeholder="Tất cả camera"
-              searchPlaceholder="Tìm camera, mã ID..."
-              emptyText="Không tìm thấy camera nào"
+              defaultOption={{ value: "all", label: "Toàn mạng lưới" }}
+              placeholder="Toàn mạng lưới"
+              searchPlaceholder="Tìm máy quay, mã ID..."
+              emptyText="Không tìm thấy máy quay nào"
               size="default"
               triggerClassName="w-full sm:w-55"
-              ariaLabel="Chọn camera"
+              ariaLabel="Chọn máy quay"
             />
           </div>
         </div>

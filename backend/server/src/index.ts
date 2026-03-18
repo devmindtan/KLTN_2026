@@ -2,9 +2,9 @@ import express, { Request, Response } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
-import swaggerUi from "swagger-ui-express";
+// import swaggerUi from "swagger-ui-express";  // TODO: re-enable khi swagger được revamp
 import pool from "./config/database";
-import { swaggerSpec } from "./config/swagger";
+// import { swaggerSpec } from "./config/swagger";  // TODO: re-enable khi swagger được revamp
 import testControllerApi from "./routes/test.api";
 import cameraApi from "./routes/camera.api";
 import modelMetricsApi from "./routes/model-metrics.api";
@@ -13,6 +13,7 @@ import authApi from "./routes/auth.api";
 import dataLibraryApi from "./routes/data-library.api";
 import trafficPatternApi from "./routes/traffic-pattern.api";
 import forecastApi from "./routes/forecast.api";
+import helpApi from "./routes/help.api";
 import { requireAuth } from "./middleware/auth.middleware";
 import { runMigrations } from "./migrations/runner";
 
@@ -47,11 +48,11 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
-// Swagger UI – http://localhost:8080/api/docs
-app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-  customSiteTitle: "KLTN 2026 API Docs",
-  swaggerOptions: { persistAuthorization: true },
-}));
+// Swagger UI – tạm đóng cho đến khi revamp spec
+// app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+//   customSiteTitle: "KLTN 2026 API Docs",
+//   swaggerOptions: { persistAuthorization: true },
+// }));
 
 // Auth routes – public (guest-token, login, refresh)
 app.use("/api/auth", authApi);
@@ -71,6 +72,9 @@ app.use("/api/traffic", requireAuth, trafficPatternApi);
 
 // Forecast routes – tổng hợp, chuỗi thời gian và chi tiết slot dự báo
 app.use("/api/forecast", requireAuth, forecastApi);
+
+// Help / Documentation routes – CMS tài liệu hướng dẫn
+app.use("/api/help", requireAuth, helpApi);
 
 // Legacy test route
 app.use("/", testControllerApi);

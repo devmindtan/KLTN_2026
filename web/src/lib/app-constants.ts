@@ -376,6 +376,7 @@ export const PAGE_TITLES = {
   DATA_LIBRARY: import.meta.env.VITE_PAGE_DATA_LIBRARY ?? "Dữ liệu giao thông",
   REPORTS:      import.meta.env.VITE_PAGE_REPORTS      ?? "Báo cáo giao thông",
   SEARCH:       import.meta.env.VITE_PAGE_SEARCH       ?? "Tìm kiếm nhanh",
+  DOCS:         "Tài liệu hướng dẫn",
   HELP:         "Liên hệ & Hướng dẫn",
   TEAM:         "Đội ngũ phát triển",
   SETTINGS:     "Cài đặt",

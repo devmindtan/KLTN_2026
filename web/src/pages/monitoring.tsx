@@ -217,7 +217,9 @@ export default function TrafficMonitoring() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredAndSortedCameras.map((camera) => {
-            const vcRatio = camera.calculation?.vc_ratio ?? null;
+            // Dùng realtimeData.vc_ratio (từ image-process detection thực tế)
+            // KHÔNG dùng calculation.vc_ratio (đó là forecast 5m từ image-predict)
+            const vcRatio = camera.realtimeData?.vc_ratio ?? null;
             const trendDir = camera.trend.direction;
             return (
               <div
@@ -260,7 +262,7 @@ export default function TrafficMonitoring() {
                 <div className="p-3 flex flex-col gap-2">
                   {/* Name + ID */}
                   <div>
-                    <div className="font-semibold text-sm leading-snug line-clamp-2">
+                    <div className="font-semibold text-sm leading-snug line-clamp-2 truncate">
                       <HighlightText text={camera.name} query={searchQuery} />
                     </div>
                     <div className="text-[10px] text-muted-foreground mt-0.5 font-mono">
@@ -292,8 +294,10 @@ export default function TrafficMonitoring() {
                       <div className="h-1 rounded-full overflow-hidden bg-muted">
                         <div
                           className={`h-full rounded-full transition-all ${
-                            vcRatio <= 0.5 ? "bg-green-500" :
-                            vcRatio <= 0.8 ? "bg-yellow-400" : "bg-red-500"
+                            vcRatio < 0.60 ? "bg-green-500" :
+                            vcRatio < 0.75 ? "bg-emerald-400" :
+                            vcRatio < 0.85 ? "bg-yellow-400" :
+                            vcRatio < 1.0  ? "bg-orange-500" : "bg-red-500"
                           }`}
                           style={{ width: `${Math.min(vcRatio * 100, 100)}%` }}
                         />

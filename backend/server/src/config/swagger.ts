@@ -100,6 +100,22 @@ const options: swaggerJsdoc.Options = {
             created_at:    { type: "string", format: "date-time" },
           },
         },
+        HelpArticle: {
+          type: "object",
+          properties: {
+            id:           { type: "string", format: "uuid" },
+            section_key:  { type: "string", example: "los-overview" },
+            parent_key:   { type: "string", nullable: true, example: null },
+            title:        { type: "string", example: "Cấp độ dịch vụ (LOS)" },
+            summary:      { type: "string", example: "LOS là thang đo 5 cấp phân loại mức độ đông đúc của đoạn đường" },
+            content:      { type: "string", example: "## Giải thích\n..." },
+            tech_detail:  { type: "string", nullable: true, example: null },
+            sort_order:   { type: "integer", example: 0 },
+            is_published: { type: "boolean", example: true },
+            created_at:   { type: "string", format: "date-time" },
+            updated_at:   { type: "string", format: "date-time" },
+          },
+        },
         Error: {
           type: "object",
           properties: {
@@ -116,6 +132,7 @@ const options: swaggerJsdoc.Options = {
       { name: "Model Metrics",  description: "Chỉ số hiệu suất model" },
       { name: "Data Library",   description: "Thư viện dữ liệu (collections & entries)" },
       { name: "Traffic",        description: "Phân tích mật độ giao thông" },
+      { name: "Help",           description: "Tài liệu hướng dẫn (CMS bài viết)" },
     ],
     paths: {
       // ── AUTH ──────────────────────────────────────────────────────
@@ -1017,7 +1034,112 @@ const options: swaggerJsdoc.Options = {
         },
       },
     },
+    "/api/help/articles": {
+      get: {
+        tags: ["Help"],
+        summary: "Lấy danh sách bài viết tài liệu",
+        description: "Viewer chỉ nhận bài đã publish. Technician nhận tất cả.",
+        security: [{ BearerAuth: [] }],
+        responses: {
+          200: {
+            description: "Thành công",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean" },
+                    data: { type: "array", items: { $ref: "#/components/schemas/HelpArticle" } },
+                  },
+                },
+              },
+            },
+          },
+          401: { description: "Thiếu JWT token" },
+        },
+      },
+      post: {
+        tags: ["Help"],
+        summary: "Tạo bài viết mới [technician]",
+        security: [{ BearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["section_key", "title"],
+                properties: {
+                  section_key:  { type: "string" },
+                  parent_key:   { type: "string", nullable: true },
+                  title:        { type: "string" },
+                  summary:      { type: "string" },
+                  content:      { type: "string" },
+                  tech_detail:  { type: "string", nullable: true },
+                  sort_order:   { type: "integer" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: { description: "Tạo thành công" },
+          400: { description: "Dữ liệu đầu vào không hợp lệ" },
+          401: { description: "Thiếu JWT token" },
+          403: { description: "Không có quyền (cần technician)" },
+          409: { description: "section_key đã tồn tại" },
+        },
+      },
+    },
+    "/api/help/articles/{id}": {
+      put: {
+        tags: ["Help"],
+        summary: "Cập nhật bài viết [technician]",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          { in: "path", name: "id", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  title:       { type: "string" },
+                  summary:     { type: "string" },
+                  content:     { type: "string" },
+                  tech_detail: { type: "string", nullable: true },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Cập nhật thành công" },
+          400: { description: "Không có trường nào để cập nhật" },
+          401: { description: "Thiếu JWT token" },
+          403: { description: "Không có quyền" },
+          404: { description: "Không tìm thấy bài viết" },
+        },
+      },
+      delete: {
+        tags: ["Help"],
+        summary: "Xóa bài viết [technician]",
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          { in: "path", name: "id", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          200: { description: "Xóa thành công" },
+          401: { description: "Thiếu JWT token" },
+          403: { description: "Không có quyền" },
+          404: { description: "Không tìm thấy bài viết" },
+        },
+      },
+    },
   },
+},
   apis: [], // Không dùng JSDoc scan – spec đã khai báo đầy đủ ở trên
 };
 

@@ -89,12 +89,13 @@ interface RollingTooltipProps {
   originalData: SlotRow[]  // Original data chứa full forecast values
   nowIndex: number          // Index của slot hiện tại
   chartDataRatioMap: Map<string, number | null>  // currentRatio đã tính đúng từ chartData
+  camCapacity: number        // Capacity camera hiện tại để hiển thị X/Y xe trong tooltip
 }
 
 /** Hiển thị number với 1 chữ số thập phân */
 const f1 = (v: number | null | undefined): string => v == null ? "—" : v.toFixed(1)
 
-function RollingTooltip({ active, payload, label, originalData, nowIndex, chartDataRatioMap }: RollingTooltipProps) {
+function RollingTooltip({ active, payload, label, originalData, nowIndex, chartDataRatioMap, camCapacity }: RollingTooltipProps) {
   if (!active || !payload?.length || !label) return null
   
   // Lookup original row để lấy FULL forecast data (chưa transform)
@@ -113,7 +114,7 @@ function RollingTooltip({ active, payload, label, originalData, nowIndex, chartD
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-semibold">{label}</span>
         <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${
-          isNow    ? "text-blue-700 border-blue-200 bg-blue-50 dark:text-blue-300 dark:border-blue-700 dark:bg-blue-950/40"
+          isNow    ? "text-black-700 border-neutral-400 bg-grey-50 dark:text-white-300 dark:border-white-700 dark:bg-blue-950/40"
           : isFuture ? "text-orange-700 border-orange-200 bg-orange-50 dark:text-orange-300 dark:border-orange-700 dark:bg-orange-950/40"
           : "text-emerald-700 border-emerald-200 bg-emerald-50 dark:text-emerald-300 dark:border-emerald-700 dark:bg-emerald-950/40"
         }`}>
@@ -123,8 +124,8 @@ function RollingTooltip({ active, payload, label, originalData, nowIndex, chartD
       {baseline != null && (
         <div className="flex justify-between text-xs mb-1.5 pb-1.5 border-b border-border">
           <span className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-0.5 bg-gray-900 dark:bg-gray-100" />
-            {isFuture ? FORECAST_TERMS.CURRENT : FORECAST_TERMS.ACTUAL}
+            <span className={(isFuture || isNow) ? "inline-block w-3 h-0.5 bg-gray-400" : "inline-block w-3 h-0.5 bg-gray-950 dark:bg-gray-50"}/>
+            {(isFuture || isNow) ? FORECAST_TERMS.CURRENT : FORECAST_TERMS.ACTUAL}
           </span>
           <span className="font-mono font-semibold">{f1(baseline)} xe</span>
         </div>
@@ -163,14 +164,14 @@ function RollingTooltip({ active, payload, label, originalData, nowIndex, chartD
         // → tránh hiện 0% cho future slots (vc_ratio = 0 trong API do fallback COALESCE)
         const ratioVal = chartDataRatioMap.get(label) ?? originalRow.currentRatio
         if (ratioVal == null) return null
-        const levelLabel = ratioVal <= 30 ? "Thấp" : ratioVal <= 70 ? "Trung bình" : ratioVal <= 100 ? "Cao" : "Quá tải"
+        const vehicleCount = f1(Math.round(ratioVal / 100 * camCapacity * 10) / 10)
         return (
           <div className="flex justify-between text-xs mt-1.5 pt-1.5 border-t border-border">
             <span className="flex items-center gap-1.5">
               <span className="inline-block w-3 h-0.5 rounded-full bg-violet-500" />
               Mức tải
             </span>
-            <span className="font-mono text-violet-500">{f1(ratioVal)}% <span className="text-muted-foreground text-[10px]">({levelLabel})</span></span>
+            <span className="font-mono text-violet-500">{f1(ratioVal)}% <span className="text-muted-foreground text-[10px]">({vehicleCount}/{camCapacity.toFixed(1)} xe)</span></span>
           </div>
         )
       })()}
@@ -181,32 +182,47 @@ function RollingTooltip({ active, payload, label, originalData, nowIndex, chartD
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 /** Rolling Forecast Fan Chart cho tab Dự báo trên Dashboard */
-export function ForecastRollingChart() {
+export function ForecastRollingChart({ sharedAllData }: { sharedAllData?: ForecastRollingResponse | null }) {
   const [apiData, setApiData] = useState<ForecastRollingResponse | null>(null)
   const [cameraList, setCameraList] = useState<CameraInfo[]>([])
   const [selectedCam, setSelectedCam] = useState("all")
   const [selectedIdx, setSelectedIdx] = useState<number>(0)
   const [zoomLevel, setZoomLevel] = useState(0)
+  const [isolatedHorizon, setIsolatedHorizon] = useState<HorizonKey | null>(null)
   const { theme } = useTheme()
   const { startLoading, stopLoading } = useLoading()
   const { forecastVersion } = useSocket()
 
-  // Fetch rolling forecast + camera list – re-fetch khi forecastVersion tăng (FORECAST_UPDATED socket)
+  // Fetch camera list một lần khi mount (không phụ thuộc forecastVersion)
   useEffect(() => {
+    getAllCameras().then(setCameraList).catch((err) =>
+      console.error("[ForecastRollingChart] cameras fetch error:", err)
+    )
+  }, [])
+
+  // Data effect: dùng sharedAllData nếu có (đã fetch từ dashboard cha),
+  // chỉ tự fetch khi không có sharedAllData (standalone mode)
+  useEffect(() => {
+    function applyData(data: ForecastRollingResponse) {
+      setApiData(data)
+      const [apiH, apiM] = data.metadata.nowTime.split(":").map(Number)
+      const apiMin = apiH * 60 + apiM
+      const gridIdx = Math.max(0, Math.floor((apiMin - START_HOUR * 60) / 5))
+      setSelectedIdx(Math.min(gridIdx, 203))
+    }
+
+    if (sharedAllData) {
+      // Dùng data từ cha → luôn cùng snapshot với ForecastStatCards
+      applyData(sharedAllData)
+      return
+    }
+
+    // Standalone: tự fetch (fallback khi dùng ngoài dashboard)
     async function loadData() {
       startLoading()
       try {
-        const [data, cameras] = await Promise.all([
-          getForecastRolling("all"),
-          getAllCameras(),
-        ])
-        setApiData(data)
-        setCameraList(cameras)
-        // Dùng nowTime từ API (= created_at mới nhất trong DB) thay vì client clock
-        const [apiH, apiM] = data.metadata.nowTime.split(":").map(Number)
-        const apiMin = apiH * 60 + apiM
-        const gridIdx = Math.max(0, Math.floor((apiMin - START_HOUR * 60) / 5))
-        setSelectedIdx(Math.min(gridIdx, 203))
+        const data = await getForecastRolling("all")
+        applyData(data)
       } catch (err) {
         console.error("[ForecastRollingChart] Failed to load data:", err)
       } finally {
@@ -214,7 +230,7 @@ export function ForecastRollingChart() {
       }
     }
     loadData()
-  }, [startLoading, stopLoading, forecastVersion])
+  }, [startLoading, stopLoading, forecastVersion, sharedAllData])
 
   // Build camera options từ keys của apiData.cameras (cho SelectWithSearch)
   const cameraOptions = useMemo(() => {
@@ -322,8 +338,9 @@ export function ForecastRollingChart() {
 
   // Set actualRef trên tất cả future placeholder slots (để đường baseline hiện trong chart)
   // Backend đã set actualRef cho slots > API nowIndex, nhưng slots placeholder (frontend-only) chưa có
+  // Bắt đầu từ CLIENT_NOW_INDEX (không phải +1) để đường dotted dính vào cột Hiện tại, không có gap
   if (actualAtNow != null) {
-    for (let i = CLIENT_NOW_INDEX + 1; i < fullGrid.length; i++) {
+    for (let i = CLIENT_NOW_INDEX; i < fullGrid.length; i++) {
       if (fullGrid[i].actualRef == null) {
         fullGrid[i] = { ...fullGrid[i], actualRef: actualAtNow }
       }
@@ -439,7 +456,7 @@ export function ForecastRollingChart() {
   // Custom tooltip renderer with original data access
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const renderTooltip = (props: any) => (
-    <RollingTooltip {...props} originalData={fullGrid} nowIndex={CLIENT_NOW_INDEX} chartDataRatioMap={chartDataRatioMap} />
+    <RollingTooltip {...props} originalData={fullGrid} nowIndex={CLIENT_NOW_INDEX} chartDataRatioMap={chartDataRatioMap} camCapacity={camCapacity} />
   )
 
   const handleChartClick = (data: { activeLabel?: string }) => {
@@ -596,7 +613,9 @@ export function ForecastRollingChart() {
                   type="monotone"
                   dataKey={key}
                   stroke={color}
-                  strokeWidth={1.8}
+                  strokeWidth={isolatedHorizon === key ? 2.5 : 1.8}
+                  strokeOpacity={isolatedHorizon !== null && isolatedHorizon !== key ? 0.15 : 1}
+                  fillOpacity={isolatedHorizon !== null && isolatedHorizon !== key ? 0 : undefined}
                   fill={`url(#frc-fill-${key})`}
                   connectNulls={false}
                   dot={(props: { cx?: number; cy?: number; payload?: SlotRow }) => {
@@ -666,7 +685,7 @@ export function ForecastRollingChart() {
               {/* Ranh giới Hiện tại */}
               <ReferenceLine
                 x={slotLabel(CLIENT_NOW_INDEX)}
-                stroke="#6366f1"
+                stroke="#94a3b8"
                 strokeWidth={2}
                 strokeDasharray="4 3"
                 label={(props) => {
@@ -677,8 +696,8 @@ export function ForecastRollingChart() {
                   return (
                     <g>
                       <rect x={lineX - labelW / 2} y={y} width={labelW} height={17} rx={3}
-                        fill="var(--background)" stroke="#6366f1" strokeWidth={0.8} opacity={0.95} />
-                      <text x={lineX} y={y + 12} textAnchor="middle" fontSize={11} fill="#6366f1" fontWeight={600}>Hiện tại</text>
+                        fill="var(--background)" stroke="#94a3b8" strokeWidth={0.8} opacity={0.95} />
+                      <text x={lineX} y={y + 12} textAnchor="middle" fontSize={11} fill="var(--foreground)" fontWeight={500}>Hiện tại</text>
                     </g>
                   )
                 }}
@@ -689,6 +708,12 @@ export function ForecastRollingChart() {
                 height={40}
                 wrapperStyle={{ paddingTop: 8 }}
                 iconType="plainline"
+                onClick={(entry) => {
+                  const key = entry.dataKey as string
+                  if (HORIZONS.find((h) => h.key === key)) {
+                    setIsolatedHorizon((prev) => (prev === key ? null : key as HorizonKey))
+                  }
+                }}
                 formatter={(v) => {
                   // Recharts formatter nhận name prop, không phải dataKey
                   if (v === "Thực tế")  return <span className="text-[11px]">Thực tế</span>
@@ -696,7 +721,20 @@ export function ForecastRollingChart() {
                   if (v === "Mức tải %") return <span className="text-[11px] text-violet-500">Mức tải %</span>
                   // Horizon areas dùng dataKey làm name (không có name prop)
                   const h = HORIZONS.find((h) => h.key === v)
-                  return h ? <span className="text-[11px]">{h.label}</span> : <span className="text-[11px]">{v}</span>
+                  if (h) {
+                    const isIsolated = isolatedHorizon === v
+                    const isDimmed = isolatedHorizon !== null && !isIsolated
+                    return (
+                      <span
+                        className="text-[11px] cursor-pointer select-none transition-opacity"
+                        style={{ opacity: isDimmed ? 0.35 : 1, fontWeight: isIsolated ? 600 : 400 }}
+                        title={isIsolated ? "Click để hiển thị tất cả" : "Click để xem riêng"}
+                      >
+                        {h.label}
+                      </span>
+                    )
+                  }
+                  return <span className="text-[11px]">{v}</span>
                 }}
               />
             </ComposedChart>

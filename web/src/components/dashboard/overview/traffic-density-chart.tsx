@@ -412,12 +412,12 @@ export function TrafficDensityChart() {
               value={selectedCamera}
               onChange={setSelectedCamera}
               options={cameraOptions}
-              defaultOption={{ value: "all", label: "Tất cả camera (trung bình)" }}
-              placeholder="Tất cả camera"
-              searchPlaceholder="Tìm kiếm camera..."
-              emptyText="Không tìm thấy camera"
+              defaultOption={{ value: "all", label: "Toàn mạng lưới" }}
+              placeholder="Toàn mạng lưới"
+              searchPlaceholder="Tìm kiếm máy quay..."
+              emptyText="Không tìm thấy máy quay"
               triggerClassName="w-full sm:w-55"
-              ariaLabel="Chọn camera"
+              ariaLabel="Chọn máy quay"
             />
           </div>
         </div>

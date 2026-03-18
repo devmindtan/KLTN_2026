@@ -107,7 +107,7 @@ export default function Login() {
         <p className="mt-4 text-center text-xs text-muted-foreground">
           Không có tài khoản?{" "}
           <button
-            onClick={() => navigate("/user/dashboard")}
+            onClick={() => navigate("/dashboard")}
             className="underline underline-offset-2 hover:text-foreground"
           >
             Tiếp tục xem với quyền hạn chế

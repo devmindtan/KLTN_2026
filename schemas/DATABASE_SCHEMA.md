@@ -142,10 +142,10 @@ WHERE is_active = TRUE;
 -- CONFIDENCE METRICS EXPLANATION
 -- ============================================
 -- PREDICTION CONFIDENCE (input_sample_count vs lag_sample_count):
--- - Score: 0-1 (1 = highest confidence)
--- - Level: High/Medium/Low
+-- - Score: diff_score × sufficiency (0-1, 1 = highest)
+-- - diff_score = 1 - (diff% / 100) | sufficiency = 1.0 if >=30, linear 0.5-0.90 if 10-29
 -- - High: Cả 2 buckets có >=30 samples và chênh lệch <20%
--- - Medium: Chênh lệch 20-40%
+-- - Medium: count<30 hoặc chênh lệch 20-40% (score bị giảm do sufficiency < 1.0)
 -- - Low: 1 trong 2 có <10 samples hoặc chênh lệch >40%
 --
 -- ERROR CONFIDENCE (input_sample_count vs sync_sample_count):
@@ -322,3 +322,26 @@ CREATE INDEX idx_entries_collection ON data_library_entries(collection_id, snaps
 -- Key pattern: data-library/{data_type}/{YYYY-MM-DD}.csv.gz
 -- Example: data-library/detections/2026-03-06.csv.gz
 -- CronJob: data-export service (daily 01:00 UTC = 08:00 ICT), export D-1 data
+
+
+-- ============================================
+-- HELP / DOCUMENTATION CMS
+-- ============================================
+-- Bảng lưu bài viết tài liệu hướng dẫn (CMS 3-lớp)
+-- Migration: 006_help_articles.sql
+CREATE TABLE IF NOT EXISTS help_articles (
+    id           UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    section_key  VARCHAR(100) NOT NULL UNIQUE,  -- Khóa định danh URL (?doc=section_key)
+    parent_key   VARCHAR(100) DEFAULT NULL,     -- NULL = section gốc
+    title        TEXT         NOT NULL,
+    summary      TEXT         NOT NULL DEFAULT '',  -- Lớp 1: tóm tắt 1 câu
+    content      TEXT         NOT NULL DEFAULT '',  -- Lớp 2: Markdown giải thích ngữ cảnh
+    tech_detail  TEXT         DEFAULT NULL,         -- Lớp 3: Markdown kỹ thuật (collapsible)
+    sort_order   INTEGER      DEFAULT 0,
+    is_published BOOLEAN      DEFAULT TRUE,
+    created_at   TIMESTAMPTZ  DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ  DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_help_articles_parent_key ON help_articles(parent_key);
+CREATE INDEX IF NOT EXISTS idx_help_articles_sort_order ON help_articles(sort_order);

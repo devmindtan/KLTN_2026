@@ -174,8 +174,8 @@ export function PgReportsForecasts() {
 
         {/* ══ TAB DỰ BÁO ══ */}
         <TabsContent value="forecast" className="mt-0 flex flex-col gap-4">
-          <ForecastStatCards />
-          <ForecastRollingChart />
+          <ForecastStatCards apiData={null} />
+          <ForecastRollingChart sharedAllData={null} />
           <ForecastHistoryTable />
         </TabsContent>
 

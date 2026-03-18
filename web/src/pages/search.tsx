@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { smartMatch, calculateRelevanceScore } from "@/lib/search-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,8 +15,10 @@ import {
 import { PageHeader } from "@/components/custom/page-header";
 import { getAllCameras } from "@/services/camera.service";
 import { getAllModelVersions } from "@/services/model.service";
+import { getHelpArticles } from "@/services/help.service";
 import { useSocket } from "@/contexts/SocketContext";
 import { useLoading } from "@/contexts/LoadingContext";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   type ResultType,
   type SearchResult,
@@ -27,6 +31,7 @@ import {
   getTypeMeta,
   buildCameraResults,
   buildModelResults,
+  buildDocResults,
 } from "@/components/search/search-types";
 import { ResultSkeleton } from "@/components/search/result-skeleton";
 import { ResultItem } from "@/components/search/result-item";
@@ -36,8 +41,17 @@ import { SEARCH_TERM } from "@/lib/app-constants";
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function Search() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { routePrefix } = useAuth();
   const { processedCameras } = useSocket();
   const { startLoading, stopLoading } = useLoading();
+
+  /** Tạo URL tới trang tài liệu, tương thích technician prefix */
+  const navToDoc = (sectionKey?: string) =>
+    routePrefix
+      ? `/${routePrefix}/documentation${sectionKey ? `?doc=${sectionKey}` : ""}`
+      : `/documentation${sectionKey ? `?doc=${sectionKey}` : ""}`;
 
   const [query,       setQuery]       = useState("");
   const [debouncedQ,  setDebouncedQ]  = useState("");
@@ -47,6 +61,7 @@ export default function Search() {
   // Dữ liệu thực từ API
   const [cameraResults, setCameraResults] = useState<SearchResult[]>([]);
   const [modelResults,  setModelResults]  = useState<SearchResult[]>([]);
+  const [docResults,    setDocResults]    = useState<SearchResult[]>([]);
   const [dataLoaded,    setDataLoaded]    = useState(false);
   const [dataError,     setDataError]     = useState(false);
 
@@ -58,6 +73,19 @@ export default function Search() {
   });
 
   const inputRef = useRef<HTMLInputElement>(null);
+
+  /** Đọc query từ URL params khi trang load */
+  useEffect(() => {
+    const urlQuery = searchParams.get("q");
+    if (urlQuery && urlQuery.trim()) {
+      setQuery(urlQuery.trim());
+      setDebouncedQ(urlQuery.trim());
+      pushHistory(urlQuery.trim());
+      // Focus vào input để user thấy query đã được set
+      inputRef.current?.focus();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   /** Build processedCameras lookup map — key = shortId (cam_id), không phải full NGSI-LD id */
   const processedMap = new Map(
@@ -74,14 +102,16 @@ export default function Search() {
     const load = async () => {
       startLoading();
       try {
-        const [cameras, allVersions] = await Promise.all([
+        const [cameras, allVersions, helpArticles] = await Promise.all([
           getAllCameras(),
           getAllModelVersions(),
+          getHelpArticles(),
         ]);
         if (cancelled) return;
         setCameraResults(buildCameraResults(cameras, processedMap));
         const flat = Object.values(allVersions).flat();
         setModelResults(buildModelResults(flat));
+        setDocResults(buildDocResults(helpArticles));
         setDataLoaded(true);
       } catch {
         if (!cancelled) setDataError(true);
@@ -153,18 +183,34 @@ export default function Search() {
     setDebouncedQ(term);
   };
 
-  /** Tổng hợp tất cả results (API thực + mock) */
-  const allResults: SearchResult[] = [...cameraResults, ...modelResults, ...MOCK_REPORT_FORECAST];
+  /** Tổng hợp tất cả results (API thực + mock + tài liệu) */
+  const allResults: SearchResult[] = [...cameraResults, ...modelResults, ...MOCK_REPORT_FORECAST, ...docResults];
 
-  /** Lọc theo tab + keyword */
+  /** Lọc theo tab + keyword với smart search */
   const filterResults = (list: SearchResult[]) => {
     if (!debouncedQ) return list;
-    const needle = debouncedQ.toLowerCase();
-    return list.filter(r =>
-      r.title.toLowerCase().includes(needle) ||
-      r.subtitle.toLowerCase().includes(needle) ||
-      r.meta.toLowerCase().includes(needle)
+    
+    // Filter và tính điểm relevance
+    const filtered = list.filter(r => 
+      smartMatch(r.title, debouncedQ) ||
+      smartMatch(r.subtitle, debouncedQ) ||
+      smartMatch(r.meta, debouncedQ)
     );
+    
+    // Sort theo relevance score (cao nhất trước)
+    return filtered.sort((a, b) => {
+      const scoreA = Math.max(
+        calculateRelevanceScore(a.title, debouncedQ),
+        calculateRelevanceScore(a.subtitle, debouncedQ),
+        calculateRelevanceScore(a.meta, debouncedQ)
+      );
+      const scoreB = Math.max(
+        calculateRelevanceScore(b.title, debouncedQ),
+        calculateRelevanceScore(b.subtitle, debouncedQ), 
+        calculateRelevanceScore(b.meta, debouncedQ)
+      );
+      return scoreB - scoreA;
+    });
   };
 
   const getTabResults = (type?: ResultType) => {
@@ -372,12 +418,12 @@ export default function Search() {
                               <span className="text-xs text-muted-foreground">({group.length})</span>
                             </div>
                             <div className="space-y-1">
-                              {group.map(r => <ResultItem key={r.id} result={r} query={debouncedQ} onView={r.type === "camera" || r.type === "model" ? () => setSelected(r) : undefined} />)}
+                              {group.map(r => <ResultItem key={r.id} result={r} query={debouncedQ} onView={r.type === "camera" || r.type === "model" ? () => setSelected(r) : r.type === "doc" ? () => navigate(navToDoc(r.details?.section_key as string)) : undefined} />)}
                             </div>
                           </div>
                         );
                       })
-                    : filteredResults.map(r => <ResultItem key={r.id} result={r} query={debouncedQ} onView={r.type === "camera" || r.type === "model" ? () => setSelected(r) : undefined} />)
+                    : filteredResults.map(r => <ResultItem key={r.id} result={r} query={debouncedQ} onView={r.type === "camera" || r.type === "model" ? () => setSelected(r) : r.type === "doc" ? () => navigate(navToDoc(r.details?.section_key as string)) : undefined} />)
                   }
                 </div>
               )}

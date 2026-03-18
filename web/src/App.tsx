@@ -12,9 +12,10 @@ const Monitoring    = React.lazy(() => import("@/pages/monitoring.tsx"));
 const Analytics     = React.lazy(() => import("@/pages/analytics.tsx"));
 const Models        = React.lazy(() => import("@/pages/models.tsx"));
 const Team          = React.lazy(() => import("@/pages/team.tsx"));
-const Reports       = React.lazy(() => import("@/pages/reports-forecasts"));
-const WordAssistant = React.lazy(() => import("@/pages/word-assistant.tsx"));
+const Reports       = React.lazy(() => import("@/pages/reports"));
+const WordAssistant = React.lazy(() => import("@/pages/assistant"));
 const Help          = React.lazy(() => import("@/pages/help.tsx"));
+const Documentation = React.lazy(() => import("@/pages/documentation.tsx"));
 const Search        = React.lazy(() => import("@/pages/search.tsx"));
 const Login         = React.lazy(() => import("@/pages/login.tsx"));
 
@@ -49,9 +50,9 @@ const RouteScrollReset = () => {
 
 /**
  * Guard: Đảm bảo URL prefix luôn khớp với routePrefix của user.
- * - viewer (anonymous) → prefix phải là "user"
+ * - viewer (anonymous) → routePrefix = "" → dùng bare path, nếu vào /:prefix → strip prefix
  * - technician         → prefix phải là email prefix của họ
- * Nếu sai → redirect về đúng prefix, giữ nguyên sub-path.
+ * Nếu sai → redirect về đúng path.
  */
 const PrefixGuardedLayout = () => {
   const { prefix } = useParams<{ prefix: string }>();
@@ -61,9 +62,31 @@ const PrefixGuardedLayout = () => {
   if (isLoading) return null;
 
   if (prefix !== routePrefix) {
+    if (!routePrefix) {
+      // Viewer truy cập route có prefix → bỏ prefix, redirect về bare path
+      const subPath = location.pathname.slice(`/${prefix}`.length) || "/";
+      return <Navigate to={subPath} replace />;
+    }
     const segments = location.pathname.split("/"); // ['', prefix, 'dashboard', ...]
     segments[1] = routePrefix;
     return <Navigate to={segments.join("/")} replace />;
+  }
+
+  return <Outlet />;
+};
+
+/**
+ * Guard cho viewer routes (bare path, không có prefix).
+ * Technician cố tình truy cập bare path → redirect về route có prefix của họ.
+ */
+const ViewerGuardedLayout = () => {
+  const { routePrefix, role, isLoading } = useAuth();
+  const location = useLocation();
+
+  if (isLoading) return null;
+
+  if (role === "technician" && routePrefix) {
+    return <Navigate to={`/${routePrefix}${location.pathname}`} replace />;
   }
 
   return <Outlet />;
@@ -133,12 +156,15 @@ const router = createBrowserRouter([
     ),
   },
   {
-    path: "/:prefix",
+    // RootLayout bao toàn bộ app (viewer + technician)
+    path: "/",
     element: <RootLayout/>,
     children: [
+      // ── Viewer routes (bare path — không có prefix) ─────────────────────
+      // Literal paths ("dashboard", "monitoring" …) luôn có độ ưu tiên cao hơn
+      // dynamic segment (":prefix") nên React Router chọn đúng mà không cần guard path.
       {
-        // PrefixGuardedLayout: enforce URL prefix = routePrefix user hiện tại
-        element: <PrefixGuardedLayout />,
+        element: <ViewerGuardedLayout />,
         children: [
           {index: true, element: <Navigate to="dashboard" replace />},
           // loader dùng setTimeout(0) thay vì Promise.resolve() để tạo macrotask,
@@ -154,6 +180,30 @@ const router = createBrowserRouter([
           {path: "assistant",        element: <WordAssistant/>, loader: () => new Promise(r => setTimeout(r, 0))},
           {path: "settings",         element: <Setting/>,       loader: () => new Promise(r => setTimeout(r, 0))},
           {path: "help",             element: <Help/>,          loader: () => new Promise(r => setTimeout(r, 0))},
+          {path: "documentation",    element: <Documentation/>, loader: () => new Promise(r => setTimeout(r, 0))},
+          {path: "search",           element: <Search/>,        loader: () => new Promise(r => setTimeout(r, 0))},
+          ...(import.meta.env.DEV && SandboxPage
+            ? [{ path: "sandbox", element: <React.Suspense fallback={null}><SandboxPage /></React.Suspense>, loader: () => new Promise(r => setTimeout(r, 0)) }]
+            : []),
+        ],
+      },
+      // ── Technician routes (với email prefix) ────────────────────────────
+      {
+        path: ":prefix",
+        element: <PrefixGuardedLayout />,
+        children: [
+          {index: true, element: <Navigate to="dashboard" replace />},
+          {path: "dashboard",        element: <Dashboard/>,     loader: () => new Promise(r => setTimeout(r, 0))},
+          {path: "monitoring",       element: <Monitoring/>,    loader: () => new Promise(r => setTimeout(r, 0))},
+          {path: "analytics",        element: <Analytics/>,     loader: () => new Promise(r => setTimeout(r, 0))},
+          {path: "models",           element: <Models/>,        loader: () => new Promise(r => setTimeout(r, 0))},
+          {path: "team",             element: <Team/>,          loader: () => new Promise(r => setTimeout(r, 0))},
+          {path: "data-library",     element: <DataLibrary/>,   loader: () => new Promise(r => setTimeout(r, 0))},
+          {path: "reports-forecasts",element: <Reports/>,       loader: () => new Promise(r => setTimeout(r, 0))},
+          {path: "assistant",        element: <WordAssistant/>, loader: () => new Promise(r => setTimeout(r, 0))},
+          {path: "settings",         element: <Setting/>,       loader: () => new Promise(r => setTimeout(r, 0))},
+          {path: "help",             element: <Help/>,          loader: () => new Promise(r => setTimeout(r, 0))},
+          {path: "documentation",    element: <Documentation/>, loader: () => new Promise(r => setTimeout(r, 0))},
           {path: "search",           element: <Search/>,        loader: () => new Promise(r => setTimeout(r, 0))},
           ...(import.meta.env.DEV && SandboxPage
             ? [{ path: "sandbox", element: <React.Suspense fallback={null}><SandboxPage /></React.Suspense>, loader: () => new Promise(r => setTimeout(r, 0)) }]
@@ -162,8 +212,6 @@ const router = createBrowserRouter([
       },
     ],
   },
-  // Redirect gốc về dashboard
-  { path: "/", element: <Navigate to="/user/dashboard" replace /> },
 ]);
 
 export default function App() {

@@ -3,7 +3,6 @@
  * Mock mode được dùng khi backend chưa có endpoint /api/help
  */
 import { apiFetch } from "@/lib/apiFetch";
-import mockData from "@/components/help/help-mock-data.json";
 
 const BASE = import.meta.env.VITE_BACKEND_URL;
 
@@ -65,9 +64,37 @@ export interface ArticlesResponse {
 /** Lấy tất cả articles đã publish, sorted theo sort_order */
 export async function getHelpArticles(): Promise<HelpArticle[]> {
   if (USE_MOCK) {
-    return new Promise(resolve =>
-      setTimeout(() => resolve(mockData as HelpArticle[]), 300)
-    );
+    try {
+      // Dynamic import để tránh lỗi build khi file không có trên production
+      const { default: mockData } = await import("@/components/help/help-mock-data.json");
+      return new Promise(resolve =>
+        setTimeout(() => resolve(mockData as HelpArticle[]), 300)
+      );
+    } catch {
+      // Fallback nếu file mock không tồn tại (production build)
+      console.warn("Mock data file không tồn tại, dùng dữ liệu mặc định");
+      const fallbackData: HelpArticle[] = [
+        {
+          id: "fallback-1",
+          section_key: "overview-fallback",
+          parent_key: null,
+          type: "document",
+          title: "Tổng quan hệ thống",
+          summary: "Hướng dẫn sử dụng cơ bản",
+          content: "# Tổng quan\n\nHệ thống giám sát giao thông thông minh.",
+          tech_detail: null,
+          sort_order: 1,
+          is_published: true,
+          created_by: null,
+          updated_by: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }
+      ];
+      return new Promise(resolve =>
+        setTimeout(() => resolve(fallbackData), 300)
+      );
+    }
   }
   const res = await apiFetch(`${BASE}/api/help/articles`);
   const json = await res.json() as ArticlesResponse;

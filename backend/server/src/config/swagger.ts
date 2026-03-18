@@ -1139,7 +1139,6 @@ const options: swaggerJsdoc.Options = {
       },
     },
   },
-},
   apis: [], // Không dùng JSDoc scan – spec đã khai báo đầy đủ ở trên
 };
 

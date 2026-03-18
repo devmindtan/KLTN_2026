@@ -14,7 +14,7 @@ RUN npm install
 
 COPY . .
 
-# Tạo .env.production từ build-args — không lưu URL trong git
+# Tạo .env.production từ build-args — không lưu URL trong git.
 RUN echo "VITE_BACKEND_URL=${VITE_BACKEND_URL}" > .env.production && \
     echo "VITE_SOCKET_URL=${VITE_SOCKET_URL}" >> .env.production && \
     echo "VITE_MINIO_URL=${VITE_MINIO_URL}" >> .env.production && \

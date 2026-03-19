@@ -14,20 +14,53 @@ import {
   IconList, IconLayoutGrid, IconPlus, IconRefresh,
 } from "@tabler/icons-react"
 
-import { ReportRow }              from "@/components/reports/report-row"
-import { ReportCard }             from "@/components/reports/report-card"
+import { SmartReportRow as ReportRow }   from "@/components/reports/smart-report-row"
+import { SmartReportCard as ReportCard } from "@/components/reports/smart-report-card"
 import { ForecastStatCards }      from "@/components/dashboard/forecast/forecast-stat-cards"
 import { ForecastRollingChart }   from "@/components/dashboard/forecast/forecast-rolling-chart"
 import { ForecastHistoryTable }   from "@/components/dashboard/forecast/forecast-history-table"
 import { HistoryTable }           from "@/components/reports/history-table"
-import {
-  MOCK_REPORTS, MOCK_HISTORY,
-  type ReportData,
-} from "@/components/reports/reports-types"
+import { MOCK_HISTORY }           from "@/components/reports/reports-types"
+import type { SmartReport }       from "@/services/reports.service"
+
+const MOCK_SMART_REPORTS: SmartReport[] = [
+  {
+    id: "r001", title: "Báo cáo lưu lượng ngày 18/03/2026",
+    type: "daily", period_from: "2026-03-18T00:00:00Z", period_to: "2026-03-18T23:59:59Z",
+    status: "ready", files_json: { pdf: { path: "/reports/r001.pdf", sizeMB: 1.2, url: "#" } },
+    summary_json: null, settings_json: null,
+    created_by: "adminuser", created_at: "2026-03-18T07:00:00Z",
+    generated_at: "2026-03-18T07:05:00Z", error_message: null,
+  },
+  {
+    id: "r002", title: "Báo cáo tuần 09–15/03/2026",
+    type: "weekly", period_from: "2026-03-09T00:00:00Z", period_to: "2026-03-15T23:59:59Z",
+    status: "ready", files_json: { pdf: { path: "/reports/r002.pdf", sizeMB: 3.5, url: "#" }, xlsx: { path: "/reports/r002.xlsx", sizeMB: 1.8, url: "#" } },
+    summary_json: null, settings_json: null,
+    created_by: "analyst", created_at: "2026-03-16T08:00:00Z",
+    generated_at: "2026-03-16T08:10:00Z", error_message: null,
+  },
+  {
+    id: "r003", title: "Báo cáo tháng 02/2026",
+    type: "monthly", period_from: "2026-02-01T00:00:00Z", period_to: "2026-02-28T23:59:59Z",
+    status: "generating", files_json: null,
+    summary_json: null, settings_json: null,
+    created_by: "adminuser", created_at: "2026-03-01T09:00:00Z",
+    generated_at: null, error_message: null,
+  },
+  {
+    id: "r004", title: "Báo cáo sự cố ùn tắc giao lộ Nguyễn Huệ",
+    type: "incident", period_from: "2026-03-17T07:30:00Z", period_to: "2026-03-17T09:15:00Z",
+    status: "failed", files_json: null,
+    summary_json: null, settings_json: null,
+    created_by: "operator", created_at: "2026-03-17T10:00:00Z",
+    generated_at: null, error_message: "Không đủ dữ liệu camera trong khoảng thời gian yêu cầu",
+  },
+]
 
 type ViewMode     = "list" | "grid"
 type ReportType   = "all" | "daily" | "weekly" | "monthly" | "incident"
-type StatusFilter = "all" | "ready" | "processing" | "failed"
+type StatusFilter = "all" | "ready" | "generating" | "failed"
 
 /** Playground: Báo cáo & Dự báo – toàn trang */
 export function PgReportsForecasts() {
@@ -36,14 +69,14 @@ export function PgReportsForecasts() {
   const [searchQuery,   setSearchQuery]   = useState("")
   const [typeFilter,    setTypeFilter]    = useState<ReportType>("all")
   const [statusFilter,  setStatusFilter]  = useState<StatusFilter>("all")
-  const [reports,       setReports]       = useState<ReportData[]>([])
+  const [reports,       setReports]       = useState<SmartReport[]>([])
   const [loading,       setLoading]       = useState(false)
 
   const fetchReports = useCallback(async () => {
     setLoading(true)
     try {
       await new Promise(r => setTimeout(r, 300))
-      setReports(MOCK_REPORTS)
+      setReports(MOCK_SMART_REPORTS)
     } finally {
       setLoading(false)
     }
@@ -55,7 +88,7 @@ export function PgReportsForecasts() {
     if (typeFilter   !== "all" && r.type   !== typeFilter)   return false
     if (statusFilter !== "all" && r.status !== statusFilter) return false
     if (searchQuery.trim()) {
-      if (!r.name.toLowerCase().includes(searchQuery.toLowerCase())) return false
+      if (!r.title.toLowerCase().includes(searchQuery.toLowerCase())) return false
     }
     return true
   })
@@ -128,7 +161,7 @@ export function PgReportsForecasts() {
               <SelectContent>
                 <SelectItem value="all">Tất cả</SelectItem>
                 <SelectItem value="ready">Sẵn sàng</SelectItem>
-                <SelectItem value="processing">Đang xử lý</SelectItem>
+                <SelectItem value="generating">Đang tạo</SelectItem>
                 <SelectItem value="failed">Lỗi</SelectItem>
               </SelectContent>
             </Select>

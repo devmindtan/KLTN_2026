@@ -30,8 +30,6 @@ import {
   type CreateReportRequest
 } from "@/services/reports.service";
 import { MOCK_HISTORY, type HistoryEntry } from "@/components/reports/reports-types";
-import _mockData from "@/components/reports/reports-mock-data.json";
-const MOCK_SMART_REPORTS = _mockData as unknown as SmartReport[];
 
 type ViewMode = "list" | "grid";
 type ReportType = "all" | "daily" | "weekly" | "monthly" | "quarterly" | "incident" | "custom";
@@ -105,9 +103,6 @@ export default function ReportsPage() {
 
     } catch (error) {
       console.error("Failed to fetch reports:", error);
-      // Fallback to mock data khi API chưa sẵn sàng
-      setReports(MOCK_SMART_REPORTS);
-      setPagination({ page: 1, limit: 20, total: MOCK_SMART_REPORTS.length, totalPages: 1 });
     } finally {
       setLocalLoading(false);
     }

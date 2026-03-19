@@ -361,7 +361,7 @@ async function _triggerReportGeneration(reportId: string, config: any, db: Pool)
 
   const batchApi   = kc.makeApiClient(k8s.BatchV1Api);
   const namespace  = process.env.KUBE_NAMESPACE || "backend";
-  const image      = process.env.REPORT_GENERATOR_IMAGE || "devmindtan/dev-repo:report-generator-v1.0.0";
+  const image      = process.env.REPORT_GENERATOR_IMAGE || "devmindtan/dev-repo:report-generator-v1.0.2";
 
   // Tên Job: report-<8 ký tự đầu UUID> (unique, hợp lệ với DNS k8s)
   const shortId  = reportId.replace(/-/g, "").slice(0, 8);
@@ -386,8 +386,10 @@ async function _triggerReportGeneration(reportId: string, config: any, db: Pool)
           containers: [{
             name:    "report-generator",
             image,
-            command: ["python", "app/main.py", reportId, "--config", configJson],
+            imagePullPolicy: "Always", // Luôn pull image mới nhất, không dùng cache
+            command: ["python", "app/main.py", reportId],
             env: [
+              { name: "REPORT_CONFIG",      value: configJson },
               { name: "POSTGRES_HOST",      value: process.env.POSTGRES_HOST      || "postgres-postgresql.database.svc.cluster.local" },
               { name: "POSTGRES_DBS",       value: process.env.POSTGRES_DBS       || "kltn_db" },
               { name: "POSTGRES_USERNAME",  value: process.env.POSTGRES_USERNAME  || "admin" },

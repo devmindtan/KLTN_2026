@@ -14,6 +14,7 @@ import dataLibraryApi from "./routes/data-library.api";
 import trafficPatternApi from "./routes/traffic-pattern.api";
 import forecastApi from "./routes/forecast.api";
 import helpApi from "./routes/help.api";
+import { reportsRoutes } from "./routes/reports.api";
 import { requireAuth } from "./middleware/auth.middleware";
 import { runMigrations } from "./migrations/runner";
 
@@ -46,7 +47,11 @@ app.use(
   })
 );
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// Attach database pool to app.locals for controllers
+app.locals.db = pool;
 
 // Swagger UI – tạm đóng cho đến khi revamp spec
 // app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
@@ -75,6 +80,9 @@ app.use("/api/forecast", requireAuth, forecastApi);
 
 // Help / Documentation routes – CMS tài liệu hướng dẫn
 app.use("/api/help", requireAuth, helpApi);
+
+// Reports routes – Smart Reports system (PDF + XLSX generation)
+app.use("/api/reports", requireAuth, reportsRoutes);
 
 // Legacy test route
 app.use("/", testControllerApi);

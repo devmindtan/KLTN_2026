@@ -5,16 +5,18 @@
  */
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useNavigate, useParams } from "react-router-dom";
-import { IconBook } from "@tabler/icons-react";
+import { IconBook, IconMenu2 } from "@tabler/icons-react";
 import { PageHeader } from "@/components/custom/page-header";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useLoading } from "@/contexts/LoadingContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { ArticleView } from "@/components/help/article-view";
-import { ArticleEditor } from "@/components/help/article-editor";
-import { ArticleEditBar } from "@/components/help/article-edit-bar";
-import { AddArticleModal } from "@/components/help/add-article-modal";
-import { HelpSearchBar } from "@/components/help/help-search-bar";
-import { DocumentationSidebar } from "@/components/help/documentation-sidebar";
+import { ArticleView } from "@/components/documentation/article-view";
+import { ArticleEditor } from "@/components/documentation/article-editor";
+import { ArticleEditBar } from "@/components/documentation/article-edit-bar";
+import { AddArticleModal } from "@/components/documentation/add-article-modal";
+import { DocumentationSearchBar } from "@/components/documentation/documentation-search-bar";
+import { DocumentationSidebar } from "@/components/documentation/documentation-sidebar";
 import { BookOpenIcon } from "lucide-react";
 import {
   getHelpArticles,
@@ -42,6 +44,7 @@ export default function Documentation() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [addParentKey, setAddParentKey] = useState<string | null>(null);
   const [initialized, setInitialized]  = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -70,6 +73,7 @@ export default function Documentation() {
   const handleSelect = useCallback((key: string) => {
     setSearchParams({ doc: key });
     setEditingId(null);
+    setSidebarOpen(false); // Đóng sidebar khi chọn bài trên mobile
   }, [setSearchParams]);
 
   /** Mở editor */
@@ -155,18 +159,30 @@ export default function Documentation() {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4">
-      <PageHeader
-        icon={<IconBook className="w-5 h-5" />}
-        title="Tài liệu hướng dẫn"
-        description="Giải thích các khái niệm và hướng dẫn sử dụng hệ thống"
-      />
+    <div className="flex flex-1 flex-col gap-4 p-3 sm:p-4">
+      <div className="flex items-start justify-between gap-4">
+        <PageHeader
+          icon={<IconBook className="w-5 h-5" />}
+          title="Tài liệu hướng dẫn"
+          description="Giải thích các khái niệm và hướng dẫn sử dụng hệ thống"
+        />
+        {/* Toggle button cho mobile */}
+        <Button
+          variant="outline"
+          size="icon"
+          className="xl:hidden shrink-0 mt-1"
+          onClick={() => setSidebarOpen(true)}
+          title="Mở danh mục"
+        >
+          <IconMenu2 className="h-4 w-4" />
+        </Button>
+      </div>
 
       {/* Layout 2 cột */}
-      <div className="flex gap-6 items-start">
+      <div className="flex gap-4 sm:gap-6 items-start">
 
-        {/* Left — nội dung bài viết */}
-        <div className="flex-1 min-w-0 flex flex-col gap-3">
+        {/* Left — nội dung bài viết (chiếm full width trên mobile) */}
+        <div className="flex-1 min-w-0 flex flex-col gap-3 w-full">
           {selectedArticle ? (
             <>
               {isTechnician && editingId !== selectedArticle.id && (
@@ -197,10 +213,10 @@ export default function Documentation() {
           )}
         </div>
 
-        {/* Right — nav panel danh mục */}
-        <aside className="w-52 xl:w-60 shrink-0 sticky top-16 self-start max-h-[calc(100vh-5rem)] flex flex-col">
+        {/* Right — nav panel danh mục (ẩn trên mobile, dùng Sheet) */}
+        <aside className="hidden xl:flex w-60 shrink-0 sticky top-16 self-start max-h-[calc(100vh-5rem)] flex-col">
           <div className="rounded-lg border bg-card p-3 flex flex-col gap-2 min-h-0 flex-1">
-            <HelpSearchBar
+            <DocumentationSearchBar
               articles={articles}
               onSelect={handleSelect}
             />
@@ -218,6 +234,33 @@ export default function Documentation() {
             </div>
           </div>
         </aside>
+
+        {/* Mobile sidebar — Sheet drawer */}
+        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+          <SheetContent side="right" className="w-80 sm:w-96 p-0 flex flex-col">
+            <SheetHeader className="px-6 py-4 border-b">
+              <SheetTitle className="flex items-center gap-2">
+                <IconBook className="h-5 w-5" />
+                Danh mục
+              </SheetTitle>
+            </SheetHeader>
+            <div className="flex-1 overflow-hidden flex flex-col p-4 gap-3">
+              <DocumentationSearchBar
+                articles={articles}
+                onSelect={handleSelect}
+              />
+              <div className="overflow-y-auto scrollbar-hidden flex-1">
+                <DocumentationSidebar
+                  tree={tree}
+                  selectedKey={selectedKey}
+                  isTechnician={isTechnician}
+                  onSelect={handleSelect}
+                  onAddArticle={handleOpenAddModal}
+                />
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
 
       </div>
 

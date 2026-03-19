@@ -55,7 +55,7 @@ export function PgReportsForecasts() {
     if (typeFilter   !== "all" && r.type   !== typeFilter)   return false
     if (statusFilter !== "all" && r.status !== statusFilter) return false
     if (searchQuery.trim()) {
-      if (!r.title.toLowerCase().includes(searchQuery.toLowerCase())) return false
+      if (!r.name.toLowerCase().includes(searchQuery.toLowerCase())) return false
     }
     return true
   })

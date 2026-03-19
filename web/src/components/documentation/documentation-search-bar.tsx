@@ -1,5 +1,5 @@
 /**
- * HelpSearchBar — Tìm kiếm fulltext qua tiêu đề và nội dung articles.
+ * DocumentationSearchBar — Tìm kiếm fulltext qua tiêu đề và nội dung articles.
  * Trả về danh sách article khớp cho parent xử lý navigate.
  */
 import { useState, useCallback } from "react";
@@ -8,7 +8,7 @@ import type { HelpArticle } from "@/services/help.service";
 import { HighlightText } from "@/components/custom/highlight-text";
 import { cn } from "@/lib/utils";
 
-interface HelpSearchBarProps {
+interface DocumentationSearchBarProps {
   articles: HelpArticle[];
   onSelect: (sectionKey: string) => void;
   className?: string;
@@ -28,7 +28,7 @@ function searchArticles(articles: HelpArticle[], query: string): HelpArticle[] {
   );
 }
 
-export function HelpSearchBar({ articles, onSelect, className }: HelpSearchBarProps) {
+export function DocumentationSearchBar({ articles, onSelect, className }: DocumentationSearchBarProps) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
 

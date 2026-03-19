@@ -1,98 +1,236 @@
 /**
- * Trang Báo cáo
- * Tab "Báo cáo": list view (mặc định) + grid toggle
- * Tab "Lịch sử": audit log thao tác
- * Tab Dự báo đã chuyển sang Tổng quan (dashboard)
+ * Trang Smart Reports - Báo cáo phân tích hoàn chỉnh  
+ * Enhanced với template system và dual download (PDF + XLSX)
  */
 import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { SearchInput } from "@/components/custom/search-input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   IconFileText,
   IconHistory,
-  IconList,
-  IconLayoutGrid,
   IconPlus,
-  IconRefresh,
 } from "@tabler/icons-react";
 import { PageHeader } from "@/components/custom/page-header";
 import { useLoading } from "@/contexts/LoadingContext";
-import { UI_LABELS, REPORTS_TERM } from "@/lib/app-constants";
+import { useAuth } from "@/contexts/AuthContext";
+import { REPORTS_TERM } from "@/lib/app-constants";
 
-import { ReportRow }  from "@/components/reports/report-row";
-import { ReportCard } from "@/components/reports/report-card";
-import { HistoryTable }          from "@/components/reports/history-table";
+import { CreateReportDialog } from "@/components/reports/create-report-dialog";
+import { SmartReportsFilters } from "@/components/reports/smart-reports-filters";
+import { SmartReportsGrid } from "@/components/reports/smart-reports-grid";
+import { HistoryTable } from "@/components/reports/history-table";
+import { ReportDetailSheet } from "@/components/reports/report-detail-sheet";
 import {
-  MOCK_REPORTS,
-  MOCK_HISTORY,
-  type ReportData,
-} from "@/components/reports/reports-types";
+  getReports,
+  createReport,
+  deleteReport,
+  pollReportStatus,
+  getReportHistory,
+  type SmartReport,
+  type CreateReportRequest
+} from "@/services/reports.service";
+import { MOCK_HISTORY, type HistoryEntry } from "@/components/reports/reports-types";
+import _mockData from "@/components/reports/reports-mock-data.json";
+const MOCK_SMART_REPORTS = _mockData as unknown as SmartReport[];
 
-type ViewMode   = "list" | "grid";
-type ReportType = "all" | "daily" | "weekly" | "monthly" | "incident";
-type StatusFilter = "all" | "ready" | "processing" | "failed";
+type ViewMode = "list" | "grid";
+type ReportType = "all" | "daily" | "weekly" | "monthly" | "quarterly" | "incident" | "custom";
+type StatusFilter = "all" | "pending" | "generating" | "ready" | "failed";
 
-/** Trang Báo cáo giao thông */
-export default function ReportsForecastsPage() {
+/** Trang Smart Reports với enhanced features */
+export default function ReportsPage() {
   const { startLoading, stopLoading } = useLoading();
+  const { role } = useAuth();
+  const isTechnician = role === "technician";
 
-  // ── Tab state ────────────────────────────────────────
+  // States
   const [activeTab, setActiveTab] = useState("reports");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<ReportType>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [reports, setReports] = useState<SmartReport[]>([]);
+  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
+  const [loading, setLocalLoading] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<SmartReport | null>(null);
+  const [pollingCleanups, setPollingCleanups] = useState<Map<string, () => void>>(new Map());
+  const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
-  // ── Báo cáo state ────────────────────────────────────
-  const [viewMode,      setViewMode]      = useState<ViewMode>("list");
-  const [searchQuery,   setSearchQuery]   = useState("");
-  const [typeFilter,    setTypeFilter]    = useState<ReportType>("all");
-  const [statusFilter,  setStatusFilter]  = useState<StatusFilter>("all");
-  const [reports,       setReports]       = useState<ReportData[]>([]);
+  const startPollingReport = useCallback(async (reportId: string) => {
+    if (pollingCleanups.has(reportId)) return; // Already polling
 
-  // ── Fetch giả lập (sẽ thay bằng API) ─────────────────
+    const cleanup = await pollReportStatus(reportId, (updatedReport) => {
+      setReports(prev => prev.map(r => r.id === reportId ? updatedReport : r));
+
+      // Stop polling if completed
+      if (["ready", "failed"].includes(updatedReport.status)) {
+        cleanup();
+        setPollingCleanups(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(reportId);
+          return newMap;
+        });
+      }
+    });
+
+    setPollingCleanups(prev => new Map(prev).set(reportId, cleanup));
+  }, [pollingCleanups]);
+
+  // Fetch reports with filters
   const fetchReports = useCallback(async () => {
-    startLoading();
+    setLocalLoading(true);
     try {
-      await new Promise(r => setTimeout(r, 400));
-      setReports(MOCK_REPORTS);
+      const params: Record<string, unknown> = {
+        page: pagination.page,
+        limit: pagination.limit,
+        search: searchQuery || undefined,
+      };
+
+      if (typeFilter !== "all") params.type = typeFilter;
+      if (statusFilter !== "all") params.status = statusFilter;
+
+      const result = await getReports(params);
+      setReports(result.data);
+      setPagination(result.pagination);
+
+      // Start polling for generating reports  
+      result.data.forEach(report => {
+        if (report.status === "generating" || report.status === "pending") {
+          startPollingReport(report.id);
+        }
+      });
+
+    } catch (error) {
+      console.error("Failed to fetch reports:", error);
+      // Fallback to mock data khi API chưa sẵn sàng
+      setReports(MOCK_SMART_REPORTS);
+      setPagination({ page: 1, limit: 20, total: MOCK_SMART_REPORTS.length, totalPages: 1 });
+    } finally {
+      setLocalLoading(false);
+    }
+  }, [pagination.page, pagination.limit, searchQuery, typeFilter, statusFilter, startPollingReport]);
+
+  // Handle create report
+  const handleCreateReport = async (request: CreateReportRequest) => {
+    try {
+      startLoading();
+      const result = await createReport(request);
+      setCreateDialogOpen(false);
+      
+      // Refresh reports list
+      fetchReports();
+      
+      // Start polling for new report
+      startPollingReport(result.data.id);
+      
+      // TODO: Show success toast
+      console.log("Report creation started:", result.data.message);
+      
+    } catch (error) {
+      console.error("Failed to create report:", error);
+      // TODO: Show error toast
     } finally {
       stopLoading();
     }
-  }, [startLoading, stopLoading]);
+  };
 
-  useEffect(() => { fetchReports(); }, [fetchReports]);
+  // Handle view detail
+  const handleViewDetail = (report: SmartReport) => {
+    setSelectedReport(report);
+    setDetailSheetOpen(true);
+  };
 
-  // ── Filter logic ──────────────────────────────────────
-  const filteredReports = reports.filter(r => {
-    if (typeFilter   !== "all" && r.type   !== typeFilter)   return false;
-    if (statusFilter !== "all" && r.status !== statusFilter) return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      if (!r.title.toLowerCase().includes(q)) return false;
+  // Handle delete report
+  const handleDeleteReport = async (report: SmartReport) => {
+    if (!confirm(`Bạn có chắc muốn xóa báo cáo "${report.title}"?`)) return;
+
+    try {
+      await deleteReport(report.id);
+      setReports(prev => prev.filter(r => r.id !== report.id));
+      
+      // Clean up polling
+      const cleanup = pollingCleanups.get(report.id);
+      if (cleanup) {
+        cleanup();
+        setPollingCleanups(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(report.id);
+          return newMap;
+        });
+      }
+      
+      // TODO: Show success toast
+      
+    } catch (error) {
+      console.error("Failed to delete report:", error);
+      // TODO: Show error toast
     }
+  };
+
+  // Fetch history data
+  const fetchHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    try {
+      const result = await getReportHistory({ limit: 50, offset: 0 });
+      setHistoryEntries(result.data);
+    } catch (error) {
+      console.error("Failed to fetch report history:", error);
+      // Fallback to mock data
+      setHistoryEntries(MOCK_HISTORY);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  // Effect: Fetch initial data
+  useEffect(() => {
+    fetchReports();
+  }, [fetchReports]);
+
+  // Effect: Reset page when filters change
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, page: 1 }));
+  }, [searchQuery, typeFilter, statusFilter]);
+
+  // Effect: Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      pollingCleanups.forEach(cleanup => cleanup());
+    };
+  }, [pollingCleanups]);
+
+  // Effect: Fetch history when history tab is active
+  useEffect(() => {
+    if (activeTab === "history") {
+      fetchHistory();
+    }
+  }, [activeTab, fetchHistory]);
+
+  // Filter reports for display
+  const filteredReports = reports.filter(report => {
+    if (typeFilter !== "all" && report.type !== typeFilter) return false;
+    if (statusFilter !== "all" && report.status !== statusFilter) return false;
+    if (searchQuery && !report.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
+      {/* Page Header */}
       <PageHeader
         icon={<IconFileText className="size-5" />}
         title={REPORTS_TERM.page_header.title}
-        description={REPORTS_TERM.page_header.description}
+        description="Báo cáo phân tích hoàn chỉnh với output PDF executive summary + XLSX structured data cho AI"
       >
-        <Button variant="outline" size="sm" onClick={fetchReports} className="gap-1.5">
-          <IconRefresh className="size-4" />
-          Làm mới
-        </Button>
-        <Button size="sm" className="gap-1.5">
-          <IconPlus className="size-4" />
-          Tạo báo cáo
-        </Button>
+        {isTechnician && (
+          <Button size="sm" className="gap-1.5" onClick={() => setCreateDialogOpen(true)}>
+            <IconPlus className="size-4" />
+            Tạo báo cáo
+          </Button>
+        )}
       </PageHeader>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col gap-4">
@@ -110,102 +248,62 @@ export default function ReportsForecastsPage() {
           </TabsTrigger>
         </TabsList>
 
-        {/* ══════════════ TAB BÁO CÁO ══════════════ */}
+        {/* ══════════════ TAB SMART REPORTS ══════════════ */}
         <TabsContent value="reports" className="mt-0 flex flex-col gap-3">
           {/* Filter bar */}
-          <div className="flex flex-wrap items-center gap-2">
-            <SearchInput
-              size="sm"
-              value={searchQuery}
-              onChange={setSearchQuery}
-              placeholder="Tìm kiếm báo cáo..."
-              className="flex-1 min-w-[200px] max-w-sm"
-            />
-            <Select value={typeFilter} onValueChange={v => setTypeFilter(v as ReportType)}>
-              <SelectTrigger className="h-8 w-[120px] text-xs">
-                <SelectValue placeholder="Loại" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả loại</SelectItem>
-                <SelectItem value="daily">Ngày</SelectItem>
-                <SelectItem value="weekly">Tuần</SelectItem>
-                <SelectItem value="monthly">Tháng</SelectItem>
-                <SelectItem value="incident">Sự cố</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={statusFilter} onValueChange={v => setStatusFilter(v as StatusFilter)}>
-              <SelectTrigger className="h-8 w-[130px] text-xs">
-                <SelectValue placeholder="Trạng thái" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả</SelectItem>
-                <SelectItem value="ready">Sẵn sàng</SelectItem>
-                <SelectItem value="processing">Đang xử lý</SelectItem>
-                <SelectItem value="failed">Lỗi</SelectItem>
-              </SelectContent>
-            </Select>
+          <SmartReportsFilters
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            typeFilter={typeFilter}
+            onTypeFilterChange={setTypeFilter}
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            onRefresh={fetchReports}
+            refreshLoading={loading}
+          />
 
-            {/* Spacer */}
-            <div className="flex-1" />
-
-            {/* View mode toggle */}
-            <div className="flex gap-0.5 border rounded-md p-0.5">
-              <Button
-                variant={viewMode === "list" ? "secondary" : "ghost"}
-                size="icon"
-                className="size-7"
-                onClick={() => setViewMode("list")}
-                title="Dạng danh sách"
-              >
-                <IconList className="size-4" />
-              </Button>
-              <Button
-                variant={viewMode === "grid" ? "secondary" : "ghost"}
-                size="icon"
-                className="size-7"
-                onClick={() => setViewMode("grid")}
-                title="Dạng lưới"
-              >
-                <IconLayoutGrid className="size-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Count */}
-          <p className="text-xs text-muted-foreground">
-            {filteredReports.length} báo cáo{searchQuery ? ` phù hợp với "${searchQuery}"` : ""}
-          </p>
-
-          {/* List view */}
-          {viewMode === "list" ? (
-            <div className="rounded-lg border bg-card overflow-hidden">
-              {filteredReports.length === 0 ? (
-                <div className="py-12 text-center text-sm text-muted-foreground">{UI_LABELS.NO_REPORT}</div>
-              ) : (
-                filteredReports.map(r => (
-                  <ReportRow key={r.id} report={r} query={searchQuery} />
-                ))
-              )}
-            </div>
-          ) : (
-            /* Grid view */
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredReports.length === 0 ? (
-                <div className="col-span-full py-12 text-center text-sm text-muted-foreground">{UI_LABELS.NO_REPORT}</div>
-              ) : (
-                filteredReports.map(r => (
-                  <ReportCard key={r.id} report={r} query={searchQuery} />
-                ))
-              )}
-            </div>
-          )}
+          {/* Reports display */}
+          <SmartReportsGrid
+            reports={filteredReports}
+            viewMode={viewMode}
+            searchQuery={searchQuery}
+            loading={loading}
+            canManage={isTechnician}
+            onDeleteReport={handleDeleteReport}
+            onViewDetail={handleViewDetail}
+          />
         </TabsContent>
 
         {/* ══════════════ TAB LỊCH SỬ ══════════════ */}
         <TabsContent value="history" className="mt-0">
-          <HistoryTable entries={MOCK_HISTORY} />
+          {historyLoading ? (
+            <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">
+              Đang tải lịch sử...
+            </div>
+          ) : (
+            <HistoryTable entries={historyEntries} />
+          )}
         </TabsContent>
       </Tabs>
+
+      {/* Create Report Dialog – chỉ technician mới có quyền tạo */}
+      {isTechnician && (
+        <CreateReportDialog
+          open={createDialogOpen}
+          onClose={() => setCreateDialogOpen(false)}
+          onSubmit={handleCreateReport}
+          loading={loading}
+        />
+      )}
+
+      {/* Report Detail Sheet */}
+      <ReportDetailSheet
+        report={selectedReport}
+        open={detailSheetOpen}
+        onOpenChange={setDetailSheetOpen}
+      />
     </div>
   );
 }

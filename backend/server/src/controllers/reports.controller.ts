@@ -9,6 +9,7 @@ import { Pool } from "pg";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { Readable } from "stream";
 import * as k8s from "@kubernetes/client-node";
+import archiver from "archiver";
 
 // ─── MinIO client (dùng cho streaming download) ───────────────────────────────
 function _getS3Client() {
@@ -51,22 +52,11 @@ const listReportsSchema = z.object({
  */
 export async function getReports(req: Request, res: Response) {
   try {
-    console.log("[reports] getReports - req exists:", !!req);
-    console.log("[reports] getReports - req.query:", req?.query);
-    
-    if (!req || !req.query) {
-      console.error("[reports] getReports - req or req.query is undefined");
-      return res.status(400).json({
-        success: false,
-        error: "Invalid request object"
-      });
-    }
-    
     const query = listReportsSchema.parse(req.query);
     const db = req.app.locals.db as Pool;
     
     // Build WHERE conditions
-    const conditions = ["1=1"];
+    const conditions = ["status != 'deleted'"];  // Exclude soft-deleted reports
     const params: any[] = [];
     let paramCount = 0;
     
@@ -206,6 +196,17 @@ export async function generateReport(req: Request, res: Response) {
     
     const reportId = insertResult.rows[0].id;
     
+    // Log activity
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] as string || req.socket.remoteAddress;
+    await logActivity(
+      db,
+      'CREATE_REPORT',
+      reportId,
+      userId || null,
+      { title: reportData.title, type: reportData.type, period_from: reportData.period_from, period_to: reportData.period_to },
+      ipAddress
+    );
+    
     // Trigger report generation async (k8s Job)
     _triggerReportGeneration(reportId, reportData, db);
     
@@ -256,10 +257,24 @@ export async function deleteReport(req: Request, res: Response) {
       });
     }
     
+    const report = checkResult.rows[0];
+    
     // Soft delete (update status instead of actual deletion)
     await db.query(
       "UPDATE reports SET status = 'deleted', error_message = 'Đã xóa bởi người dùng' WHERE id = $1",
       [id]
+    );
+    
+    // Log activity
+    const userId = (req as any).user?.id;
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] as string || req.socket.remoteAddress;
+    await logActivity(
+      db,
+      'DELETE_REPORT',
+      id,
+      userId || null,
+      { title: 'Báo cáo đã xóa', action: 'soft_delete' },
+      ipAddress
     );
     
     // TODO: Optionally delete files from MinIO
@@ -329,6 +344,18 @@ export async function downloadReportFile(req: Request, res: Response) {
       ? "application/pdf"
       : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
+    // Log download activity BEFORE streaming
+    const userId = (req as any).user?.id;
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] as string || req.socket.remoteAddress;
+    await logActivity(
+      db,
+      `DOWNLOAD_${format.toUpperCase()}`,
+      id,
+      userId || null,
+      { title: report.title, format: format },
+      ipAddress
+    );
+
     try {
       await _streamFileFromMinio(filePath, fileName, contentType, res);
     } catch (streamError) {
@@ -344,6 +371,106 @@ export async function downloadReportFile(req: Request, res: Response) {
       success: false,
       error: "Lỗi khi tải báo cáo"
     });
+  }
+}
+
+/**
+ * GET /api/reports/:id/download/zip - Download cả PDF và XLSX trong file ZIP
+ */
+export async function downloadReportZip(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const db = req.app.locals.db as Pool;
+    
+    const result = await db.query(
+      "SELECT title, files_json, status FROM reports WHERE id = $1",
+      [id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "Không tìm thấy báo cáo"
+      });
+    }
+    
+    const report = result.rows[0];
+    
+    if (report.status !== "ready") {
+      return res.status(400).json({
+        success: false,
+        error: "Báo cáo chưa sẵn sàng để tải"
+      });
+    }
+    
+    if (!report.files_json?.pdf?.path && !report.files_json?.xlsx?.path) {
+      return res.status(404).json({
+        success: false,
+        error: "Không có file nào để tải"
+      });
+    }
+    
+    const fileNameBase = report.title.replace(/[^a-zA-Z0-9]/g, "_");
+    const s3 = _getS3Client();
+    const bucket = process.env.MINIO_BUCKET || "reports";
+    
+    // Setup ZIP stream
+    const archive = archiver("zip", { zlib: { level: 6 } });
+    const zipFileName = `${fileNameBase}.zip`;
+    
+    // Log download activity BEFORE streaming
+    const userId = (req as any).user?.id;
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] as string || req.socket.remoteAddress;
+    await logActivity(
+      db,
+      'DOWNLOAD_ZIP',
+      id,
+      userId || null,
+      { title: report.title, format: 'zip' },
+      ipAddress
+    );
+    
+    res.setHeader("Content-Disposition", `attachment; filename="${zipFileName}"`);
+    res.setHeader("Content-Type", "application/zip");
+    
+    archive.pipe(res);
+    
+    // Add PDF to ZIP
+    if (report.files_json.pdf?.path) {
+      try {
+        const command = new GetObjectCommand({ Bucket: bucket, Key: report.files_json.pdf.path });
+        const response = await s3.send(command);
+        if (response.Body) {
+          archive.append(response.Body as Readable, { name: `${fileNameBase}.pdf` });
+        }
+      } catch (err) {
+        console.error("[reports] Failed to fetch PDF:", err);
+      }
+    }
+    
+    // Add XLSX to ZIP
+    if (report.files_json.xlsx?.path) {
+      try {
+        const command = new GetObjectCommand({ Bucket: bucket, Key: report.files_json.xlsx.path });
+        const response = await s3.send(command);
+        if (response.Body) {
+          archive.append(response.Body as Readable, { name: `${fileNameBase}.xlsx` });
+        }
+      } catch (err) {
+        console.error("[reports] Failed to fetch XLSX:", err);
+      }
+    }
+    
+    await archive.finalize();
+    
+  } catch (error) {
+    console.error("[reports] downloadReportZip failed:", error);
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        error: "Lỗi khi tạo file ZIP"
+      });
+    }
   }
 }
 
@@ -449,4 +576,97 @@ async function _streamFileFromMinio(
   }
 
   (response.Body as Readable).pipe(res);
+}
+
+// ─── Activity Logging Helper ──────────────────────────────────────────────────
+/**
+ * Ghi log hoạt động report vào activity_logs table
+ */
+async function logActivity(
+  pool: Pool,
+  action: string,
+  resourceId: string,
+  accountId: string | null,
+  details: Record<string, unknown>,
+  ipAddress?: string
+) {
+  try {
+    await pool.query(
+      `INSERT INTO activity_logs (account_id, action, resource, resource_id, details, ip_address)
+       VALUES ($1, $2, 'reports', $3, $4, $5)`,
+      [accountId, action, resourceId, JSON.stringify(details), ipAddress || null]
+    );
+  } catch (err) {
+    console.error("[logActivity] Failed to log activity:", err);
+    // Non-critical: không throw error để không ảnh hưởng main flow
+  }
+}
+
+/**
+ * Lấy lịch sử hoạt động liên quan đến reports
+ * GET /api/reports/history
+ */
+export async function getReportHistory(req: Request, res: Response) {
+  const db = req.app.locals.db as Pool;
+
+  try {
+    const { limit = "50", offset = "0", action } = req.query;
+    const limitNum = Math.min(parseInt(limit as string) || 50, 100);
+    const offsetNum = parseInt(offset as string) || 0;
+
+    let query = `
+      SELECT 
+        al.id,
+        al.created_at as timestamp,
+        COALESCE(ta.full_name, 'Hệ thống') as user,
+        al.action,
+        COALESCE(al.details->>'title', r.title, 'N/A') as target,
+        COALESCE(al.details->>'message', '') as details,
+        CASE 
+          WHEN al.action LIKE '%DELETE%' THEN 'warning'
+          WHEN al.action LIKE '%ERROR%' OR al.action LIKE '%FAIL%' THEN 'error'
+          ELSE 'success'
+        END as status,
+        al.ip_address as ip
+      FROM activity_logs al
+      LEFT JOIN technician_accounts ta ON al.account_id = ta.id
+      LEFT JOIN reports r ON al.resource_id = r.id::text
+      WHERE al.resource = 'reports'
+    `;
+
+    const params: unknown[] = [limitNum, offsetNum];
+
+    if (action) {
+      query += ` AND al.action = $3`;
+      params.push(action);
+    }
+
+    query += ` ORDER BY al.created_at DESC LIMIT $1 OFFSET $2`;
+
+    const result = await db.query(query, params);
+
+    // Count total
+    const countQuery = action
+      ? `SELECT COUNT(*) FROM activity_logs WHERE resource = 'reports' AND action = $1`
+      : `SELECT COUNT(*) FROM activity_logs WHERE resource = 'reports'`;
+    const countParams = action ? [action] : [];
+    const countResult = await db.query(countQuery, countParams);
+    const total = parseInt(countResult.rows[0].count);
+
+    res.json({
+      success: true,
+      data: result.rows,
+      pagination: {
+        limit: limitNum,
+        offset: offsetNum,
+        total,
+      },
+    });
+  } catch (error) {
+    console.error("[getReportHistory] Error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch report history",
+    });
+  }
 }

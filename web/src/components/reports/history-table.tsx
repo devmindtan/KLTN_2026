@@ -17,10 +17,10 @@ import { MOCK_HISTORY } from "./reports-types";
 
 const PAGE_SIZE = 10;
 
-const ACTION_CONFIG = {
-  generate: { label: "Tạo mới",  icon: <IconPlus     className="size-3.5 text-blue-500" />,  badge: "text-blue-700 border-blue-200 bg-blue-50 dark:bg-blue-950/30" },
-  download: { label: "Tải về",   icon: <IconDownload  className="size-3.5 text-green-500" />, badge: "text-green-700 border-green-200 bg-green-50 dark:bg-green-950/30" },
-  delete:   { label: "Xóa",      icon: <IconTrash     className="size-3.5 text-red-500" />,   badge: "text-red-700 border-red-200 bg-red-50 dark:bg-red-950/30" },
+const ACTION_CONFIG: Record<string, { label: string; icon: React.ReactNode; badge: string }> = {
+  "Tạo báo cáo": { label: "Tạo mới",  icon: <IconPlus     className="size-3.5 text-blue-500" />,  badge: "text-blue-700 border-blue-200 bg-blue-50 dark:bg-blue-950/30" },
+  "Download": { label: "Tải về",   icon: <IconDownload  className="size-3.5 text-green-500" />, badge: "text-green-700 border-green-200 bg-green-50 dark:bg-green-950/30" },
+  "Xóa báo cáo":   { label: "Xóa",      icon: <IconTrash     className="size-3.5 text-red-500" />,   badge: "text-red-700 border-red-200 bg-red-50 dark:bg-red-950/30" },
 };
 
 function fmtDateTime(iso: string) {
@@ -54,7 +54,7 @@ export function HistoryTable({ entries = MOCK_HISTORY }: Props) {
               <tr><td colSpan={4} className="text-center py-8 text-muted-foreground text-sm">Chưa có lịch sử thao tác</td></tr>
             ) : (
               paged.map(entry => {
-                const cfg = ACTION_CONFIG[entry.action];
+                const cfg = ACTION_CONFIG[entry.action] || { label: "Khác", icon: <IconPlus className="size-3.5" />, badge: "text-gray-700 border-gray-200 bg-gray-50" };
                 return (
                   <tr key={entry.id} className="hover:bg-accent/30 transition-colors">
                     <td className="py-3 px-4">
@@ -64,13 +64,13 @@ export function HistoryTable({ entries = MOCK_HISTORY }: Props) {
                       </Badge>
                     </td>
                     <td className="py-3 px-4">
-                      <span className="max-w-[280px] truncate block">{entry.reportTitle}</span>
+                      <span className="max-w-[280px] truncate block">{entry.target}</span>
                     </td>
                     <td className="py-3 px-4 whitespace-nowrap text-muted-foreground text-xs">
-                      {fmtDateTime(entry.performedAt)}
+                      {fmtDateTime(entry.timestamp)}
                     </td>
                     <td className="py-3 px-4">
-                      <span className="text-xs font-medium">{entry.performedBy}</span>
+                      <span className="text-xs font-medium">{entry.user}</span>
                     </td>
                   </tr>
                 );

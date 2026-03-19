@@ -50,7 +50,7 @@ function buildNavMain(p: string) { return [
 
 function buildNavReports(p: string) { return [
   { name: PAGE_TITLES.DATA_LIBRARY, url: u(p, "data-library"),      icon: IconDatabase },
-  { name: PAGE_TITLES.REPORTS,      url: u(p, "reports-forecasts"), icon: IconReport },
+  { name: PAGE_TITLES.REPORTS,      url: u(p, "reports"), icon: IconReport },
   { name: "Hỗ trợ ra quyết định",  url: u(p, "assistant"),         icon: IconFileWord },
   { name: PAGE_TITLES.DOCS,         url: u(p, "documentation"),     icon: IconBook },
 ]}

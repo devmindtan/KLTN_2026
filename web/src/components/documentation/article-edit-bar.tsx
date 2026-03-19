@@ -32,7 +32,7 @@ export function ArticleEditBar({
   onAddChild,
 }: ArticleEditBarProps) {
   return (
-    <div className="flex items-center justify-between rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2 mb-4">
+    <div className="flex flex-row sm:items-center justify-between gap-2 rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2 mb-4">
       {/* Left: badges trạng thái */}
       <div className="flex items-center gap-2">
         <Badge
@@ -44,17 +44,19 @@ export function ArticleEditBar({
       </div>
 
       {/* Right: actions */}
-      <div className="flex items-center gap-1">
-        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5" onClick={onEdit}>
-          <PenLineIcon className="h-3.5 w-3.5" /> Chỉnh sửa
+      <div className="flex items-center gap-1 flex-wrap">
+        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5 whitespace-nowrap" onClick={onEdit}>
+          <PenLineIcon className="h-3.5 w-3.5 " /> 
+          <span className="hidden sm:inline">Chỉnh sửa</span>
         </Button>
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 text-xs gap-1.5 text-muted-foreground"
+          className="h-7 text-xs gap-1.5 text-muted-foreground whitespace-nowrap"
           onClick={onAddChild}
         >
-          <PlusIcon className="h-3.5 w-3.5" /> Thêm mục con
+          <PlusIcon className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Thêm mục con</span>
         </Button>
 
         <AlertDialog>
@@ -64,7 +66,8 @@ export function ArticleEditBar({
               size="sm"
               className="h-7 text-xs gap-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
             >
-              <Trash2Icon className="h-3.5 w-3.5" /> Xóa
+              <Trash2Icon className="h-3.5 w-3.5" /> 
+              <span className="hidden sm:inline">Xóa</span>
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>

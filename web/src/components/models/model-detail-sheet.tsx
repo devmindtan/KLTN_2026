@@ -347,7 +347,7 @@ export function ModelDetailSheet({
                         <SortTh col="model_version" label="Phiên bản" />
                         <SortTh col="mae"            label={METRIC_LABELS.MAE}  className="text-right" />
                         <SortTh col="r2"             label={METRIC_LABELS.R2}   className="text-right" />
-                        <SortTh col="training_samples" label={METRIC_LABELS.SAMPLES} className="text-right" />
+                        <SortTh col="training_samples" label="Mẫu" className="text-right" />
                         <SortTh col="created_at"    label="Ngày tạo" className="whitespace-nowrap" />
                         <TableHead className="text-xs">Trạng thái</TableHead>
                       </TableRow>

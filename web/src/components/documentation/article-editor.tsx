@@ -164,7 +164,7 @@ export function ArticleEditor({
     <div className="flex flex-col gap-4">
 
       {/* Toolbar */}
-      <div className="sticky top-12 z-10 bg-background flex items-center justify-between border-b border-border/50 pb-3 pt-1">
+      <div className="sticky top-12 z-10 bg-background flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/50 pb-3 pt-1">
         <div className="flex items-center gap-2">
           <PenLineIcon className="h-4 w-4 text-primary" />
           <span className="text-sm font-medium">Chỉnh sửa bài viết</span>
@@ -172,7 +172,7 @@ export function ArticleEditor({
             <span className="text-[10px] text-orange-500 font-medium">● Chưa lưu</span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {/* Pane toggle */}
           <div className="flex rounded-md border border-border overflow-hidden text-xs">
             {(["edit", "split", "preview"] as PreviewPane[]).map(p => (
@@ -180,7 +180,7 @@ export function ArticleEditor({
                 key={p}
                 onClick={() => setPane(p)}
                 className={cn(
-                  "px-2.5 py-1 transition-colors",
+                  "px-2.5 py-1 transition-colors whitespace-nowrap",
                   pane === p
                     ? "bg-primary text-primary-foreground"
                     : "hover:bg-accent text-muted-foreground"
@@ -190,10 +190,10 @@ export function ArticleEditor({
               </button>
             ))}
           </div>
-          <Button size="sm" variant="outline" onClick={handleCancel} disabled={isSaving}>
+          <Button size="sm" variant="outline" onClick={handleCancel} disabled={isSaving} className="whitespace-nowrap">
             Hủy
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={isSaving || !isDirty}>
+          <Button size="sm" onClick={handleSave} disabled={isSaving || !isDirty} className="whitespace-nowrap">
             <SaveIcon className="h-3.5 w-3.5 mr-1.5" />
             {isSaving ? "Đang lưu..." : "Lưu"}
           </Button>
@@ -254,7 +254,7 @@ export function ArticleEditor({
         </div>
         <div className={cn(
           "rounded-md border border-border overflow-hidden",
-          pane === "split" && "grid grid-cols-2"
+          pane === "split" && "grid grid-cols-1 md:grid-cols-2"
         )}>
           {pane !== "preview" && (
             <Textarea
@@ -267,7 +267,7 @@ export function ArticleEditor({
           {pane !== "edit" && (
             <div className={cn(
               "min-h-[220px] p-3 overflow-y-auto",
-              pane === "split" && "border-l border-border bg-muted/20"
+              pane === "split" && "border-t md:border-t-0 md:border-l border-border bg-muted/20"
             )}>
               {content
                 ? <ArticleMarkdown content={content} />
@@ -307,7 +307,7 @@ export function ArticleEditor({
         </div>
         <div className={cn(
           "rounded-md border border-border overflow-hidden",
-          pane === "split" && "grid grid-cols-2"
+          pane === "split" && "grid grid-cols-1 md:grid-cols-2"
         )}>
           {pane !== "preview" && (
             <Textarea
@@ -320,7 +320,7 @@ export function ArticleEditor({
           {pane !== "edit" && (
             <div className={cn(
               "min-h-[120px] p-3 overflow-y-auto",
-              pane === "split" && "border-l border-border bg-muted/20"
+              pane === "split" && "border-t md:border-t-0 md:border-l border-border bg-muted/20"
             )}>
               {techDetail
                 ? <ArticleMarkdown content={techDetail} />

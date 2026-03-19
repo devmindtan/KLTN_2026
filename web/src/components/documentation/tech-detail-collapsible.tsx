@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { ChevronDownIcon, ChevronRightIcon, CodeIcon } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArticleMarkdown } from "@/components/documentation/article-markdown";
+import { ArticleMarkdown } from "./article-markdown";
 
 interface TechDetailCollapsibleProps {
   content: string;

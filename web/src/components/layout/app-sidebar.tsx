@@ -1,12 +1,12 @@
-"use client"
-import * as React from "react"
-import { NavLink, useLocation } from "react-router-dom"
+"use client";
+import * as React from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   IconBook,
   IconChartBar,
   IconDashboard,
   IconDatabase,
-  IconFileWord,
+  // IconFileWord,
   IconFolder,
   IconHelp,
   IconListDetails,
@@ -15,8 +15,8 @@ import {
   IconSettings,
   IconUsers,
   IconFlask,
-} from "@tabler/icons-react"
-import { useAuth } from "@/contexts/AuthContext"
+} from "@tabler/icons-react";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   CustomSidebar,
   SidebarHeader,
@@ -27,45 +27,75 @@ import {
   SidebarGroupContent,
   SidebarMenuItem,
   useSidebar,
-} from "@/components/layout/custom-sidebar"
-import { NavUser } from "@/components/layout/nav-user"
+} from "@/components/layout/custom-sidebar";
+import { NavUser } from "@/components/layout/nav-user";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@/components/ui/tooltip"
+} from "@/components/ui/tooltip";
 import { motion } from "framer-motion";
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 import { PAGE_TITLES } from "@/lib/app-constants";
 
 // ─── Nav data factory — labels từ PAGE_TITLES trong app-constants ──────────
-const u = (p: string, page: string) => p ? `/${p}/${page}` : `/${page}`;
+const u = (p: string, page: string) => (p ? `/${p}/${page}` : `/${page}`);
 
-function buildNavMain(p: string) { return [
-  { title: PAGE_TITLES.DASHBOARD,  url: u(p, "dashboard"), icon: IconDashboard },
-  { title: PAGE_TITLES.MONITORING, url: u(p, "monitoring"), icon: IconListDetails },
-  { title: PAGE_TITLES.ANALYTICS,  url: u(p, "analytics"), icon: IconChartBar },
-  { title: PAGE_TITLES.MODELS,     url: u(p, "models"),    icon: IconFolder },
-]}
+function buildNavMain(p: string) {
+  return [
+    {
+      title: PAGE_TITLES.DASHBOARD,
+      url: u(p, "dashboard"),
+      icon: IconDashboard,
+    },
+    {
+      title: PAGE_TITLES.MONITORING,
+      url: u(p, "monitoring"),
+      icon: IconListDetails,
+    },
+    {
+      title: PAGE_TITLES.ANALYTICS,
+      url: u(p, "analytics"),
+      icon: IconChartBar,
+    },
+    { title: PAGE_TITLES.MODELS, url: u(p, "models"), icon: IconFolder },
+  ];
+}
 
-function buildNavReports(p: string) { return [
-  { name: PAGE_TITLES.DATA_LIBRARY, url: u(p, "data-library"),      icon: IconDatabase },
-  { name: PAGE_TITLES.REPORTS,      url: u(p, "reports"), icon: IconReport },
-  { name: "Hỗ trợ ra quyết định",  url: u(p, "assistant"),         icon: IconFileWord },
-  { name: PAGE_TITLES.DOCS,         url: u(p, "documentation"),     icon: IconBook },
-]}
-function buildNavSecondary(p: string) { return [
-  { title: PAGE_TITLES.SEARCH,   url: u(p, "search"),   icon: IconSearch },
-  { title: PAGE_TITLES.HELP,     url: u(p, "help"),     icon: IconHelp },
-  { title: PAGE_TITLES.TEAM,     url: u(p, "team"),     icon: IconUsers },
-  { title: PAGE_TITLES.SETTINGS, url: u(p, "settings"), icon: IconSettings },
-]}
+function buildNavReports(p: string) {
+  return [
+    {
+      name: PAGE_TITLES.DATA_LIBRARY,
+      url: u(p, "data-library"),
+      icon: IconDatabase,
+    },
+    { name: PAGE_TITLES.REPORTS, url: u(p, "reports"), icon: IconReport },
+    // { name: "Hỗ trợ ra quyết định",  url: u(p, "assistant"),         icon: IconFileWord },
+    { name: PAGE_TITLES.DOCS, url: u(p, "documentation"), icon: IconBook },
+  ];
+}
+function buildNavSecondary(p: string) {
+  return [
+    { title: PAGE_TITLES.SEARCH, url: u(p, "search"), icon: IconSearch },
+    { title: PAGE_TITLES.HELP, url: u(p, "help"), icon: IconHelp },
+    { title: PAGE_TITLES.TEAM, url: u(p, "team"), icon: IconUsers },
+    { title: PAGE_TITLES.SETTINGS, url: u(p, "settings"), icon: IconSettings },
+  ];
+}
 
 // ─── Document item (simple NavLink, no dropdown) ─────────────────────────────
-function DocItem({ name, url, icon: Icon }: { name: string; url: string; icon: React.ElementType }) {
-  const { pathname } = useLocation()
-  const { open } = useSidebar()
-  const isActive = pathname === url
+function DocItem({
+  name,
+  url,
+  icon: Icon,
+}: {
+  name: string;
+  url: string;
+  icon: React.ElementType;
+}) {
+  const { pathname } = useLocation();
+  const { open } = useSidebar();
+  const isActive = pathname === url;
 
   const link = (
     <NavLink
@@ -75,7 +105,7 @@ function DocItem({ name, url, icon: Icon }: { name: string; url: string; icon: R
         "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
         isActive && "bg-sidebar-accent text-sidebar-accent-foreground",
-        !open && "justify-center px-0"
+        !open && "justify-center px-0",
       )}
     >
       <span className="shrink-0 size-4 flex items-center justify-center">
@@ -83,18 +113,20 @@ function DocItem({ name, url, icon: Icon }: { name: string; url: string; icon: R
       </span>
       {open && <span className="flex-1 min-w-0 truncate">{name}</span>}
     </NavLink>
-  )
+  );
 
   if (!open) {
     return (
       <Tooltip>
         <TooltipTrigger asChild>{link}</TooltipTrigger>
-        <TooltipContent side="right" align="center">{name}</TooltipContent>
+        <TooltipContent side="right" align="center">
+          {name}
+        </TooltipContent>
       </Tooltip>
-    )
+    );
   }
 
-  return link
+  return link;
 }
 
 // Định nghĩa khung sườn cho hiệu ứng container – stagger mỗi item 0.05s
@@ -109,25 +141,44 @@ const containerVariants = {
 // Định nghĩa hiệu ứng cho từng item – trượt lên nhẹ + fade in
 const itemVariants = {
   hidden: { y: 6, opacity: 0 },
-  visible: { y: 0, opacity: 1, transition: { duration: 0.18, ease: "easeOut" as const } },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: { duration: 0.18, ease: "easeOut" as const },
+  },
 };
 
 // ─── Logo header ──────────────────────────────────────────────────────────────
 function LogoButton({ prefix }: { prefix: string }) {
-  const { open } = useSidebar()
+  const { open } = useSidebar();
   return (
     <NavLink
       to={prefix ? `/${prefix}/dashboard` : "/dashboard"}
       className={cn(
         "flex items-center gap-2 rounded-md px-0 py-0 text-xl font-bold",
         "hover:bg-sidebar-accent transition-colors",
-        !open && "justify-center px-0"
+        !open && "justify-center px-0",
       )}
     >
-      <img src="/logo_2.png" alt="logo" className="size-10 shrink-0 object-contain" />
-      {open && <span className="min-w-0 truncate tracking-widest" style={{ fontFamily: "'Orbitron', sans-serif", fontSize: "1rem", fontWeight: 900 }}>SMARTCITY</span>}
+      <img
+        src="/logo_2.png"
+        alt="logo"
+        className="size-10 shrink-0 object-contain"
+      />
+      {open && (
+        <span
+          className="min-w-0 truncate tracking-widest"
+          style={{
+            fontFamily: "'Orbitron', sans-serif",
+            fontSize: "1rem",
+            fontWeight: 900,
+          }}
+        >
+          SMARTCITY
+        </span>
+      )}
     </NavLink>
-  )
+  );
 }
 
 // ─── AppSidebar ───────────────────────────────────────────────────────────────
@@ -135,14 +186,12 @@ function LogoButton({ prefix }: { prefix: string }) {
  * Sidebar chính của ứng dụng – dùng custom sidebar, width px cố định
  */
 export function AppSidebar() {
-  const { pathname } = useLocation()
-  const { routePrefix } = useAuth()
-  const p = routePrefix
-  const { role } = useAuth()
+  const { pathname } = useLocation();
+  const { routePrefix } = useAuth();
+  const p = routePrefix;
+  const { role } = useAuth();
 
-  const mainItems = [
-    ...buildNavMain(p),
-  ]
+  const mainItems = [...buildNavMain(p)];
 
   return (
     <CustomSidebar>
@@ -170,7 +219,11 @@ export function AppSidebar() {
         <SidebarGroup className="mt-2" collapsible defaultOpen>
           <SidebarGroupLabel>Báo cáo</SidebarGroupLabel>
           <SidebarGroupContent>
-            <motion.div variants={containerVariants} initial="hidden" animate="visible">
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+            >
               {buildNavReports(p).map((item) => (
                 <motion.div key={item.url} variants={itemVariants}>
                   <DocItem name={item.name} url={item.url} icon={item.icon} />
@@ -218,5 +271,5 @@ export function AppSidebar() {
         <NavUser />
       </SidebarFooter>
     </CustomSidebar>
-  )
+  );
 }

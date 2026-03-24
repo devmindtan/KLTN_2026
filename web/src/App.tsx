@@ -1,39 +1,48 @@
-"use client"
+"use client";
 import React from "react";
-import {createBrowserRouter, RouterProvider, Outlet, Navigate, useParams} from "react-router-dom";
-import {CustomSidebarProvider, SidebarInset} from "@/components/layout/custom-sidebar";
-import {AppSidebar} from "@/components/layout/app-sidebar";
+import {
+  createBrowserRouter,
+  RouterProvider,
+  Outlet,
+  Navigate,
+  useParams,
+} from "react-router-dom";
+import {
+  CustomSidebarProvider,
+  SidebarInset,
+} from "@/components/layout/custom-sidebar";
+import { AppSidebar } from "@/components/layout/app-sidebar";
 
 // Lazy-load tất cả pages để code-split thành các chunk riêng
-const Dashboard     = React.lazy(() => import("@/pages/dashboard.tsx"));
-const Setting       = React.lazy(() => import("@/pages/setting.tsx"));
-const DataLibrary   = React.lazy(() => import("@/pages/data-library.tsx"));
-const Monitoring    = React.lazy(() => import("@/pages/monitoring.tsx"));
-const Analytics     = React.lazy(() => import("@/pages/analytics.tsx"));
-const Models        = React.lazy(() => import("@/pages/models.tsx"));
-const Team          = React.lazy(() => import("@/pages/team.tsx"));
-const Reports       = React.lazy(() => import("@/pages/reports"));
-const WordAssistant = React.lazy(() => import("@/pages/assistant"));
-const Help          = React.lazy(() => import("@/pages/help.tsx"));
+const Dashboard = React.lazy(() => import("@/pages/dashboard.tsx"));
+const Setting = React.lazy(() => import("@/pages/setting.tsx"));
+const DataLibrary = React.lazy(() => import("@/pages/data-library.tsx"));
+const Monitoring = React.lazy(() => import("@/pages/monitoring.tsx"));
+const Analytics = React.lazy(() => import("@/pages/analytics.tsx"));
+const Models = React.lazy(() => import("@/pages/models.tsx"));
+const Team = React.lazy(() => import("@/pages/team.tsx"));
+const Reports = React.lazy(() => import("@/pages/reports"));
+// const WordAssistant = React.lazy(() => import("@/pages/assistant"));
+const Help = React.lazy(() => import("@/pages/help.tsx"));
 const Documentation = React.lazy(() => import("@/pages/documentation.tsx"));
-const Search        = React.lazy(() => import("@/pages/search.tsx"));
-const Login         = React.lazy(() => import("@/pages/login.tsx"));
+const Search = React.lazy(() => import("@/pages/search.tsx"));
+const Login = React.lazy(() => import("@/pages/login.tsx"));
 
 // Chỉ load sandbox trong môi trường development — Vite tree-shake khỏi production bundle
 const SandboxPage = import.meta.env.DEV
   ? React.lazy(() => import("@/pages/sandbox.tsx"))
   : null;
 
-import {SiteHeader} from "@/components/layout/site-header";
-import {SocketProvider} from "@/contexts/SocketContext";
-import {ThemeProvider} from "@/contexts/ThemeContext";
-import {AuthProvider, useAuth} from "@/contexts/AuthContext";
-import {ScrollToTop} from "@/components/custom/scroll-to-top";
-import {Toaster} from "@/components/ui/sonner";
-import {LoadingProvider} from "@/contexts/LoadingContext";
-import {TopProgressBar} from "@/components/custom/top-progress-bar";
-import {PageLoadingOverlay} from "@/components/custom/page-loading-overlay";
-import {useLocation} from "react-router-dom";
+import { SiteHeader } from "@/components/layout/site-header";
+import { SocketProvider } from "@/contexts/SocketContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { ScrollToTop } from "@/components/custom/scroll-to-top";
+import { Toaster } from "@/components/ui/sonner";
+import { LoadingProvider } from "@/contexts/LoadingContext";
+import { TopProgressBar } from "@/components/custom/top-progress-bar";
+import { PageLoadingOverlay } from "@/components/custom/page-loading-overlay";
+import { useLocation } from "react-router-dom";
 
 /**
  * Reset scroll của #main-scroll-container về đầu trang mỗi khi chuyển route.
@@ -116,17 +125,17 @@ const RootLayout = () => (
       <LoadingProvider>
         <SocketProvider>
           <CustomSidebarProvider>
-            <AppSidebar/>
+            <AppSidebar />
             <SidebarInset>
               <RouteScrollReset />
-              <SiteHeader/>
+              <SiteHeader />
               {/* relative để PageLoadingOverlay dùng absolute inset-0 */}
               <main className="relative flex flex-1 flex-col">
                 {/* Overlay che trang khi API chậm >300ms */}
                 <PageLoadingOverlay />
                 <AuthGate>
                   <React.Suspense fallback={null}>
-                    <Outlet/>
+                    <Outlet />
                   </React.Suspense>
                 </AuthGate>
               </main>
@@ -158,7 +167,7 @@ const router = createBrowserRouter([
   {
     // RootLayout bao toàn bộ app (viewer + technician)
     path: "/",
-    element: <RootLayout/>,
+    element: <RootLayout />,
     children: [
       // ── Viewer routes (bare path — không có prefix) ─────────────────────
       // Literal paths ("dashboard", "monitoring" …) luôn có độ ưu tiên cao hơn
@@ -166,24 +175,82 @@ const router = createBrowserRouter([
       {
         element: <ViewerGuardedLayout />,
         children: [
-          {index: true, element: <Navigate to="dashboard" replace />},
+          { index: true, element: <Navigate to="dashboard" replace /> },
           // loader dùng setTimeout(0) thay vì Promise.resolve() để tạo macrotask,
           // cho React kịp re-render với navigation.state==="loading" trước khi loader resolve,
           // giúp TopProgressBar hiển thị đúng khi chuyển route.
-          {path: "dashboard",        element: <Dashboard/>,     loader: () => new Promise(r => setTimeout(r, 0))},
-          {path: "monitoring",       element: <Monitoring/>,    loader: () => new Promise(r => setTimeout(r, 0))},
-          {path: "analytics",        element: <Analytics/>,     loader: () => new Promise(r => setTimeout(r, 0))},
-          {path: "models",           element: <Models/>,        loader: () => new Promise(r => setTimeout(r, 0))},
-          {path: "team",             element: <Team/>,          loader: () => new Promise(r => setTimeout(r, 0))},
-          {path: "data-library",     element: <DataLibrary/>,   loader: () => new Promise(r => setTimeout(r, 0))},
-          {path: "reports",          element: <Reports/>,       loader: () => new Promise(r => setTimeout(r, 0))},
-          {path: "assistant",        element: <WordAssistant/>, loader: () => new Promise(r => setTimeout(r, 0))},
-          {path: "settings",         element: <Setting/>,       loader: () => new Promise(r => setTimeout(r, 0))},
-          {path: "help",             element: <Help/>,          loader: () => new Promise(r => setTimeout(r, 0))},
-          {path: "documentation",    element: <Documentation/>, loader: () => new Promise(r => setTimeout(r, 0))},
-          {path: "search",           element: <Search/>,        loader: () => new Promise(r => setTimeout(r, 0))},
+          {
+            path: "dashboard",
+            element: <Dashboard />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
+          {
+            path: "monitoring",
+            element: <Monitoring />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
+          {
+            path: "analytics",
+            element: <Analytics />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
+          {
+            path: "models",
+            element: <Models />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
+          {
+            path: "team",
+            element: <Team />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
+          {
+            path: "data-library",
+            element: <DataLibrary />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
+          {
+            path: "reports",
+            element: <Reports />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
+          // {
+          //   path: "assistant",
+          //   element: <WordAssistant />,
+          //   loader: () => new Promise((r) => setTimeout(r, 0)),
+          // },
+          {
+            path: "settings",
+            element: <Setting />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
+          {
+            path: "help",
+            element: <Help />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
+          {
+            path: "documentation",
+            element: <Documentation />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
+          {
+            path: "search",
+            element: <Search />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
           ...(import.meta.env.DEV && SandboxPage
-            ? [{ path: "sandbox", element: <React.Suspense fallback={null}><SandboxPage /></React.Suspense>, loader: () => new Promise(r => setTimeout(r, 0)) }]
+            ? [
+                {
+                  path: "sandbox",
+                  element: (
+                    <React.Suspense fallback={null}>
+                      <SandboxPage />
+                    </React.Suspense>
+                  ),
+                  loader: () => new Promise((r) => setTimeout(r, 0)),
+                },
+              ]
             : []),
         ],
       },
@@ -192,21 +259,75 @@ const router = createBrowserRouter([
         path: ":prefix",
         element: <PrefixGuardedLayout />,
         children: [
-          {index: true, element: <Navigate to="dashboard" replace />},
-          {path: "dashboard",        element: <Dashboard/>,     loader: () => new Promise(r => setTimeout(r, 0))},
-          {path: "monitoring",       element: <Monitoring/>,    loader: () => new Promise(r => setTimeout(r, 0))},
-          {path: "analytics",        element: <Analytics/>,     loader: () => new Promise(r => setTimeout(r, 0))},
-          {path: "models",           element: <Models/>,        loader: () => new Promise(r => setTimeout(r, 0))},
-          {path: "team",             element: <Team/>,          loader: () => new Promise(r => setTimeout(r, 0))},
-          {path: "data-library",     element: <DataLibrary/>,   loader: () => new Promise(r => setTimeout(r, 0))},
-          {path: "reports",          element: <Reports/>,       loader: () => new Promise(r => setTimeout(r, 0))},
-          {path: "assistant",        element: <WordAssistant/>, loader: () => new Promise(r => setTimeout(r, 0))},
-          {path: "settings",         element: <Setting/>,       loader: () => new Promise(r => setTimeout(r, 0))},
-          {path: "help",             element: <Help/>,          loader: () => new Promise(r => setTimeout(r, 0))},
-          {path: "documentation",    element: <Documentation/>, loader: () => new Promise(r => setTimeout(r, 0))},
-          {path: "search",           element: <Search/>,        loader: () => new Promise(r => setTimeout(r, 0))},
+          { index: true, element: <Navigate to="dashboard" replace /> },
+          {
+            path: "dashboard",
+            element: <Dashboard />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
+          {
+            path: "monitoring",
+            element: <Monitoring />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
+          {
+            path: "analytics",
+            element: <Analytics />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
+          {
+            path: "models",
+            element: <Models />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
+          {
+            path: "team",
+            element: <Team />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
+          {
+            path: "data-library",
+            element: <DataLibrary />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
+          {
+            path: "reports",
+            element: <Reports />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
+          // {path: "assistant",        element: <WordAssistant/>, loader: () => new Promise(r => setTimeout(r, 0))},
+          {
+            path: "settings",
+            element: <Setting />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
+          {
+            path: "help",
+            element: <Help />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
+          {
+            path: "documentation",
+            element: <Documentation />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
+          {
+            path: "search",
+            element: <Search />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
           ...(import.meta.env.DEV && SandboxPage
-            ? [{ path: "sandbox", element: <React.Suspense fallback={null}><SandboxPage /></React.Suspense>, loader: () => new Promise(r => setTimeout(r, 0)) }]
+            ? [
+                {
+                  path: "sandbox",
+                  element: (
+                    <React.Suspense fallback={null}>
+                      <SandboxPage />
+                    </React.Suspense>
+                  ),
+                  loader: () => new Promise((r) => setTimeout(r, 0)),
+                },
+              ]
             : []),
         ],
       },
@@ -215,5 +336,5 @@ const router = createBrowserRouter([
 ]);
 
 export default function App() {
-  return <RouterProvider router={router}/>;
+  return <RouterProvider router={router} />;
 }

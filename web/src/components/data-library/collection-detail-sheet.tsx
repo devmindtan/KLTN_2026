@@ -34,62 +34,88 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { IconDownload, IconFile, IconLoader2, IconPencil, IconTrash, IconX } from "@tabler/icons-react";
+import {
+  IconDownload,
+  IconFile,
+  IconLoader2,
+  IconPencil,
+  IconTrash,
+  IconX,
+} from "@tabler/icons-react";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { CollectionDetail, DataLibraryCollection } from "@/services/data-library.service";
-import { downloadEntryFile, deleteEntry } from "@/services/data-library.service";
+import type {
+  CollectionDetail,
+  DataLibraryCollection,
+} from "@/services/data-library.service";
+import {
+  downloadEntryFile,
+  deleteEntry,
+} from "@/services/data-library.service";
 import { toast } from "sonner";
 
 // ---- Helpers ----
 
 const DATA_TYPE_LABELS: Record<string, string> = {
   detections_forecasts: "Phát hiện & Dự báo",
-  detections:           "Phát hiện",
-  forecasts:            "Dự báo",
-  custom:               "Tùy chỉnh",
+  detections: "Phát hiện",
+  forecasts: "Dự báo",
+  custom: "Tùy chỉnh",
 };
 
 const FILE_KEY_LABELS: Record<string, string> = {
-  detections_csv:  "Phát hiện (CSV)",
+  detections_csv: "Phát hiện (CSV)",
   detections_json: "Phát hiện (JSON)",
-  forecasts_csv:   "Dự báo (CSV)",
-  forecasts_json:  "Dự báo (JSON)",
-  summary:         "Tổng hợp (JSON)",
-  csv:             "File CSV",
-  json:            "File JSON",
+  forecasts_csv: "Dự báo (CSV)",
+  forecasts_json: "Dự báo (JSON)",
+  summary: "Tổng hợp (JSON)",
+  csv: "File CSV",
+  json: "File JSON",
 };
 
 function formatBytes(bytes: number): string {
-  if (bytes < 1024)             return `${bytes} B`;
-  if (bytes < 1024 * 1024)      return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return d.toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 }
 
 // ---- Sub-component: 1 hàng file ----
 
 interface SnapshotFileRowProps {
-  fileKey:   string;
-  minioKey:  string;
+  fileKey: string;
+  minioKey: string;
   fileSize?: number;
-  entryId:   string;
-  dateStr:   string;
-  title:     string;
+  entryId: string;
+  dateStr: string;
+  title: string;
 }
 
-function SnapshotFileRow({ fileKey, minioKey, fileSize, entryId, dateStr, title }: SnapshotFileRowProps) {
+function SnapshotFileRow({
+  fileKey,
+  minioKey,
+  fileSize,
+  entryId,
+  dateStr,
+  title,
+}: SnapshotFileRowProps) {
   const [loading, setLoading] = useState(false);
   // Tên file giữ nguyên theo tên gốc trên MinIO (bỏ .gz)
-  const filename = minioKey.split("/").pop()?.replace(/\.gz$/, "") ?? `${title}_${dateStr}_${fileKey}`;
-  const label    = FILE_KEY_LABELS[fileKey] ?? fileKey;
+  const filename =
+    minioKey.split("/").pop()?.replace(/\.gz$/, "") ??
+    `${title}_${dateStr}_${fileKey}`;
+  const label = FILE_KEY_LABELS[fileKey] ?? fileKey;
 
   const handleDownload = async () => {
     setLoading(true);
@@ -108,7 +134,9 @@ function SnapshotFileRow({ fileKey, minioKey, fileSize, entryId, dateStr, title 
         <IconFile className="size-4 text-muted-foreground shrink-0" />
         <span className="truncate">{label}</span>
         {fileSize && (
-          <span className="text-xs text-muted-foreground shrink-0">({formatBytes(fileSize)})</span>
+          <span className="text-xs text-muted-foreground shrink-0">
+            ({formatBytes(fileSize)})
+          </span>
         )}
       </div>
       <Button
@@ -141,8 +169,8 @@ function getDefaultRange(): { start: string; end: string } {
 
 interface CollectionDetailSheetProps {
   collection: CollectionDetail | null;
-  open:       boolean;
-  onClose:    () => void;
+  open: boolean;
+  onClose: () => void;
   isTechnician: boolean;
   onEntryDeleted?: (entryId: string) => void;
   onImportClick?: () => void;
@@ -159,10 +187,10 @@ export function CollectionDetailSheet({
   onEditClick,
 }: CollectionDetailSheetProps) {
   const DEFAULT_RANGE = getDefaultRange();
-  const [startDate,       setStartDate]       = useState(DEFAULT_RANGE.start);
-  const [endDate,         setEndDate]         = useState(DEFAULT_RANGE.end);
-  const [loadingBulk,     setLoadingBulk]     = useState<string | null>(null);
-  const [deletingId,      setDeletingId]      = useState<string | null>(null);
+  const [startDate, setStartDate] = useState(DEFAULT_RANGE.start);
+  const [endDate, setEndDate] = useState(DEFAULT_RANGE.end);
+  const [loadingBulk, setLoadingBulk] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   if (!collection) return null;
@@ -173,11 +201,12 @@ export function CollectionDetailSheet({
   const filteredEntries = collection.entries.filter((e) => {
     const d = e.snapshot_date.split("T")[0];
     if (startDate && d < startDate) return false;
-    if (endDate   && d > endDate)   return false;
+    if (endDate && d > endDate) return false;
     return true;
   });
 
-  const isFiltered = startDate !== DEFAULT_RANGE.start || endDate !== DEFAULT_RANGE.end;
+  const isFiltered =
+    startDate !== DEFAULT_RANGE.start || endDate !== DEFAULT_RANGE.end;
 
   const resetRange = () => {
     setStartDate(DEFAULT_RANGE.start);
@@ -187,7 +216,11 @@ export function CollectionDetailSheet({
   const handleBulkDownload = async (entryId: string, dateStr: string) => {
     setLoadingBulk(entryId);
     try {
-      await downloadEntryFile(entryId, "all", `${collection.data_type}_${dateStr}.zip`);
+      await downloadEntryFile(
+        entryId,
+        "all",
+        `${collection.data_type}_${dateStr}.zip`,
+      );
     } catch {
       toast.error("Tải zip thất bại");
     } finally {
@@ -210,7 +243,10 @@ export function CollectionDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent aria-describedby={undefined} className="w-full sm:max-w-lg flex flex-col gap-0 p-0">
+      <SheetContent
+        aria-describedby={undefined}
+        className="w-full sm:max-w-lg flex flex-col gap-0 p-0"
+      >
         {/* Header */}
         <SheetHeader className="px-6 pt-6 pb-4 border-b">
           <SheetDescription className="sr-only">
@@ -218,7 +254,9 @@ export function CollectionDetailSheet({
           </SheetDescription>
           <div className="min-w-0">
             <div className="flex items-center gap-1 min-w-0">
-              <SheetTitle className="leading-tight truncate max-w-[18rem]">{collection.title}</SheetTitle>
+              <SheetTitle className="leading-tight truncate max-w-[18rem]">
+                {collection.title}
+              </SheetTitle>
               {isTechnician && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -236,10 +274,17 @@ export function CollectionDetailSheet({
               )}
             </div>
             <div className="text-sm text-muted-foreground mt-1">
-              <Badge variant={collection.source === "internal" ? "default" : "secondary"} className="mr-2">
+              <Badge
+                variant={
+                  collection.source === "internal" ? "default" : "secondary"
+                }
+                className="mr-2"
+              >
                 {collection.source === "internal" ? "Nội bộ" : "Bên ngoài"}
               </Badge>
-              <span className="text-xs">{DATA_TYPE_LABELS[collection.data_type] ?? collection.data_type}</span>
+              <span className="text-xs">
+                {DATA_TYPE_LABELS[collection.data_type] ?? collection.data_type}
+              </span>
             </div>
           </div>
         </SheetHeader>
@@ -286,7 +331,7 @@ export function CollectionDetailSheet({
           </div>
           <p className="px-1 mt-1.5 text-xs text-muted-foreground">
             {filteredEntries.length} / {collection.entries.length} snapshot
-            {isFiltered && " (không có)"}
+            {isFiltered && " "}
           </p>
         </div>
 
@@ -294,15 +339,17 @@ export function CollectionDetailSheet({
         <div className="flex-1 overflow-y-auto scrollbar px-6 py-4">
           {filteredEntries.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-10">
-              {isFiltered ? "Không có snapshot trong khoảng ngày này" : "Chưa có dữ liệu nào"}
+              {isFiltered
+                ? "Không có snapshot trong khoảng ngày này"
+                : "Chưa có dữ liệu nào"}
             </p>
           ) : (
             <Accordion type="single" collapsible className="space-y-1">
               {filteredEntries.map((entry) => {
-                const dateStr  = entry.snapshot_date.split("T")[0];
-                const keys     = Object.entries(entry.minio_keys ?? {});
+                const dateStr = entry.snapshot_date.split("T")[0];
+                const keys = Object.entries(entry.minio_keys ?? {});
                 const isBulkLoading = loadingBulk === entry.id;
-                const isDeleting    = deletingId === entry.id;
+                const isDeleting = deletingId === entry.id;
 
                 return (
                   <AccordionItem
@@ -314,55 +361,64 @@ export function CollectionDetailSheet({
                     <div className="flex items-center pr-3">
                       <AccordionTrigger className="flex-1 px-3 py-2.5 hover:no-underline">
                         <div className="flex items-center gap-3">
-                          <span className="text-sm font-medium">{formatDate(dateStr)}</span>
+                          <span className="text-sm font-medium">
+                            {formatDate(dateStr)}
+                          </span>
                           {entry.record_count != null && (
                             <span className="text-xs text-muted-foreground">
-                              {entry.record_count.toLocaleString("vi-VN")} records
+                              {entry.record_count.toLocaleString("vi-VN")}{" "}
+                              records
                             </span>
                           )}
                         </div>
                       </AccordionTrigger>
                       {/* Action buttons ở ngoài AccordionTrigger tránh button>button */}
                       <div className="flex items-center gap-1 shrink-0">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 px-2 text-xs"
-                                onClick={(e) => e.stopPropagation()}
-                                disabled={isBulkLoading}
-                              >
-                                {isBulkLoading ? (
-                                  <IconLoader2 className="size-3 animate-spin" />
-                                ) : (
-                                  <IconDownload className="size-3" />
-                                )}
-                                <span className="ml-1">Tải về</span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => handleBulkDownload(entry.id, dateStr)}
-                              >
-                                Tải tất cả (ZIP)
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                          {isTechnician && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                              onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(entry.id); }}
-                              disabled={isDeleting}
+                              className="h-7 px-2 text-xs"
+                              onClick={(e) => e.stopPropagation()}
+                              disabled={isBulkLoading}
                             >
-                              {isDeleting
-                                ? <IconLoader2 className="size-3 animate-spin" />
-                                : <IconTrash className="size-3" />
-                              }
+                              {isBulkLoading ? (
+                                <IconLoader2 className="size-3 animate-spin" />
+                              ) : (
+                                <IconDownload className="size-3" />
+                              )}
+                              <span className="ml-1">Tải về</span>
                             </Button>
-                          )}
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleBulkDownload(entry.id, dateStr)
+                              }
+                            >
+                              Tải tất cả (ZIP)
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        {isTechnician && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmDeleteId(entry.id);
+                            }}
+                            disabled={isDeleting}
+                          >
+                            {isDeleting ? (
+                              <IconLoader2 className="size-3 animate-spin" />
+                            ) : (
+                              <IconTrash className="size-3" />
+                            )}
+                          </Button>
+                        )}
                       </div>
                     </div>
                     <AccordionContent className="px-2 pb-2">
@@ -397,7 +453,8 @@ export function CollectionDetailSheet({
           <AlertDialogHeader>
             <AlertDialogTitle>Xác nhận xóa snapshot</AlertDialogTitle>
             <AlertDialogDescription>
-              Snapshot này và toàn bộ files trên storage sẽ bị xóa vĩnh viễn. Hành động không thể phục hồi.
+              Snapshot này và toàn bộ files trên storage sẽ bị xóa vĩnh viễn.
+              Hành động không thể phục hồi.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

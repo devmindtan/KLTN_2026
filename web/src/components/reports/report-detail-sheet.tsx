@@ -1,6 +1,7 @@
 /**
  * Report Detail Sheet - Chi tiết đầy đủ báo cáo trước khi tải
  */
+import { useState } from "react";
 import {
   Sheet,
   SheetContent,
@@ -25,9 +26,10 @@ import {
 } from "@tabler/icons-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import { toast } from "sonner";
 
 import type { SmartReport } from "@/services/reports.service";
-import { getDownloadUrl } from "@/services/reports.service";
+import { downloadReportBlob } from "@/services/reports.service";
 
 interface Props {
   report: SmartReport | null;
@@ -36,10 +38,34 @@ interface Props {
 }
 
 const STATUS_CONFIG = {
-  pending: { label: "Đang chờ", icon: IconClock, color: "text-yellow-600", bg: "bg-yellow-50 dark:bg-yellow-950/30", border: "border-yellow-200 dark:border-yellow-900" },
-  generating: { label: "Đang tạo", icon: IconTrendingUp, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/30", border: "border-blue-200 dark:border-blue-900" },
-  ready: { label: "Sẵn sàng", icon: IconCheck, color: "text-green-600", bg: "bg-green-50 dark:bg-green-950/30", border: "border-green-200 dark:border-green-900" },
-  failed: { label: "Lỗi", icon: IconAlertTriangle, color: "text-red-600", bg: "bg-red-50 dark:bg-red-950/30", border: "border-red-200 dark:border-red-900" },
+  pending: {
+    label: "Đang chờ",
+    icon: IconClock,
+    color: "text-yellow-600",
+    bg: "bg-yellow-50 dark:bg-yellow-950/30",
+    border: "border-yellow-200 dark:border-yellow-900",
+  },
+  generating: {
+    label: "Đang tạo",
+    icon: IconTrendingUp,
+    color: "text-blue-600",
+    bg: "bg-blue-50 dark:bg-blue-950/30",
+    border: "border-blue-200 dark:border-blue-900",
+  },
+  ready: {
+    label: "Sẵn sàng",
+    icon: IconCheck,
+    color: "text-green-600",
+    bg: "bg-green-50 dark:bg-green-950/30",
+    border: "border-green-200 dark:border-green-900",
+  },
+  failed: {
+    label: "Lỗi",
+    icon: IconAlertTriangle,
+    color: "text-red-600",
+    bg: "bg-red-50 dark:bg-red-950/30",
+    border: "border-red-200 dark:border-red-900",
+  },
 };
 
 const TYPE_LABELS = {
@@ -52,9 +78,14 @@ const TYPE_LABELS = {
 };
 
 export function ReportDetailSheet({ report, open, onOpenChange }: Props) {
+  const [downloading, setDownloading] = useState<"pdf" | "xlsx" | "zip" | null>(
+    null,
+  );
+
   if (!report) return null;
 
-  const statusConfig = STATUS_CONFIG[report.status as keyof typeof STATUS_CONFIG];
+  const statusConfig =
+    STATUS_CONFIG[report.status as keyof typeof STATUS_CONFIG];
   const StatusIcon = statusConfig.icon;
 
   const formatDateTime = (date: string) => {
@@ -65,16 +96,41 @@ export function ReportDetailSheet({ report, open, onOpenChange }: Props) {
     return format(new Date(date), "dd/MM/yyyy", { locale: vi });
   };
 
-  const handleDownload = (format: "pdf" | "xlsx") => {
-    if (report.status !== "ready" || !report.files_json?.[format]) return;
-    const url = getDownloadUrl(report.id, format);
-    window.open(url, "_blank");
+  const getFilename = (fmt: "pdf" | "xlsx" | "zip") => {
+    const title = report.title
+      .replace(/[^a-zA-Z0-9À-ỹ\s]/g, "")
+      .trim()
+      .replace(/\s+/g, "_");
+    return fmt === "zip" ? `${title}.zip` : `${title}.${fmt}`;
   };
 
-  const handleDownloadZip = () => {
-    if (report.status !== "ready") return;
-    const url = `${import.meta.env.VITE_BACKEND_URL}/api/reports/${report.id}/download/zip`;
-    window.open(url, "_blank");
+  const handleDownload = async (fmt: "pdf" | "xlsx") => {
+    if (report.status !== "ready" || !report.files_json?.[fmt] || downloading)
+      return;
+    setDownloading(fmt);
+    try {
+      await downloadReportBlob(report.id, fmt, getFilename(fmt));
+    } catch (err) {
+      toast.error("Tải file thất bại", {
+        description: err instanceof Error ? err.message : "Lỗi không xác định",
+      });
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  const handleDownloadZip = async () => {
+    if (report.status !== "ready" || downloading) return;
+    setDownloading("zip");
+    try {
+      await downloadReportBlob(report.id, "zip", getFilename("zip"));
+    } catch (err) {
+      toast.error("Tải file thất bại", {
+        description: err instanceof Error ? err.message : "Lỗi không xác định",
+      });
+    } finally {
+      setDownloading(null);
+    }
   };
 
   return (
@@ -179,7 +235,9 @@ export function ReportDetailSheet({ report, open, onOpenChange }: Props) {
                 <IconAlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
                 <div className="space-y-1">
                   <div className="font-medium">Lỗi khi tạo báo cáo</div>
-                  <div className="text-xs leading-relaxed">{report.error_message}</div>
+                  <div className="text-xs leading-relaxed">
+                    {report.error_message}
+                  </div>
                 </div>
               </div>
             </>
@@ -198,7 +256,9 @@ export function ReportDetailSheet({ report, open, onOpenChange }: Props) {
                       <IconUsers className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div className="space-y-0.5">
-                      <div className="text-xs text-muted-foreground">Tổng xe</div>
+                      <div className="text-xs text-muted-foreground">
+                        Tổng xe
+                      </div>
                       <div className="text-lg font-bold text-blue-600 dark:text-blue-400 tabular-nums">
                         {report.summary_json.overview.totalVehicles.toLocaleString()}
                       </div>
@@ -210,9 +270,14 @@ export function ReportDetailSheet({ report, open, onOpenChange }: Props) {
                       <IconCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
                     </div>
                     <div className="space-y-0.5">
-                      <div className="text-xs text-muted-foreground">Độ chính xác</div>
+                      <div className="text-xs text-muted-foreground">
+                        Độ chính xác
+                      </div>
                       <div className="text-lg font-bold text-green-600 dark:text-green-400 tabular-nums">
-                        {report.summary_json.performance.modelAccuracy.toFixed(1)}%
+                        {report.summary_json.performance.modelAccuracy.toFixed(
+                          1,
+                        )}
+                        %
                       </div>
                     </div>
                   </div>
@@ -222,7 +287,9 @@ export function ReportDetailSheet({ report, open, onOpenChange }: Props) {
                       <IconTrendingUp className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                     </div>
                     <div className="space-y-0.5">
-                      <div className="text-xs text-muted-foreground">Giờ cao điểm</div>
+                      <div className="text-xs text-muted-foreground">
+                        Giờ cao điểm
+                      </div>
                       <div className="text-lg font-bold text-orange-600 dark:text-orange-400 tabular-nums">
                         {report.summary_json.overview.peakHours.length}
                       </div>
@@ -234,7 +301,9 @@ export function ReportDetailSheet({ report, open, onOpenChange }: Props) {
                       <IconCamera className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                     </div>
                     <div className="space-y-0.5">
-                      <div className="text-xs text-muted-foreground">Camera</div>
+                      <div className="text-xs text-muted-foreground">
+                        Camera
+                      </div>
                       <div className="text-lg font-bold text-purple-600 dark:text-purple-400 tabular-nums">
                         {report.summary_json.camerasAnalysis.length}
                       </div>
@@ -269,14 +338,20 @@ export function ReportDetailSheet({ report, open, onOpenChange }: Props) {
                 {/* Insights */}
                 {report.summary_json.insights && (
                   <div className="space-y-2">
-                    <h4 className="text-xs font-medium text-muted-foreground">Những phát hiện chính</h4>
+                    <h4 className="text-xs font-medium text-muted-foreground">
+                      Những phát hiện chính
+                    </h4>
                     <ul className="space-y-1.5 text-xs text-muted-foreground">
-                      {report.summary_json.insights.trends.slice(0, 3).map((trend, idx) => (
-                        <li key={idx} className="flex items-start gap-2">
-                          <span className="text-blue-500 shrink-0 mt-0.5">•</span>
-                          <span className="leading-relaxed">{trend}</span>
-                        </li>
-                      ))}
+                      {report.summary_json.insights.trends
+                        .slice(0, 3)
+                        .map((trend, idx) => (
+                          <li key={idx} className="flex items-start gap-2">
+                            <span className="text-blue-500 shrink-0 mt-0.5">
+                              •
+                            </span>
+                            <span className="leading-relaxed">{trend}</span>
+                          </li>
+                        ))}
                     </ul>
                   </div>
                 )}
@@ -295,13 +370,17 @@ export function ReportDetailSheet({ report, open, onOpenChange }: Props) {
                     <Button
                       variant="outline"
                       className="justify-start gap-2 h-auto py-2.5"
+                      disabled={!!downloading}
                       onClick={() => handleDownload("pdf")}
                     >
                       <IconFileTypePdf className="h-5 w-5 text-red-500" />
                       <div className="flex-1 text-left">
-                        <div className="text-sm font-medium">Tải PDF</div>
+                        <div className="text-sm font-medium">
+                          {downloading === "pdf" ? "Đang tải..." : "Tải PDF"}
+                        </div>
                         <div className="text-xs text-muted-foreground">
-                          Báo cáo tổng hợp với biểu đồ ({report.files_json.pdf.sizeMB} MB)
+                          Báo cáo tổng hợp với biểu đồ (
+                          {report.files_json.pdf.sizeMB} MB)
                         </div>
                       </div>
                     </Button>
@@ -311,13 +390,17 @@ export function ReportDetailSheet({ report, open, onOpenChange }: Props) {
                     <Button
                       variant="outline"
                       className="justify-start gap-2 h-auto py-2.5"
+                      disabled={!!downloading}
                       onClick={() => handleDownload("xlsx")}
                     >
                       <IconFileTypeXls className="h-5 w-5 text-green-600" />
                       <div className="flex-1 text-left">
-                        <div className="text-sm font-medium">Tải Excel</div>
+                        <div className="text-sm font-medium">
+                          {downloading === "xlsx" ? "Đang tải..." : "Tải Excel"}
+                        </div>
                         <div className="text-xs text-muted-foreground">
-                          Dữ liệu chi tiết cho phân tích ({report.files_json.xlsx.sizeMB} MB)
+                          Dữ liệu chi tiết cho phân tích (
+                          {report.files_json.xlsx.sizeMB} MB)
                         </div>
                       </div>
                     </Button>
@@ -327,11 +410,16 @@ export function ReportDetailSheet({ report, open, onOpenChange }: Props) {
                     <Button
                       variant="default"
                       className="justify-start gap-2 h-auto py-2.5"
+                      disabled={!!downloading}
                       onClick={handleDownloadZip}
                     >
                       <IconFileZip className="h-5 w-5" />
                       <div className="flex-1 text-left">
-                        <div className="text-sm font-medium">Tải tất cả (ZIP)</div>
+                        <div className="text-sm font-medium">
+                          {downloading === "zip"
+                            ? "Đang tải..."
+                            : "Tải tất cả (ZIP)"}
+                        </div>
                         <div className="text-xs opacity-90">
                           Tải cả PDF và Excel trong một file nén
                         </div>

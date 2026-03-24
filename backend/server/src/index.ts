@@ -25,7 +25,7 @@ const PORT = process.env.PORT || 8080;
 // Hỗ trợ nhiều origins: CORS_ORIGIN="https://web.devmindtan.com,http://localhost:5173"
 // Tự động thêm server's own origin để Swagger UI hoạt động
 const allowedOrigins = [
-  `http://localhost:${PORT}`,          // Swagger UI (same-origin request)
+  `http://localhost:${PORT}`, // Swagger UI (same-origin request)
   ...(process.env.CORS_ORIGIN || "http://localhost:5173")
     .split(",")
     .map((o) => o.trim()),
@@ -44,7 +44,7 @@ app.use(
       }
     },
     credentials: true,
-  })
+  }),
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -63,7 +63,7 @@ app.locals.db = pool;
 app.use("/api/auth", authApi);
 
 // Protected routes – cần JWT (viewer hoặc technician)
-app.use("/api/cameras",      requireAuth, cameraApi);
+app.use("/api/cameras", requireAuth, cameraApi);
 app.use("/api/model-metrics", requireAuth, modelMetricsApi);
 
 // Model routes – GET requireAuth, write operations requireTechnician (xử lý trong route file)
@@ -86,6 +86,26 @@ app.use("/api/reports", requireAuth, reportsRoutes);
 
 // Legacy test route
 app.use("/", testControllerApi);
+
+/**
+ * Global error handler - đảm bảo CORS headers được trả về ngay cả khi có lỗi
+ */
+app.use((err: any, req: Request, res: Response, next: any) => {
+  console.error("Global error handler:", err.message || err);
+
+  // Đảm bảo CORS headers luôn có mặt (defense-in-depth, backup cho Traefik)
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+  }
+
+  const statusCode = err.statusCode || err.status || 500;
+  res.status(statusCode).json({
+    error: err.message || "Internal Server Error",
+    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+  });
+});
 
 // PostgreSQL connection + auto-migration
 pool

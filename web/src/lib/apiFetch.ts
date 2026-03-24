@@ -7,7 +7,7 @@ const TOKEN_KEY = "auth_token";
 
 // ── In-memory GET cache ────────────────────────────────────────────────────
 interface CacheEntry {
-  body:      unknown;
+  body: unknown;
   expiresAt: number;
 }
 
@@ -15,10 +15,11 @@ const _cache = new Map<string, CacheEntry>();
 
 /** TTL mặc định (ms) cho các GET request khác nhau */
 const TTL_MAP: { pattern: RegExp; ttl: number }[] = [
-  { pattern: /\/api\/traffic\/patterns/,     ttl: 5 * 60_000 },  // 5 phút – dữ liệu tổng hợp
-  { pattern: /\/api\/model-metrics/,         ttl: 5 * 60_000 },  // 5 phút – metrics ít thay đổi
-  { pattern: /\/api\/cameras$/,              ttl: 5 * 60_000 },  // 5 phút – danh sách camera
+  { pattern: /\/api\/traffic\/patterns/, ttl: 5 * 60_000 }, // 5 phút – dữ liệu tổng hợp
+  { pattern: /\/api\/model-metrics/, ttl: 5 * 60_000 }, // 5 phút – metrics ít thay đổi
+  { pattern: /\/api\/cameras$/, ttl: 5 * 60_000 }, // 5 phút – danh sách camera
   { pattern: /\/api\/data-library\/collections/, ttl: 2 * 60_000 }, // 2 phút
+  { pattern: /\/api\/help\/articles$/, ttl: 10 * 60_000 }, // 10 phút – help docs ít thay đổi
 ];
 
 const DEFAULT_TTL = 0; // Không cache nếu không khớp pattern nào
@@ -47,8 +48,16 @@ type FetchOptions = RequestInit & { skipAuth?: boolean; bypassCache?: boolean };
 /**
  * Wrapper fetch tự động thêm Authorization header và cache GET responses theo TTL
  */
-export async function apiFetch(url: string, options: FetchOptions = {}): Promise<Response> {
-  const { skipAuth = false, bypassCache = false, headers: extraHeaders, ...rest } = options;
+export async function apiFetch(
+  url: string,
+  options: FetchOptions = {},
+): Promise<Response> {
+  const {
+    skipAuth = false,
+    bypassCache = false,
+    headers: extraHeaders,
+    ...rest
+  } = options;
   const method = (rest.method ?? "GET").toUpperCase();
 
   const headers: HeadersInit = {
@@ -77,7 +86,12 @@ export async function apiFetch(url: string, options: FetchOptions = {}): Promise
       }
 
       // Fetch thật → lưu cache
-      const resp = await fetch(url, { ...rest, method, headers, credentials: "include" });
+      const resp = await fetch(url, {
+        ...rest,
+        method,
+        headers,
+        credentials: "include",
+      });
       if (resp.ok) {
         try {
           const body = await resp.clone().json();

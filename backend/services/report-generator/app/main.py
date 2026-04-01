@@ -5,8 +5,8 @@ Entry point for creating Smart Reports (PDF + XLSX)
 import os
 import logging
 import sys
-from datetime import datetime, date
-from typing import Dict, Any, Optional
+from datetime import datetime, date, timedelta
+from typing import Dict, Any, Optional, List
 import json
 
 # Database and storage
@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Internal modules
-from analytics_engine import analyze_traffic_data
+from analytics_engine import analyze_traffic_data, merge_analyzed_chunks
 from pdf_generator import create_executive_summary_pdf
 from xlsx_exporter import create_structured_data_xlsx
 
@@ -27,9 +27,15 @@ from xlsx_exporter import create_structured_data_xlsx
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# ─────────────────────────────────────────────────────────────────────────────
+# CONSTANTS
+# ─────────────────────────────────────────────────────────────────────────────
+CHUNK_DAYS = 7  # Query 7 days per chunk to avoid OOM
+
 def generate_report(report_id: str, report_config: Dict[str, Any]) -> Dict[str, Any]:
     """
     Orchestrate toàn bộ quy trình tạo báo cáo
+    ✨ IMPROVED: Support chunked query để tránh OOM khi query tháng
     
     Args:
         report_id: UUID của báo cáo trong DB
@@ -49,19 +55,34 @@ def generate_report(report_id: str, report_config: Dict[str, Any]) -> Dict[str, 
         hour_from  = settings.get("hour_from")   # None = không lọc giờ
         hour_to    = settings.get("hour_to")      # None = không lọc giờ
 
-        traffic_data, cameras_data = _collect_traffic_data(
-            report_config["period_from"],
-            report_config["period_to"],
-            hour_from=hour_from,
-            hour_to=hour_to,
-        )
-        
-        if traffic_data.empty:
-            raise ValueError("Không có dữ liệu giao thông trong khoảng thời gian đã chọn")
-        
-        # Step 3: Analytics processing
-        logger.info("📊 Analyzing traffic data...")
-        analyzed_summary = analyze_traffic_data(traffic_data, cameras_data)
+        period_from = datetime.strptime(report_config["period_from"], "%Y-%m-%d").date()
+        period_to = datetime.strptime(report_config["period_to"], "%Y-%m-%d").date()
+        num_days = (period_to - period_from).days + 1
+
+        # ────────────────────────────────────────────────────────────────────
+        # 🔵 STRATEGY: Chunked data collection if period > 7 days
+        # ────────────────────────────────────────────────────────────────────
+        if num_days > CHUNK_DAYS:
+            logger.info(f"📦 Period is {num_days} days, using chunked collection strategy...")
+            analyzed_summary, all_traffic_data = _generate_report_chunked(
+                period_from, period_to, hour_from, hour_to, report_id
+            )
+        else:
+            logger.info(f"📦 Period is {num_days} days, using standard collection...")
+            traffic_data, cameras_data = _collect_traffic_data(
+                report_config["period_from"],
+                report_config["period_to"],
+                hour_from=hour_from,
+                hour_to=hour_to,
+            )
+            
+            if traffic_data.empty:
+                raise ValueError("Không có dữ liệu giao thông trong khoảng thời gian đã chọn")
+            
+            # Step 3: Analytics processing
+            logger.info("📊 Analyzing traffic data...")
+            analyzed_summary = analyze_traffic_data(traffic_data, cameras_data)
+            all_traffic_data = traffic_data
         
         # Step 4: Generate files
         report_meta = {
@@ -71,14 +92,14 @@ def generate_report(report_id: str, report_config: Dict[str, Any]) -> Dict[str, 
             "hour_from":   hour_from,
             "hour_to":     hour_to,
             "generated_at": datetime.now().isoformat(),
-            "timeseries_count": len(traffic_data)
+            "timeseries_count": len(all_traffic_data)
         }
         
         logger.info("📄 Generating PDF...")
         pdf_bytes = create_executive_summary_pdf(analyzed_summary, report_meta)
         
         logger.info("📊 Generating XLSX...")
-        xlsx_bytes = create_structured_data_xlsx(analyzed_summary, traffic_data, report_meta)
+        xlsx_bytes = create_structured_data_xlsx(analyzed_summary, all_traffic_data, report_meta)
         
         # Step 5: Upload files to MinIO
         logger.info("☁️ Uploading to MinIO...")
@@ -107,6 +128,94 @@ def generate_report(report_id: str, report_config: Dict[str, Any]) -> Dict[str, 
             "success": False,
             "error": error_msg
         }
+
+def _generate_report_chunked(
+    period_from: date,
+    period_to: date,
+    hour_from: Optional[int],
+    hour_to: Optional[int],
+    report_id: str,
+) -> tuple[Dict[str, Any], pd.DataFrame]:
+    """
+    🟡 CHUNKED GENERATION: Chia tháng thành 7-ngày chunks
+    Query từng chunk → analyze → merge results → tránh OOM
+    
+    Args:
+        period_from, period_to: date objects
+        hour_from, hour_to: hour filter (optional)
+        report_id: for logging
+        
+    Returns:
+        (analyzed_summary_merged, combined_traffic_dataframe)
+    """
+    chunks: List[Dict[str, Any]] = []
+    all_traffic_data_list: List[pd.DataFrame] = []
+    cameras_data = None
+    
+    current_date = period_from
+    chunk_num = 0
+    
+    # ──────────────────────────────────────────────────────────
+    # 🔄 Process chunks
+    # ──────────────────────────────────────────────────────────
+    while current_date <= period_to:
+        chunk_end = current_date + timedelta(days=CHUNK_DAYS - 1)
+        if chunk_end > period_to:
+            chunk_end = period_to
+        
+        chunk_num += 1
+        logger.info(f"📦 Processing chunk {chunk_num}: {current_date} → {chunk_end}")
+        
+        # Query chunk
+        traffic_chunk, cameras_chunk = _collect_traffic_data(
+            current_date.strftime("%Y-%m-%d"),
+            chunk_end.strftime("%Y-%m-%d"),
+            hour_from=hour_from,
+            hour_to=hour_to,
+        )
+        
+        # Save camera data (same for all chunks)
+        if cameras_data is None:
+            cameras_data = cameras_chunk
+        
+        if traffic_chunk.empty:
+            logger.warning(f"   ⚠️  Chunk empty, skipping...")
+            current_date = chunk_end + timedelta(days=1)
+            continue
+        
+        # Analyze chunk
+        logger.info(f"   📊 Analyzing chunk {chunk_num} ({len(traffic_chunk)} records)...")
+        chunk_analysis = analyze_traffic_data(traffic_chunk, cameras_chunk)
+        
+        chunks.append({
+            "index": chunk_num,
+            "period_from": current_date.strftime("%Y-%m-%d"),
+            "period_to": chunk_end.strftime("%Y-%m-%d"),
+            "analysis": chunk_analysis,
+            "record_count": len(traffic_chunk)
+        })
+        
+        # Store traffic data for XLSX export
+        all_traffic_data_list.append(traffic_chunk)
+        
+        # Move to next chunk
+        current_date = chunk_end + timedelta(days=1)
+    
+    # ──────────────────────────────────────────────────────────
+    # 🔀 Merge chunk analyses
+    # ──────────────────────────────────────────────────────────
+    if not chunks:
+        raise ValueError("No traffic data found in any chunk")
+    
+    logger.info(f"🔀 Merging {len(chunks)} chunks...")
+    analyzed_summary_merged = merge_analyzed_chunks(chunks)
+    
+    # Combine all traffic data for XLSX
+    combined_traffic_data = pd.concat(all_traffic_data_list, ignore_index=True)
+    
+    logger.info(f"✅ Chunked generation complete: {len(chunks)} chunks, {len(combined_traffic_data)} total records")
+    
+    return analyzed_summary_merged, combined_traffic_data
 
 def _collect_traffic_data(
     period_from: str,

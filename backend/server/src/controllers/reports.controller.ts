@@ -534,7 +534,7 @@ async function _triggerReportGeneration(
   const namespace = process.env.KUBE_NAMESPACE || "backend";
   const image =
     process.env.REPORT_GENERATOR_IMAGE ||
-    "devmindtan/dev-repo:report-generator-v1.0.2";
+    "devmindtan/dev-repo:report-generator-v1.0.3";
 
   // Tên Job: report-<8 ký tự đầu UUID> (unique, hợp lệ với DNS k8s)
   const shortId = reportId.replace(/-/g, "").slice(0, 8);

@@ -698,16 +698,68 @@ async function logActivity(
 /**
  * Lấy lịch sử hoạt động liên quan đến reports
  * GET /api/reports/history
+ * ✨ IMPROVEMENTS: Support 3 pagination strategies
+ * - keyset: Cursor-based (recommended for large datasets)
+ * - chunked: Monthly chunks (tuần/chunk để tránh load toàn bộ tháng)
+ * - standard: OFFSET-based (fallback)
  */
 export async function getReportHistory(req: Request, res: Response) {
   const db = req.app.locals.db as Pool;
 
   try {
-    const { limit = "50", offset = "0", action } = req.query;
+    const {
+      limit = "50",
+      offset = "0",
+      action,
+      month,
+      year,
+      useCursor = "false",
+      cursor,
+      chunkSize = "7",
+    } = req.query;
+
     const limitNum = Math.min(parseInt(limit as string) || 50, 100);
     const offsetNum = parseInt(offset as string) || 0;
+    const chunkDays = parseInt(chunkSize as string) || 7;
+    const useKeysetPagination = useCursor === "true" || cursor;
 
-    let query = `
+    // ────────────────────────────────────────────────────────────────────
+    // 🔵 STRATEGY 1: Keyset Pagination (recommended cho large datasets)
+    // ────────────────────────────────────────────────────────────────────
+    if (useKeysetPagination) {
+      return await _getReportHistoryWithKeyset(
+        db,
+        { month, year, action, limit: limitNum, cursor },
+        res,
+      );
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // 🟡 STRATEGY 2: Chunked Monthly Query (phân chia theo tuần)
+    // ────────────────────────────────────────────────────────────────────
+    if (month && year) {
+      return await _getReportHistoryChunked(
+        db,
+        { month, year, action, limit: limitNum, chunkDays },
+        res,
+      );
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // 🟢 STRATEGY 3: Standard Pagination (fallback - tháng này hoặc no filter)
+    // ────────────────────────────────────────────────────────────────────
+    let whereClauses = ["al.resource = 'reports'"];
+    const params: any[] = [];
+
+    if (action) {
+      params.push(action);
+      whereClauses.push(`al.action = $${params.length}`);
+    }
+
+    const whereString =
+      whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
+
+    const query = `
       SELECT 
         al.id,
         al.created_at as timestamp,
@@ -724,39 +776,234 @@ export async function getReportHistory(req: Request, res: Response) {
       FROM activity_logs al
       LEFT JOIN technician_accounts ta ON al.account_id = ta.id
       LEFT JOIN reports r ON al.resource_id = r.id::text
-      WHERE al.resource = 'reports'
+      ${whereString}
+      ORDER BY al.created_at DESC 
+      LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `;
 
-    const params: unknown[] = [limitNum, offsetNum];
+    const finalParams = [...params, limitNum, offsetNum];
+    const result = await db.query(query, finalParams);
 
-    if (action) {
-      query += ` AND al.action = $3`;
-      params.push(action);
-    }
-
-    query += ` ORDER BY al.created_at DESC LIMIT $1 OFFSET $2`;
-
-    const result = await db.query(query, params);
-
-    // Count total
-    const countQuery = action
-      ? `SELECT COUNT(*) FROM activity_logs WHERE resource = 'reports' AND action = $1`
-      : `SELECT COUNT(*) FROM activity_logs WHERE resource = 'reports'`;
-    const countParams = action ? [action] : [];
-    const countResult = await db.query(countQuery, countParams);
+    const countQuery = `SELECT COUNT(*) FROM activity_logs al ${whereString}`;
+    const countResult = await db.query(countQuery, params);
     const total = parseInt(countResult.rows[0].count);
 
     res.json({
       success: true,
       data: result.rows,
-      pagination: {
-        limit: limitNum,
-        offset: offsetNum,
-        total,
-      },
+      pagination: { limit: limitNum, offset: offsetNum, total },
     });
   } catch (error) {
     console.error("[getReportHistory] Error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch report history",
+    });
+  }
+}
+
+/**
+ * 🔵 KEYSET PAGINATION: Dùng cursor (created_at + id) thay vì OFFSET
+ * ⚡ Lợi ích: O(1) lookup, không cần scan từ line 0 như OFFSET
+ */
+async function _getReportHistoryWithKeyset(
+  db: Pool,
+  options: any,
+  res: Response,
+) {
+  try {
+    const { month, year, action, limit, cursor } = options;
+    const params: any[] = [];
+
+    let whereClause = "al.resource = 'reports'";
+
+    // Thêm time range filter
+    if (month && year) {
+      const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+      params.push(startDate);
+      whereClause += ` AND al.created_at >= $${params.length}::date`;
+
+      params.push(startDate);
+      whereClause += ` AND al.created_at < ($${params.length}::date + interval '1 month')`;
+    }
+
+    // Thêm action filter
+    if (action) {
+      params.push(action);
+      whereClause += ` AND al.action = $${params.length}`;
+    }
+
+    // Decode cursor
+    let cursorCondition = "";
+    if (cursor) {
+      try {
+        const decoded = JSON.parse(
+          Buffer.from(cursor as string, "base64").toString(),
+        );
+        params.push(decoded.timestamp);
+        params.push(decoded.id);
+        cursorCondition = `AND (al.created_at, al.id) < ($${params.length - 1}, $${params.length})`;
+      } catch (e) {
+        console.warn("[keyset] Invalid cursor, ignoring");
+      }
+    }
+
+    params.push(limit + 1); // +1 để detect hasMore
+
+    const query = `
+      SELECT 
+        al.id,
+        al.created_at as timestamp,
+        COALESCE(ta.full_name, 'Hệ thống') as user,
+        al.action,
+        COALESCE(al.details->>'title', r.title, 'N/A') as target,
+        COALESCE(al.details->>'message', '') as details,
+        CASE 
+          WHEN al.action LIKE '%DELETE%' THEN 'warning'
+          WHEN al.action LIKE '%ERROR%' OR al.action LIKE '%FAIL%' THEN 'error'
+          ELSE 'success'
+        END as status,
+        al.ip_address as ip
+      FROM activity_logs al
+      LEFT JOIN technician_accounts ta ON al.account_id = ta.id
+      LEFT JOIN reports r ON al.resource_id = r.id::text
+      WHERE ${whereClause} ${cursorCondition}
+      ORDER BY al.created_at DESC, al.id DESC
+      LIMIT $${params.length}
+    `;
+
+    const result = await db.query(query, params);
+
+    const hasMore = result.rows.length > limit;
+    const rows = result.rows.slice(0, limit);
+
+    // Encode next cursor
+    let nextCursor = null;
+    if (hasMore && rows.length > 0) {
+      const lastRow = rows[rows.length - 1];
+      nextCursor = Buffer.from(
+        JSON.stringify({
+          timestamp: lastRow.timestamp,
+          id: lastRow.id,
+        }),
+      ).toString("base64");
+    }
+
+    res.json({
+      success: true,
+      data: rows,
+      pagination: {
+        limit,
+        hasMore,
+        nextCursor,
+        strategy: "keyset",
+      },
+    });
+  } catch (error) {
+    console.error("[_getReportHistoryWithKeyset] Error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch report history",
+    });
+  }
+}
+
+/**
+ * 🟡 CHUNKED MONTHLY QUERY: Chia tháng thành các chunk nhỏ (7 ngày/chunk)
+ * Client có thể request từng chunk một, load từ từ thay vì đợi toàn bộ
+ */
+async function _getReportHistoryChunked(db: Pool, options: any, res: Response) {
+  try {
+    const { month, year, action, limit, chunkDays } = options;
+
+    const monthStart = new Date(`${year}-${String(month).padStart(2, "0")}-01`);
+    const monthEnd = new Date(monthStart);
+    monthEnd.setMonth(monthEnd.getMonth() + 1);
+
+    const chunks: any[] = [];
+    let currentDate = new Date(monthStart);
+    let chunkIndex = 0;
+
+    // ────── Tính toán chunks ──────
+    const totalDays = Math.ceil(
+      (monthEnd.getTime() - monthStart.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    const totalChunks = Math.ceil(totalDays / chunkDays);
+
+    // ────── Lặp qua từng chunk ──────
+    while (currentDate < monthEnd) {
+      const chunkEnd = new Date(currentDate);
+      chunkEnd.setDate(chunkEnd.getDate() + chunkDays);
+
+      const params: any[] = [];
+      let whereClause = "al.resource = 'reports'";
+
+      params.push(currentDate.toISOString().split("T")[0]);
+      whereClause += ` AND al.created_at >= $${params.length}::date`;
+
+      params.push(chunkEnd.toISOString().split("T")[0]);
+      whereClause += ` AND al.created_at < $${params.length}::date`;
+
+      if (action) {
+        params.push(action);
+        whereClause += ` AND al.action = $${params.length}`;
+      }
+
+      params.push(limit);
+
+      const query = `
+        SELECT 
+          al.id,
+          al.created_at as timestamp,
+          COALESCE(ta.full_name, 'Hệ thống') as user,
+          al.action,
+          COALESCE(al.details->>'title', r.title, 'N/A') as target,
+          COALESCE(al.details->>'message', '') as details,
+          CASE 
+            WHEN al.action LIKE '%DELETE%' THEN 'warning'
+            WHEN al.action LIKE '%ERROR%' OR al.action LIKE '%FAIL%' THEN 'error'
+            ELSE 'success'
+          END as status,
+          al.ip_address as ip
+        FROM activity_logs al
+        LEFT JOIN technician_accounts ta ON al.account_id = ta.id
+        LEFT JOIN reports r ON al.resource_id = r.id::text
+        WHERE ${whereClause}
+        ORDER BY al.created_at DESC
+        LIMIT $${params.length}
+      `;
+
+      const result = await db.query(query, params);
+
+      chunks.push({
+        data: result.rows,
+        chunkIndex,
+        totalChunks,
+        hasMore: result.rows.length >= limit,
+        timestamp: currentDate.toISOString().split("T")[0],
+      });
+
+      currentDate = new Date(chunkEnd);
+      chunkIndex++;
+    }
+
+    res.json({
+      success: true,
+      month,
+      year,
+      chunks,
+      strategy: "chunked",
+      chunkInfo: {
+        dayPerChunk: chunkDays,
+        totalChunks,
+        period: {
+          from: monthStart.toISOString().split("T")[0],
+          to: monthEnd.toISOString().split("T")[0],
+        },
+      },
+    });
+  } catch (error) {
+    console.error("[_getReportHistoryChunked] Error:", error);
     res.status(500).json({
       success: false,
       error: "Failed to fetch report history",

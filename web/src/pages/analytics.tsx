@@ -10,7 +10,13 @@ import {
   type ModelMetricsHistoryRow,
 } from "@/services/model-metrics.service";
 import { getAllCameras } from "@/services/camera.service";
-import { IconChartBar, IconClock, IconRefresh, IconDashboard, IconChartLine } from "@tabler/icons-react";
+import {
+  IconChartBar,
+  IconClock,
+  IconRefresh,
+  IconDashboard,
+  IconChartLine,
+} from "@tabler/icons-react";
 import { PageHeader } from "@/components/custom/page-header";
 import { useLoading } from "@/contexts/LoadingContext";
 import { clearApiCache } from "@/lib/apiFetch";
@@ -27,8 +33,12 @@ import { ConfidenceDistributionCard } from "@/components/analytics/confidence-di
 
 function fmtDate(s: string) {
   return new Date(s).toLocaleString("vi-VN", {
-    hour12: false, year: "numeric", month: "2-digit",
-    day: "2-digit", hour: "2-digit", minute: "2-digit",
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
@@ -38,9 +48,14 @@ function fmtDate(s: string) {
  * Trang phân tích hiệu suất mô hình dự đoán lưu lượng
  */
 export default function PredictiveAnalytics() {
-  const [latestMetrics, setLatestMetrics] = React.useState<ModelMetricsHistoryRow | null>(null);
-  const [historyMetrics, setHistoryMetrics] = React.useState<ModelMetricsHistoryRow[]>([]);
-  const [cameraNameMap, setCameraNameMap] = React.useState<Record<string, string>>({});
+  const [latestMetrics, setLatestMetrics] =
+    React.useState<ModelMetricsHistoryRow | null>(null);
+  const [historyMetrics, setHistoryMetrics] = React.useState<
+    ModelMetricsHistoryRow[]
+  >([]);
+  const [cameraNameMap, setCameraNameMap] = React.useState<
+    Record<string, string>
+  >({});
   const [isLoading, setIsLoading] = React.useState<boolean>(true);
   const [errorMessage, setErrorMessage] = React.useState<string>("");
   const [refreshKey, setRefreshKey] = React.useState(0);
@@ -56,7 +71,7 @@ export default function PredictiveAnalytics() {
       setActiveTab(state.tab);
       navigate(location.pathname, { replace: true, state: {} });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state]);
 
   // Scroll tới anchor khi data đã tải xong
@@ -90,14 +105,18 @@ export default function PredictiveAnalytics() {
         setHistoryMetrics(history);
 
         if (Array.isArray(cameras)) {
-          const nextMap = cameras.reduce<Record<string, string>>((acc, camera) => {
-            acc[camera.cam_id] = camera.display_name;
-            return acc;
-          }, {});
+          const nextMap = cameras.reduce<Record<string, string>>(
+            (acc, camera) => {
+              acc[camera.cam_id] = camera.display_name;
+              return acc;
+            },
+            {},
+          );
           setCameraNameMap(nextMap);
         }
       } catch {
-        if (isMounted) setErrorMessage("Không thể tải dữ liệu phân tích từ máy chủ");
+        if (isMounted)
+          setErrorMessage("Không thể tải dữ liệu phân tích từ máy chủ");
       } finally {
         stopLoading();
         if (isMounted) setIsLoading(false);
@@ -105,23 +124,30 @@ export default function PredictiveAnalytics() {
     }
 
     loadAnalyticsData();
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, [startLoading, stopLoading, refreshKey]);
 
-  const overall       = latestMetrics?.overall;
-  const trend         = latestMetrics?.trend_accuracy;
-  const dataCoverage  = latestMetrics?.data_coverage;
-  const dist          = latestMetrics?.confidence_distribution;
-  const latestGeneratedAt = latestMetrics ? fmtDate(latestMetrics.generated_at) : "-";
+  const overall = latestMetrics?.overall;
+  const trend = latestMetrics?.trend_accuracy;
+  const dataCoverage = latestMetrics?.data_coverage;
+  const dist = latestMetrics?.confidence_distribution;
+  const latestGeneratedAt = latestMetrics
+    ? fmtDate(latestMetrics.generated_at)
+    : "-";
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
       <PageHeader
         icon={<IconChartBar className="w-5 h-5" />}
-        title="Phân tích Hiệu suất Dự đoán"
-        description="Đánh giá độ chính xác mô hình theo mốc thời gian, camera và xu hướng lưu lượng"
+        title="Phân tích hiệu suất dự đoán"
+        description="Đánh giá độ chính xác mô hình theo mốc thời gian, máy quay và xu hướng lưu lượng"
       >
-        <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-blue-700 border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:text-blue-400">
+        <Badge
+          variant="outline"
+          className="text-[10px] px-1.5 py-0 text-blue-700 border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:text-blue-400"
+        >
           <IconClock className="size-3 mr-1" />
           {latestGeneratedAt}
         </Badge>
@@ -130,12 +156,14 @@ export default function PredictiveAnalytics() {
           size="sm"
           onClick={() => {
             clearApiCache(/\/api\/model-metrics|\/api\/cameras/);
-            setRefreshKey(k => k + 1);
+            setRefreshKey((k) => k + 1);
           }}
           disabled={isLoading}
           className="gap-1.5"
         >
-          <IconRefresh className={`size-4 ${isLoading ? "animate-spin" : ""}`} />
+          <IconRefresh
+            className={`size-4 ${isLoading ? "animate-spin" : ""}`}
+          />
           Làm mới
         </Button>
       </PageHeader>
@@ -152,22 +180,27 @@ export default function PredictiveAnalytics() {
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">
-              Chưa có dữ liệu metrics. Hãy chạy model-performance để tạo snapshot lịch sử.
+              Chưa có dữ liệu metrics. Hãy chạy model-performance để tạo
+              snapshot lịch sử.
             </p>
           </CardContent>
         </Card>
       )}
 
       {!isLoading && !errorMessage && latestMetrics && overall && trend && (
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col gap-4">
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="flex flex-col gap-4"
+        >
           <TabsList className="w-fit">
             <TabsTrigger value="overview" className="gap-1.5 text-xs">
               <IconDashboard className="size-3.5" />
-              Tổng quan
+              Số liệu tổng quan
             </TabsTrigger>
             <TabsTrigger value="details" className="gap-1.5 text-xs">
               <IconChartLine className="size-3.5" />
-              Chi tiết
+              Số liệu chi tiết
             </TabsTrigger>
           </TabsList>
 
@@ -175,8 +208,11 @@ export default function PredictiveAnalytics() {
               TAB: TỔNG QUAN — Metrics chính + Top camera + Lịch sử
           ═══════════════════════════════════════════════════════ */}
           <TabsContent value="overview" className="mt-0 flex flex-col gap-6">
-            <OverviewStats metrics={latestMetrics} dataCoveragePending={dataCoverage?.pending ?? 0} />
-            
+            <OverviewStats
+              metrics={latestMetrics}
+              dataCoverage={dataCoverage}
+            />
+
             <CameraRanking
               bestCameras={latestMetrics.camera_ranking.best}
               worstCameras={latestMetrics.camera_ranking.worst}
@@ -199,7 +235,10 @@ export default function PredictiveAnalytics() {
               />
             )}
 
-            <TrendAccuracyCard trendAccuracy={trend} periodDays={latestMetrics.period_days} />
+            <TrendAccuracyCard
+              trendAccuracy={trend}
+              periodDays={latestMetrics.period_days}
+            />
 
             <HorizonTableCard horizons={latestMetrics.by_horizon} />
 

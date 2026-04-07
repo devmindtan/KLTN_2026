@@ -10,18 +10,24 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { IconSearch, IconX, IconClock, IconArrowRight } from "@tabler/icons-react";
+import {
+  IconSearch,
+  IconX,
+  IconClock,
+  IconArrowRight,
+} from "@tabler/icons-react";
 import { useSocket } from "@/contexts/SocketContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { smartMatch, calculateRelevanceScore } from "@/lib/search-utils";
 import { getAllCameras } from "@/services/camera.service";
+import { getForecastRolling } from "@/services/forecast.service";
 import { getAllModelVersions } from "@/services/model.service";
 import { getHelpArticles } from "@/services/help.service";
+import { getReports } from "@/services/reports.service";
 import {
   type ResultType,
   type SearchResult,
   LOS_LABELS,
-  MOCK_REPORT_FORECAST,
   TAB_CONFIG,
   LS_KEY,
   MAX_HISTORY,
@@ -29,6 +35,8 @@ import {
   buildCameraResults,
   buildModelResults,
   buildDocResults,
+  buildReportResults,
+  buildForecastResults,
 } from "@/components/search/search-types";
 import { ResultItem } from "@/components/search/result-item";
 import { ResultSkeleton } from "@/components/search/result-skeleton";
@@ -44,24 +52,29 @@ export function QuickSearchDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const navigate   = useNavigate();
+  const navigate = useNavigate();
   const { routePrefix } = useAuth();
   const { processedCameras } = useSocket();
 
-  const [query,      setQuery]      = useState("");
+  const [query, setQuery] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   const [isSearching, setIsSearching] = useState(false);
 
   const [cameraResults, setCameraResults] = useState<SearchResult[]>([]);
-  const [modelResults,  setModelResults]  = useState<SearchResult[]>([]);
-  const [docResults,    setDocResults]    = useState<SearchResult[]>([]);
-  const [dataLoaded,    setDataLoaded]    = useState(false);
+  const [modelResults, setModelResults] = useState<SearchResult[]>([]);
+  const [docResults, setDocResults] = useState<SearchResult[]>([]);
+  const [reportResults, setReportResults] = useState<SearchResult[]>([]);
+  const [forecastResults, setForecastResults] = useState<SearchResult[]>([]);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   const [selected, setSelected] = useState<SearchResult | null>(null);
 
   const [history, setHistory] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); }
-    catch { return []; }
+    try {
+      return JSON.parse(localStorage.getItem(LS_KEY) || "[]");
+    } catch {
+      return [];
+    }
   });
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -73,57 +86,119 @@ export function QuickSearchDialog({
     [routePrefix],
   );
 
-  const processedMap = useMemo(() => new Map(
-    processedCameras.map(c => [c.shortId, {
-      totalObjects: c.totalObjects,
-      status:       c.status.current,
-      lastUpdated:  c.lastUpdated,
-    }])
-  ), [processedCameras]);
+  const processedMap = useMemo(
+    () =>
+      new Map(
+        processedCameras.map((c) => [
+          c.shortId,
+          {
+            totalObjects: c.totalObjects,
+            status: c.status.current,
+            lastUpdated: c.lastUpdated,
+          },
+        ]),
+      ),
+    [processedCameras],
+  );
 
   /** Load dữ liệu lần đầu khi dialog mở */
   useEffect(() => {
     if (!open || dataLoaded) return;
     let cancelled = false;
-    Promise.all([getAllCameras(), getAllModelVersions(), getHelpArticles()])
-      .then(([cameras, allVersions, articles]) => {
-        if (cancelled) return;
-        setCameraResults(buildCameraResults(cameras, processedMap));
-        setModelResults(buildModelResults(Object.values(allVersions).flat()));
-        setDocResults(buildDocResults(articles));
-        setDataLoaded(true);
-      })
-      .catch(() => { if (!cancelled) setDataLoaded(true); });
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    Promise.allSettled([
+      getAllCameras(),
+      getAllModelVersions(),
+      getHelpArticles(),
+      getReports({ page: 1, limit: 100 }),
+      getForecastRolling("all"),
+    ])
+      .then(
+        ([
+          camerasResult,
+          allVersionsResult,
+          articlesResult,
+          reportsResult,
+          forecastResult,
+        ]) => {
+          if (cancelled) return;
+
+          const cameras =
+            camerasResult.status === "fulfilled" ? camerasResult.value : [];
+          const allVersions =
+            allVersionsResult.status === "fulfilled"
+              ? allVersionsResult.value
+              : {};
+          const articles =
+            articlesResult.status === "fulfilled" ? articlesResult.value : [];
+          const reports =
+            reportsResult.status === "fulfilled"
+              ? reportsResult.value.data
+              : [];
+          const forecastData =
+            forecastResult.status === "fulfilled" ? forecastResult.value : null;
+
+          setCameraResults(buildCameraResults(cameras, processedMap));
+          setModelResults(buildModelResults(Object.values(allVersions).flat()));
+          setDocResults(buildDocResults(articles));
+          setReportResults(buildReportResults(reports));
+          setForecastResults(
+            forecastData ? buildForecastResults(cameras, forecastData) : [],
+          );
+          setDataLoaded(true);
+        },
+      )
+      .catch(() => {
+        if (!cancelled) setDataLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   /** Cập nhật realtime khi socket push dữ liệu mới */
   useEffect(() => {
     if (!dataLoaded || cameraResults.length === 0) return;
-    setCameraResults(prev =>
-      prev.map(r => {
+    setCameraResults((prev) =>
+      prev.map((r) => {
         const rt = processedMap.get(r.id);
-        if (!rt) return { ...r, status: "offline" as const, badge: "Offline", badgeVariant: "secondary" as const, subtitle: "Không có dữ liệu real-time", meta: "Offline" };
+        if (!rt)
+          return {
+            ...r,
+            status: "offline" as const,
+            badge: "Offline",
+            badgeVariant: "secondary" as const,
+            subtitle: "Không có dữ liệu real-time",
+            meta: "Offline",
+          };
         const isWarn = rt.status === "heavy" || rt.status === "congested";
         return {
           ...r,
-          status:       (isWarn ? "warning" : "online") as SearchResult["status"],
-          badge:        isWarn ? "Cảnh báo" : "Trực tuyến",
-          badgeVariant: (isWarn ? "destructive" : "default") as SearchResult["badgeVariant"],
-          subtitle:     `${rt.totalObjects} xe • ${LOS_LABELS[rt.status] ?? rt.status}`,
-          meta:         `Cập nhật: ${new Date(rt.lastUpdated).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`,
+          status: (isWarn ? "warning" : "online") as SearchResult["status"],
+          badge: isWarn ? "Cảnh báo" : "Trực tuyến",
+          badgeVariant: (isWarn
+            ? "destructive"
+            : "default") as SearchResult["badgeVariant"],
+          subtitle: `${rt.totalObjects} xe • ${LOS_LABELS[rt.status] ?? rt.status}`,
+          meta: `Cập nhật: ${new Date(rt.lastUpdated).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`,
         };
-      })
+      }),
     );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [processedCameras, dataLoaded]);
 
   /** Debounce 300ms */
   useEffect(() => {
-    if (!query.trim()) { setDebouncedQ(""); setIsSearching(false); return; }
+    if (!query.trim()) {
+      setDebouncedQ("");
+      setIsSearching(false);
+      return;
+    }
     setIsSearching(true);
-    const t = setTimeout(() => { setDebouncedQ(query.trim()); setIsSearching(false); }, 300);
+    const t = setTimeout(() => {
+      setDebouncedQ(query.trim());
+      setIsSearching(false);
+    }, 300);
     return () => clearTimeout(t);
   }, [query]);
 
@@ -138,82 +213,114 @@ export function QuickSearchDialog({
   }, [open]);
 
   const pushHistory = useCallback((term: string) => {
-    setHistory(prev => {
-      const next = [term, ...prev.filter(x => x !== term)].slice(0, MAX_HISTORY);
+    setHistory((prev) => {
+      const next = [term, ...prev.filter((x) => x !== term)].slice(
+        0,
+        MAX_HISTORY,
+      );
       localStorage.setItem(LS_KEY, JSON.stringify(next));
       return next;
     });
   }, []);
 
   const removeHistory = useCallback((term: string) => {
-    setHistory(prev => {
-      const next = prev.filter(x => x !== term);
+    setHistory((prev) => {
+      const next = prev.filter((x) => x !== term);
       localStorage.setItem(LS_KEY, JSON.stringify(next));
       return next;
     });
   }, []);
 
-  const handleClose = () => onOpenChange(false);
+  const handleClose = useCallback(() => onOpenChange(false), [onOpenChange]);
 
-  const handleNavigate = useCallback((url: string) => {
-    navigate(url);
-    handleClose();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigate]);
+  const handleNavigate = useCallback(
+    (url: string, state?: Record<string, string>) => {
+      navigate(url, state ? { state } : undefined);
+      handleClose();
+    },
+    [handleClose, navigate],
+  );
 
-  const handleSelect = useCallback((r: SearchResult) => {
-    if (r.type === "camera" || r.type === "model") {
-      setSelected(r);
-      return;
-    }
-    if (r.type === "doc") {
-      pushHistory(r.title);
-      handleNavigate(navTo("documentation", `?doc=${r.details?.section_key}`));
-      return;
-    }
-    handleClose();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handleNavigate, pushHistory]);
+  const handleSelect = useCallback(
+    (r: SearchResult) => {
+      if (r.type === "camera" || r.type === "model") {
+        setSelected(r);
+        return;
+      }
+      if (r.type === "doc") {
+        pushHistory(r.title);
+        handleNavigate(
+          navTo("documentation", `?doc=${r.details?.section_key}`),
+        );
+        return;
+      }
+      if (r.type === "report") {
+        handleNavigate(navTo("reports"), {
+          openReportId: String(r.details?.report_id ?? r.id),
+        });
+        return;
+      }
+      if (r.type === "forecast") {
+        handleNavigate(navTo("dashboard"), {
+          tab: "forecast",
+          forecastCameraId: String(r.details?.cam_id ?? "all"),
+        });
+        return;
+      }
+      handleClose();
+    },
+    [handleClose, handleNavigate, navTo, pushHistory],
+  );
 
-  const handleSearchTerm = useCallback((term: string) => {
-    pushHistory(term);
-    handleNavigate(navTo("search", `?q=${encodeURIComponent(term)}`));
-  }, [handleNavigate, navTo, pushHistory]);
+  const handleSearchTerm = useCallback(
+    (term: string) => {
+      pushHistory(term);
+      handleNavigate(navTo("search", `?q=${encodeURIComponent(term)}`));
+    },
+    [handleNavigate, navTo, pushHistory],
+  );
 
   /** Tổng hợp results */
   const allResults: SearchResult[] = useMemo(
-    () => [...cameraResults, ...modelResults, ...MOCK_REPORT_FORECAST, ...docResults],
-    [cameraResults, modelResults, docResults],
+    () => [
+      ...cameraResults,
+      ...modelResults,
+      ...reportResults,
+      ...forecastResults,
+      ...docResults,
+    ],
+    [cameraResults, modelResults, reportResults, forecastResults, docResults],
   );
 
   const filteredResults = useMemo(() => {
     if (!debouncedQ) return [];
-    
+
     // Filter với smart search
-    const filtered = allResults.filter(r => 
-      smartMatch(r.title, debouncedQ) ||
-      smartMatch(r.subtitle, debouncedQ) ||
-      smartMatch(r.meta, debouncedQ)
+    const filtered = allResults.filter(
+      (r) =>
+        smartMatch(r.title, debouncedQ) ||
+        smartMatch(r.subtitle, debouncedQ) ||
+        smartMatch(r.meta, debouncedQ),
     );
-    
+
     // Sort theo relevance score
     return filtered.sort((a, b) => {
       const scoreA = Math.max(
         calculateRelevanceScore(a.title, debouncedQ),
         calculateRelevanceScore(a.subtitle, debouncedQ),
-        calculateRelevanceScore(a.meta, debouncedQ)
+        calculateRelevanceScore(a.meta, debouncedQ),
       );
       const scoreB = Math.max(
         calculateRelevanceScore(b.title, debouncedQ),
         calculateRelevanceScore(b.subtitle, debouncedQ),
-        calculateRelevanceScore(b.meta, debouncedQ)
+        calculateRelevanceScore(b.meta, debouncedQ),
       );
       return scoreB - scoreA;
     });
   }, [allResults, debouncedQ]);
 
-  const hasQuery    = debouncedQ.length > 0 || isSearching;
-  const totalCount  = filteredResults.length;
+  const hasQuery = debouncedQ.length > 0 || isSearching;
+  const totalCount = filteredResults.length;
 
   return (
     <>
@@ -228,9 +335,10 @@ export function QuickSearchDialog({
             <Input
               ref={inputRef}
               value={query}
-              onChange={e => setQuery(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === "Enter" && query.trim()) handleSearchTerm(query.trim());
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && query.trim())
+                  handleSearchTerm(query.trim());
                 if (e.key === "Escape") handleClose();
               }}
               placeholder="Tìm camera, mô hình, tài liệu..."
@@ -252,7 +360,9 @@ export function QuickSearchDialog({
                 ) : (
                   <>
                     <div className="flex items-center justify-between px-1 mb-2">
-                      <span className="text-xs font-medium text-muted-foreground">Tìm kiếm gần đây</span>
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Tìm kiếm gần đây
+                      </span>
                       <button
                         className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
                         onClick={() => {
@@ -263,7 +373,7 @@ export function QuickSearchDialog({
                         Xóa tất cả
                       </button>
                     </div>
-                    {history.map(term => (
+                    {history.map((term) => (
                       <div
                         key={term}
                         className="group flex items-center justify-between rounded-md hover:bg-accent px-2 py-1.5 transition-colors"
@@ -299,16 +409,22 @@ export function QuickSearchDialog({
             {hasQuery && !isSearching && filteredResults.length === 0 && (
               <div className="flex flex-col items-center justify-center py-10 gap-2">
                 <IconSearch className="w-8 h-8 text-muted-foreground/40" />
-                <p className="text-sm font-medium">Không tìm thấy kết quả nào</p>
-                <p className="text-xs text-muted-foreground">cho &ldquo;{debouncedQ}&rdquo;</p>
+                <p className="text-sm font-medium">
+                  Không tìm thấy kết quả nào
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  cho &ldquo;{debouncedQ}&rdquo;
+                </p>
               </div>
             )}
 
             {/* ── Có kết quả: nhóm theo type, max MAX_PER_GROUP mỗi nhóm ── */}
             {hasQuery && !isSearching && filteredResults.length > 0 && (
               <div className="p-3 space-y-1">
-                {TAB_CONFIG.filter(t => t.type).map(tab => {
-                  const group = filteredResults.filter(r => r.type === tab.type as ResultType);
+                {TAB_CONFIG.filter((t) => t.type).map((tab) => {
+                  const group = filteredResults.filter(
+                    (r) => r.type === (tab.type as ResultType),
+                  );
                   if (group.length === 0) return null;
                   const { icon: GIcon, color, label } = getTypeMeta(tab.type!);
                   const shown = group.slice(0, MAX_PER_GROUP);
@@ -316,15 +432,20 @@ export function QuickSearchDialog({
                     <div key={tab.value} className="mb-3">
                       <div className="flex items-center gap-1.5 mb-1.5 px-1">
                         <GIcon className={`w-3 h-3 ${color}`} />
-                        <span className={`text-[10px] font-semibold uppercase tracking-wider ${color}`}>
+                        <span
+                          className={`text-[10px] font-semibold uppercase tracking-wider ${color}`}
+                        >
                           {label}
                         </span>
-                        <Badge variant="secondary" className="text-[9px] px-1 py-0 h-3.5 leading-none">
+                        <Badge
+                          variant="secondary"
+                          className="text-[9px] px-1 py-0 h-3.5 leading-none"
+                        >
                           {group.length}
                         </Badge>
                       </div>
                       <div className="space-y-0.5">
-                        {shown.map(r => (
+                        {shown.map((r) => (
                           <ResultItem
                             key={r.id}
                             result={r}
@@ -375,7 +496,11 @@ export function QuickSearchDialog({
               <Separator />
               <div className="flex items-center justify-between px-4 py-2.5">
                 <span className="text-xs text-muted-foreground">
-                  Nhấn <kbd className="rounded border bg-muted px-1 py-0.5 text-[10px] font-mono">Enter</kbd> để tìm kiếm đầy đủ
+                  Nhấn{" "}
+                  <kbd className="rounded border bg-muted px-1 py-0.5 text-[10px] font-mono">
+                    Enter
+                  </kbd>{" "}
+                  để tìm kiếm đầy đủ
                 </span>
                 <Button
                   variant="ghost"

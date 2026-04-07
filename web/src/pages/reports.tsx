@@ -1,15 +1,12 @@
 /**
- * Trang Smart Reports - Báo cáo phân tích hoàn chỉnh  
+ * Trang Smart Reports - Báo cáo phân tích hoàn chỉnh
  * Enhanced với template system và dual download (PDF + XLSX)
  */
 import { useState, useCallback, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  IconFileText,
-  IconHistory,
-  IconPlus,
-} from "@tabler/icons-react";
+import { IconFileText, IconHistory, IconPlus } from "@tabler/icons-react";
 import { PageHeader } from "@/components/custom/page-header";
 import { useLoading } from "@/contexts/LoadingContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,21 +19,34 @@ import { HistoryTable } from "@/components/reports/history-table";
 import { ReportDetailSheet } from "@/components/reports/report-detail-sheet";
 import {
   getReports,
+  getReportById,
   createReport,
   deleteReport,
   pollReportStatus,
   getReportHistory,
   type SmartReport,
-  type CreateReportRequest
+  type CreateReportRequest,
 } from "@/services/reports.service";
-import { MOCK_HISTORY, type HistoryEntry } from "@/components/reports/reports-types";
+import {
+  MOCK_HISTORY,
+  type HistoryEntry,
+} from "@/components/reports/reports-types";
 
 type ViewMode = "list" | "grid";
-type ReportType = "all" | "daily" | "weekly" | "monthly" | "quarterly" | "incident" | "custom";
+type ReportType =
+  | "all"
+  | "daily"
+  | "weekly"
+  | "monthly"
+  | "quarterly"
+  | "incident"
+  | "custom";
 type StatusFilter = "all" | "pending" | "generating" | "ready" | "failed";
 
 /** Trang Smart Reports với enhanced features */
 export default function ReportsPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { startLoading, stopLoading } = useLoading();
   const { role } = useAuth();
   const isTechnician = role === "technician";
@@ -48,34 +58,48 @@ export default function ReportsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [reports, setReports] = useState<SmartReport[]>([]);
-  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 0,
+  });
   const [loading, setLocalLoading] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
-  const [selectedReport, setSelectedReport] = useState<SmartReport | null>(null);
-  const [pollingCleanups, setPollingCleanups] = useState<Map<string, () => void>>(new Map());
+  const [selectedReport, setSelectedReport] = useState<SmartReport | null>(
+    null,
+  );
+  const [pollingCleanups, setPollingCleanups] = useState<
+    Map<string, () => void>
+  >(new Map());
   const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  const startPollingReport = useCallback(async (reportId: string) => {
-    if (pollingCleanups.has(reportId)) return; // Already polling
+  const startPollingReport = useCallback(
+    async (reportId: string) => {
+      if (pollingCleanups.has(reportId)) return; // Already polling
 
-    const cleanup = await pollReportStatus(reportId, (updatedReport) => {
-      setReports(prev => prev.map(r => r.id === reportId ? updatedReport : r));
+      const cleanup = await pollReportStatus(reportId, (updatedReport) => {
+        setReports((prev) =>
+          prev.map((r) => (r.id === reportId ? updatedReport : r)),
+        );
 
-      // Stop polling if completed
-      if (["ready", "failed"].includes(updatedReport.status)) {
-        cleanup();
-        setPollingCleanups(prev => {
-          const newMap = new Map(prev);
-          newMap.delete(reportId);
-          return newMap;
-        });
-      }
-    });
+        // Stop polling if completed
+        if (["ready", "failed"].includes(updatedReport.status)) {
+          cleanup();
+          setPollingCleanups((prev) => {
+            const newMap = new Map(prev);
+            newMap.delete(reportId);
+            return newMap;
+          });
+        }
+      });
 
-    setPollingCleanups(prev => new Map(prev).set(reportId, cleanup));
-  }, [pollingCleanups]);
+      setPollingCleanups((prev) => new Map(prev).set(reportId, cleanup));
+    },
+    [pollingCleanups],
+  );
 
   // Fetch reports with filters
   const fetchReports = useCallback(async () => {
@@ -94,19 +118,25 @@ export default function ReportsPage() {
       setReports(result.data);
       setPagination(result.pagination);
 
-      // Start polling for generating reports  
-      result.data.forEach(report => {
+      // Start polling for generating reports
+      result.data.forEach((report) => {
         if (report.status === "generating" || report.status === "pending") {
           startPollingReport(report.id);
         }
       });
-
     } catch (error) {
       console.error("Failed to fetch reports:", error);
     } finally {
       setLocalLoading(false);
     }
-  }, [pagination.page, pagination.limit, searchQuery, typeFilter, statusFilter, startPollingReport]);
+  }, [
+    pagination.page,
+    pagination.limit,
+    searchQuery,
+    typeFilter,
+    statusFilter,
+    startPollingReport,
+  ]);
 
   // Handle create report
   const handleCreateReport = async (request: CreateReportRequest) => {
@@ -114,16 +144,15 @@ export default function ReportsPage() {
       startLoading();
       const result = await createReport(request);
       setCreateDialogOpen(false);
-      
+
       // Refresh reports list
       fetchReports();
-      
+
       // Start polling for new report
       startPollingReport(result.data.id);
-      
+
       // TODO: Show success toast
       console.log("Report creation started:", result.data.message);
-      
     } catch (error) {
       console.error("Failed to create report:", error);
       // TODO: Show error toast
@@ -144,21 +173,20 @@ export default function ReportsPage() {
 
     try {
       await deleteReport(report.id);
-      setReports(prev => prev.filter(r => r.id !== report.id));
-      
+      setReports((prev) => prev.filter((r) => r.id !== report.id));
+
       // Clean up polling
       const cleanup = pollingCleanups.get(report.id);
       if (cleanup) {
         cleanup();
-        setPollingCleanups(prev => {
+        setPollingCleanups((prev) => {
           const newMap = new Map(prev);
           newMap.delete(report.id);
           return newMap;
         });
       }
-      
+
       // TODO: Show success toast
-      
     } catch (error) {
       console.error("Failed to delete report:", error);
       // TODO: Show error toast
@@ -187,13 +215,13 @@ export default function ReportsPage() {
 
   // Effect: Reset page when filters change
   useEffect(() => {
-    setPagination(prev => ({ ...prev, page: 1 }));
+    setPagination((prev) => ({ ...prev, page: 1 }));
   }, [searchQuery, typeFilter, statusFilter]);
 
   // Effect: Cleanup polling on unmount
   useEffect(() => {
     return () => {
-      pollingCleanups.forEach(cleanup => cleanup());
+      pollingCleanups.forEach((cleanup) => cleanup());
     };
   }, [pollingCleanups]);
 
@@ -204,11 +232,52 @@ export default function ReportsPage() {
     }
   }, [activeTab, fetchHistory]);
 
+  // Auto-open report detail khi được điều hướng từ tìm kiếm nhanh / trang search
+  useEffect(() => {
+    const state = location.state as { openReportId?: string } | null;
+    const openReportId = state?.openReportId;
+    if (!openReportId) return;
+
+    let cancelled = false;
+    const existingReport = reports.find((report) => report.id === openReportId);
+
+    const openDetail = async () => {
+      try {
+        const report = existingReport
+          ? existingReport
+          : (await getReportById(openReportId)).data;
+
+        if (cancelled) return;
+        setSelectedReport(report);
+        setDetailSheetOpen(true);
+      } catch (error) {
+        console.error(
+          "Failed to open report detail from navigation state:",
+          error,
+        );
+      } finally {
+        if (!cancelled) {
+          navigate(location.pathname, { replace: true, state: {} });
+        }
+      }
+    };
+
+    openDetail();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [location.pathname, location.state, navigate, reports]);
+
   // Filter reports for display
-  const filteredReports = reports.filter(report => {
+  const filteredReports = reports.filter((report) => {
     if (typeFilter !== "all" && report.type !== typeFilter) return false;
     if (statusFilter !== "all" && report.status !== statusFilter) return false;
-    if (searchQuery && !report.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (
+      searchQuery &&
+      !report.title.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+      return false;
     return true;
   });
 
@@ -218,23 +287,31 @@ export default function ReportsPage() {
       <PageHeader
         icon={<IconFileText className="size-5" />}
         title={REPORTS_TERM.page_header.title}
-        description="Báo cáo phân tích hoàn chỉnh với output PDF executive summary + XLSX structured data cho AI"
+        description="Báo cáo phân tích hoàn chỉnh với định dạng PDF và XLSX theo các mốc thời gian"
       >
         {isTechnician && (
-          <Button size="sm" className="gap-1.5" onClick={() => setCreateDialogOpen(true)}>
+          <Button
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setCreateDialogOpen(true)}
+          >
             <IconPlus className="size-4" />
             Tạo báo cáo
           </Button>
         )}
       </PageHeader>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col gap-4">
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="flex flex-col gap-4"
+      >
         <TabsList className="w-fit">
           <TabsTrigger value="reports" className="gap-1.5 text-xs">
             <IconFileText className="size-3.5" />
             Báo cáo
             <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium">
-              {reports.filter(r => r.status === "ready").length}
+              {reports.filter((r) => r.status === "ready").length}
             </span>
           </TabsTrigger>
           <TabsTrigger value="history" className="gap-1.5 text-xs">

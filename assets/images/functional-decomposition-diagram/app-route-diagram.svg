@@ -1,0 +1,154 @@
+<svg width="100%" viewBox="0 0 680 500" role="img" xmlns="http://www.w3.org/2000/svg">
+  <title>app-route architecture diagram</title>
+  <desc>Flask + SocketIO app-route architecture showing webhook handler, socket events, utilities, and entity types</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      svg { font-family: sans-serif; }
+      .th { font-size: 14px; font-weight: 500; fill: #3C3489; }
+      .ts { font-size: 12px; font-weight: 400; fill: #5F5E5A; }
+      .arr { stroke: #888780; stroke-width: 1.5; fill: none; }
+
+      /* c-purple */
+      .c-purple rect, .c-purple circle { fill: #EEEDFE; stroke: #534AB7; }
+      .c-purple .th { fill: #3C3489; }
+      .c-purple .ts { fill: #534AB7; }
+
+      /* c-teal */
+      .c-teal rect { fill: #E1F5EE; stroke: #0F6E56; }
+      .c-teal .th { fill: #085041; }
+
+      /* c-blue */
+      .c-blue rect { fill: #E6F1FB; stroke: #185FA5; }
+      .c-blue .th { fill: #0C447C; }
+
+      /* c-gray */
+      .c-gray rect { fill: #F1EFE8; stroke: #5F5E5A; }
+      .c-gray .th { fill: #444441; }
+
+      /* c-amber */
+      .c-amber rect { fill: #FAEEDA; stroke: #854F0B; }
+      .c-amber .th { fill: #633806; }
+
+      @media (prefers-color-scheme: dark) {
+        .th { fill: #CECBF6; }
+        .ts { fill: #B4B2A9; }
+        .arr { stroke: #888780; }
+
+        .c-purple rect { fill: #3C3489; stroke: #AFA9EC; }
+        .c-purple .th { fill: #CECBF6; }
+        .c-purple .ts { fill: #AFA9EC; }
+
+        .c-teal rect { fill: #085041; stroke: #5DCAA5; }
+        .c-teal .th { fill: #9FE1CB; }
+
+        .c-blue rect { fill: #0C447C; stroke: #85B7EB; }
+        .c-blue .th { fill: #B5D4F4; }
+
+        .c-gray rect { fill: #444441; stroke: #B4B2A9; }
+        .c-gray .th { fill: #D3D1C7; }
+
+        .c-amber rect { fill: #633806; stroke: #EF9F27; }
+        .c-amber .th { fill: #FAC775; }
+
+        .subgraph-border { stroke: #444441; }
+        .subgraph-label { fill: #888780; }
+        .feeds-label { fill: #888780; }
+        .dashed-arrow { stroke: #888780; }
+      }
+    </style>
+  </defs>
+
+  <!-- Root node -->
+  <g class="c-purple">
+    <rect x="220" y="20" width="240" height="48" rx="8" stroke-width="0.5"/>
+    <text class="th" x="340" y="40" text-anchor="middle" dominant-baseline="central">app-route</text>
+    <text class="ts" x="340" y="58" text-anchor="middle" dominant-baseline="central">Flask + SocketIO</text>
+  </g>
+
+  <!-- Arrows from root -->
+  <line x1="280" y1="68" x2="130" y2="148" class="arr" marker-end="url(#arrow)"/>
+  <line x1="340" y1="68" x2="340" y2="148" class="arr" marker-end="url(#arrow)"/>
+  <line x1="400" y1="68" x2="550" y2="148" class="arr" marker-end="url(#arrow)"/>
+
+  <!-- Webhook subgraph -->
+  <rect class="subgraph-border" x="30" y="140" width="200" height="155" rx="10" fill="none" stroke="#D3D1C7" stroke-width="1" stroke-dasharray="5 3"/>
+  <text class="ts subgraph-label" x="50" y="160" dominant-baseline="central">Webhook (POST /webhook)</text>
+  <g class="c-teal">
+    <rect x="50" y="172" width="160" height="40" rx="6" stroke-width="0.5"/>
+    <text class="th" x="130" y="192" text-anchor="middle" dominant-baseline="central">Webhook Handler</text>
+  </g>
+  <line x1="130" y1="212" x2="130" y2="240" class="arr" marker-end="url(#arrow)"/>
+  <g class="c-teal">
+    <rect x="50" y="240" width="160" height="40" rx="6" stroke-width="0.5"/>
+    <text class="th" x="130" y="260" text-anchor="middle" dominant-baseline="central">Validate Payload</text>
+  </g>
+  <line x1="130" y1="280" x2="130" y2="308" class="arr" marker-end="url(#arrow)"/>
+  <g class="c-teal">
+    <rect x="50" y="308" width="160" height="40" rx="6" stroke-width="0.5"/>
+    <text class="th" x="130" y="328" text-anchor="middle" dominant-baseline="central">Parse Entity Type</text>
+  </g>
+
+  <!-- Socket.IO Events subgraph -->
+  <rect class="subgraph-border" x="240" y="140" width="200" height="190" rx="10" fill="none" stroke="#D3D1C7" stroke-width="1" stroke-dasharray="5 3"/>
+  <text class="ts subgraph-label" x="260" y="160" dominant-baseline="central">Socket.IO Events</text>
+  <g class="c-blue">
+    <rect x="260" y="172" width="160" height="40" rx="6" stroke-width="0.5"/>
+    <text class="th" x="340" y="192" text-anchor="middle" dominant-baseline="central">CAMERA_UPDATED</text>
+  </g>
+  <g class="c-blue">
+    <rect x="260" y="222" width="160" height="40" rx="6" stroke-width="0.5"/>
+    <text class="th" x="340" y="242" text-anchor="middle" dominant-baseline="central">METRICS_UPDATED</text>
+  </g>
+  <g class="c-blue">
+    <rect x="260" y="272" width="160" height="40" rx="6" stroke-width="0.5"/>
+    <text class="th" x="340" y="292" text-anchor="middle" dominant-baseline="central">FORECAST_UPDATED</text>
+  </g>
+
+  <!-- Arrow from Parse Entity Type to Socket Events -->
+  <line x1="210" y1="328" x2="258" y2="300" class="arr" marker-end="url(#arrow)"/>
+
+  <!-- Utilities subgraph -->
+  <rect class="subgraph-border" x="450" y="140" width="200" height="150" rx="10" fill="none" stroke="#D3D1C7" stroke-width="1" stroke-dasharray="5 3"/>
+  <text class="ts subgraph-label" x="470" y="160" dominant-baseline="central">Utilities</text>
+  <g class="c-gray">
+    <rect x="470" y="172" width="160" height="40" rx="6" stroke-width="0.5"/>
+    <text class="th" x="550" y="192" text-anchor="middle" dominant-baseline="central">get_ip()</text>
+  </g>
+  <g class="c-gray">
+    <rect x="470" y="228" width="160" height="40" rx="6" stroke-width="0.5"/>
+    <text class="th" x="550" y="248" text-anchor="middle" dominant-baseline="central">show_all_ips()</text>
+  </g>
+
+  <!-- Entity Types section -->
+  <rect class="subgraph-border" x="30" y="390" width="620" height="90" rx="10" fill="none" stroke="#D3D1C7" stroke-width="0.5" stroke-dasharray="4 3"/>
+  <text class="ts subgraph-label" x="50" y="410" dominant-baseline="central">Entity Types</text>
+
+  <g class="c-amber">
+    <rect x="50" y="420" width="80" height="36" rx="6" stroke-width="0.5"/>
+    <text class="th" x="90" y="438" text-anchor="middle" dominant-baseline="central">Camera</text>
+  </g>
+  <g class="c-amber">
+    <rect x="140" y="420" width="120" height="36" rx="6" stroke-width="0.5"/>
+    <text class="th" x="200" y="438" text-anchor="middle" dominant-baseline="central">ModelMetrics</text>
+  </g>
+  <g class="c-amber">
+    <rect x="270" y="420" width="100" height="36" rx="6" stroke-width="0.5"/>
+    <text class="th" x="320" y="438" text-anchor="middle" dominant-baseline="central">TrainingJob</text>
+  </g>
+  <g class="c-amber">
+    <rect x="380" y="420" width="110" height="36" rx="6" stroke-width="0.5"/>
+    <text class="th" x="435" y="438" text-anchor="middle" dominant-baseline="central">ModelReload</text>
+  </g>
+  <g class="c-amber">
+    <rect x="510" y="420" width="120" height="36" rx="6" stroke-width="0.5"/>
+    <text class="th" x="570" y="438" text-anchor="middle" dominant-baseline="central">ForecastReady</text>
+  </g>
+
+  <!-- Dashed arrow from Entity Types up to Parse Entity Type -->
+  <line x1="130" y1="390" x2="130" y2="350" stroke="#B4B2A9" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)" class="dashed-arrow"/>
+  <text class="ts feeds-label" x="138" y="372" dominant-baseline="central">feeds</text>
+
+</svg>

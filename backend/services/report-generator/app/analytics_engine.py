@@ -4,9 +4,7 @@ Core logic for traffic pattern analysis, anomaly detection, recommendations
 """
 import logging
 import pandas as pd
-from datetime import datetime, timedelta
 from typing import Dict, List, Any
-import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -24,13 +22,18 @@ def analyze_traffic_data(period_data: pd.DataFrame, cameras_df: pd.DataFrame) ->
     if period_data.empty:
         return _empty_summary()
     
-    # Convert timestamps  
+    period_data = period_data.copy()
+
+    # Convert timestamps
     period_data['created_at'] = pd.to_datetime(period_data['created_at'])
     period_data['hour'] = period_data['created_at'].dt.hour
+    period_data['hour_bucket'] = period_data['created_at'].dt.floor('h')
     
     # Overview calculations
     total_vehicles = int(period_data['total_objects'].sum())
     avg_density = round(period_data['total_objects'].mean(), 2)
+    hourly_total = period_data.groupby('hour_bucket')['total_objects'].sum()
+    avg_hourly_volume = round(hourly_total.mean(), 2) if not hourly_total.empty else 0
     
     # Peak hours analysis
     hourly_volumes = period_data.groupby('hour')['total_objects'].sum().sort_values(ascending=False)
@@ -50,7 +53,8 @@ def analyze_traffic_data(period_data: pd.DataFrame, cameras_df: pd.DataFrame) ->
         camera_info = cameras_df[cameras_df['cam_id'] == camera_id].iloc[0] if len(cameras_df[cameras_df['cam_id'] == camera_id]) > 0 else None
         
         camera_vehicles = int(camera_data['total_objects'].sum())
-        avg_per_hour = round(camera_vehicles / max(1, len(camera_data)), 2)
+        camera_hour_buckets = camera_data['hour_bucket'].nunique()
+        avg_per_hour = round(camera_vehicles / max(1, camera_hour_buckets), 2)
         peak_density = int(camera_data['total_objects'].max()) if not camera_data.empty else 0
         
         # Basic risk assessment
@@ -62,6 +66,7 @@ def analyze_traffic_data(period_data: pd.DataFrame, cameras_df: pd.DataFrame) ->
             "totalVehicles": camera_vehicles,
             "avgVehiclePerHour": avg_per_hour,
             "peakDensity": peak_density,
+            "hourlyBuckets": camera_hour_buckets,
             "incidentCount": 0,  # TODO: Calculate from incident data
             "reliability": 100,  # TODO: Calculate uptime %
             "riskLevel": risk_level
@@ -70,12 +75,16 @@ def analyze_traffic_data(period_data: pd.DataFrame, cameras_df: pd.DataFrame) ->
     # Generate insights
     trends = _generate_trends(period_data)
     anomalies = _detect_anomalies(period_data)
-    recommendations = _generate_recommendations(period_data, peak_hours)
+    coverage_percentage = _calculate_coverage(period_data)
+    recommendations = _generate_recommendations(period_data, peak_hours, coverage_percentage)
     
     return {
         "overview": {
             "totalVehicles": total_vehicles,
             "avgDensityScore": min(5, max(0, round(avg_density / 100, 1))),  # Convert to 0-5 scale
+            "avgHourlyVolume": avg_hourly_volume,
+            "cameraCount": int(period_data['camera_id'].nunique()),
+            "totalRecords": int(len(period_data)),
             "peakHours": peak_hours,
             "incidentCount": 0,  # TODO: Calculate from incident data
             "weatherImpact": "none"  # TODO: Integrate weather data
@@ -84,7 +93,8 @@ def analyze_traffic_data(period_data: pd.DataFrame, cameras_df: pd.DataFrame) ->
             "modelAccuracy": 85.0,  # TODO: Calculate from model metrics
             "predictionConfidence": 78.0,  # TODO: Calculate from confidence scores
             "dataQuality": _assess_data_quality(period_data),
-            "coveragePercentage": _calculate_coverage(period_data)
+            "coveragePercentage": coverage_percentage,
+            "dataPoints": int(len(period_data))
         },
         "insights": {
             "trends": trends,
@@ -97,8 +107,23 @@ def analyze_traffic_data(period_data: pd.DataFrame, cameras_df: pd.DataFrame) ->
 def _empty_summary() -> Dict[str, Any]:
     """Return empty summary structure when no data available"""
     return {
-        "overview": {"totalVehicles": 0, "avgDensityScore": 0, "peakHours": [], "incidentCount": 0, "weatherImpact": "none"},
-        "performance": {"modelAccuracy": 0, "predictionConfidence": 0, "dataQuality": "poor", "coveragePercentage": 0},
+        "overview": {
+            "totalVehicles": 0,
+            "avgDensityScore": 0,
+            "avgHourlyVolume": 0,
+            "cameraCount": 0,
+            "totalRecords": 0,
+            "peakHours": [],
+            "incidentCount": 0,
+            "weatherImpact": "none"
+        },
+        "performance": {
+            "modelAccuracy": 0,
+            "predictionConfidence": 0,
+            "dataQuality": "poor",
+            "coveragePercentage": 0,
+            "dataPoints": 0
+        },
         "insights": {"trends": [], "anomalies": [], "recommendations": ["Không có dữ liệu để phân tích"]},
         "camerasAnalysis": []
     }
@@ -107,10 +132,12 @@ def _generate_trends(data: pd.DataFrame) -> List[str]:
     """Generate trend insights from traffic data"""
     trends = []
     
-    # Daily pattern
-    if len(data) > 24:  # Need enough data points
-        recent_avg = data.tail(12)['total_objects'].mean()
-        earlier_avg = data.head(12)['total_objects'].mean()
+    # Period trend based on first/last third of hourly totals
+    hourly = data.groupby(data['created_at'].dt.floor('h'))['total_objects'].sum().reset_index(drop=True)
+    if len(hourly) >= 9:
+        slice_size = max(3, len(hourly) // 3)
+        earlier_avg = hourly.head(slice_size).mean()
+        recent_avg = hourly.tail(slice_size).mean()
         
         if recent_avg > earlier_avg * 1.1:
             trends.append(f"Lưu lượng tăng {((recent_avg/earlier_avg - 1) * 100):.1f}% trong giai đoạn gần đây")
@@ -120,6 +147,15 @@ def _generate_trends(data: pd.DataFrame) -> List[str]:
     # Peak time consistency
     peak_hour = data.groupby('hour')['total_objects'].sum().idxmax()
     trends.append(f"Giờ cao điểm ổn định vào {peak_hour:02d}:00")
+
+    # Weekday vs weekend pattern
+    weekend_avg = data[data['created_at'].dt.dayofweek >= 5]['total_objects'].mean()
+    weekday_avg = data[data['created_at'].dt.dayofweek < 5]['total_objects'].mean()
+    if pd.notna(weekend_avg) and pd.notna(weekday_avg) and weekday_avg > 0:
+        diff_pct = ((weekend_avg / weekday_avg) - 1) * 100
+        if abs(diff_pct) >= 10:
+            direction = "cao hơn" if diff_pct > 0 else "thấp hơn"
+            trends.append(f"Lưu lượng cuối tuần {direction} ngày thường {abs(diff_pct):.1f}%")
     
     return trends
 
@@ -149,7 +185,7 @@ def _detect_anomalies(data: pd.DataFrame) -> List[str]:
     
     return anomalies
 
-def _generate_recommendations(data: pd.DataFrame, peak_hours: List[Dict]) -> List[str]:
+def _generate_recommendations(data: pd.DataFrame, peak_hours: List[Dict], coverage_percentage: float) -> List[str]:
     """Generate actionable recommendations based on traffic patterns"""
     recommendations = []
     
@@ -170,6 +206,9 @@ def _generate_recommendations(data: pd.DataFrame, peak_hours: List[Dict]) -> Lis
     # Data quality recommendations
     if data['total_objects'].std() > data['total_objects'].mean():
         recommendations.append("Biến động lưu lượng cao - cần phân tích sâu hơn về nguyên nhân")
+
+    if coverage_percentage < 80:
+        recommendations.append("Độ phủ dữ liệu dưới 80% - cần kiểm tra kết nối camera hoặc pipeline ingest")
     
     return recommendations
 
@@ -195,9 +234,22 @@ def _calculate_coverage(data: pd.DataFrame) -> float:
     if data.empty:
         return 0.0
     
-    # Simplified coverage calculation
-    # In real implementation, this would compare against expected data collection frequency
-    return min(100.0, len(data) / max(1, len(data)) * 100)
+    working = data.copy()
+    working['created_at'] = pd.to_datetime(working['created_at'])
+    working['hour_bucket'] = working['created_at'].dt.floor('h')
+
+    camera_count = working['camera_id'].nunique()
+    if camera_count == 0:
+        return 0.0
+
+    min_hour = working['hour_bucket'].min()
+    max_hour = working['hour_bucket'].max()
+    period_hours = int(((max_hour - min_hour).total_seconds() // 3600) + 1)
+    expected_points = period_hours * camera_count
+    actual_points = working[['camera_id', 'hour_bucket']].drop_duplicates().shape[0]
+
+    coverage = (actual_points / max(1, expected_points)) * 100
+    return round(min(100.0, max(0.0, coverage)), 2)
 
 # ═════════════════════════════════════════════════════════════════════════════
 # 🔀 Chunk Merging - Aggregate results from multiple chunks
@@ -255,20 +307,20 @@ def merge_analyzed_chunks(chunks: List[Dict[str, Any]]) -> Dict[str, Any]:
                     "name": camera_data["name"],
                     "totalVehicles": 0,
                     "peakDensity": 0,
-                    "recordCount": 0,
+                    "hourlyBuckets": 0,
                     "chunkCount": 0
                 }
             
             cam = all_cameras[cam_id]
             cam["totalVehicles"] += camera_data.get("totalVehicles", 0)
             cam["peakDensity"] = max(cam["peakDensity"], camera_data.get("peakDensity", 0))
-            cam["recordCount"] += camera_data.get("totalVehicles", 0)
+            cam["hourlyBuckets"] += camera_data.get("hourlyBuckets", 0)
             cam["chunkCount"] += 1
     
     # ────────────────────────────────────────────────────────
     # 2️⃣ Recalculate peak hours
     # ────────────────────────────────────────────────────────
-    avg_density = total_vehicles / max(1, len(chunks))
+    avg_density = total_vehicles / max(1, total_records)
     peak_hours_list = []
     
     for hour_key in sorted(all_peak_hours.keys(), 
@@ -287,7 +339,7 @@ def merge_analyzed_chunks(chunks: List[Dict[str, Any]]) -> Dict[str, Any]:
     # ────────────────────────────────────────────────────────
     cameras_analysis = []
     for cam in all_cameras.values():
-        avg_per_hour = round(cam["totalVehicles"] / max(1, cam["recordCount"]), 2) if cam["recordCount"] > 0 else 0
+        avg_per_hour = round(cam["totalVehicles"] / max(1, cam["hourlyBuckets"]), 2) if cam["hourlyBuckets"] > 0 else 0
         risk_level = "high" if cam["peakDensity"] > avg_density * 3 else "medium" if cam["peakDensity"] > avg_density * 1.5 else "low"
         
         cameras_analysis.append({
@@ -296,6 +348,7 @@ def merge_analyzed_chunks(chunks: List[Dict[str, Any]]) -> Dict[str, Any]:
             "totalVehicles": cam["totalVehicles"],
             "avgVehiclePerHour": avg_per_hour,
             "peakDensity": cam["peakDensity"],
+            "hourlyBuckets": cam["hourlyBuckets"],
             "incidentCount": 0,
             "reliability": 100,
             "riskLevel": risk_level,
@@ -308,6 +361,20 @@ def merge_analyzed_chunks(chunks: List[Dict[str, Any]]) -> Dict[str, Any]:
     unique_anomalies = list(dict.fromkeys(all_anomalies))[:10]  # Remove dupes, limit 10
     unique_trends = list(dict.fromkeys(all_trends))[:10]        # Remove dupes, limit 10
     
+    weighted_coverage_sum = 0.0
+    weighted_accuracy_sum = 0.0
+    weighted_confidence_sum = 0.0
+    for chunk in chunks:
+        record_count = chunk.get("record_count", 0)
+        perf = chunk.get("analysis", {}).get("performance", {})
+        weighted_coverage_sum += perf.get("coveragePercentage", 0) * record_count
+        weighted_accuracy_sum += perf.get("modelAccuracy", 0) * record_count
+        weighted_confidence_sum += perf.get("predictionConfidence", 0) * record_count
+
+    weighted_coverage = round(weighted_coverage_sum / max(1, total_records), 2)
+    weighted_accuracy = round(weighted_accuracy_sum / max(1, total_records), 2)
+    weighted_confidence = round(weighted_confidence_sum / max(1, total_records), 2)
+
     # ────────────────────────────────────────────────────────
     # 5️⃣ Return merged summary
     # ────────────────────────────────────────────────────────
@@ -315,16 +382,20 @@ def merge_analyzed_chunks(chunks: List[Dict[str, Any]]) -> Dict[str, Any]:
         "overview": {
             "totalVehicles": total_vehicles,
             "avgDensityScore": min(5, max(0, round(avg_density / 100, 1))),
+            "avgHourlyVolume": round(total_vehicles / max(1, len(chunks) * 24), 2),
+            "cameraCount": len(all_cameras),
+            "totalRecords": total_records,
             "peakHours": peak_hours_list,
             "incidentCount": 0,
             "weatherImpact": "none",
             "chunksProcessed": len(chunks)
         },
         "performance": {
-            "modelAccuracy": 85.0,
-            "predictionConfidence": 78.0,
+            "modelAccuracy": weighted_accuracy,
+            "predictionConfidence": weighted_confidence,
             "dataQuality": "good" if total_records > 1000 else "fair",
-            "coveragePercentage": min(100.0, len(all_cameras) / max(1, len(all_cameras)) * 100)
+            "coveragePercentage": weighted_coverage,
+            "dataPoints": total_records
         },
         "insights": {
             "trends": unique_trends,
@@ -354,6 +425,6 @@ def _generate_recommendations_from_merged(
         peak_hour = peak_hours[0]["hour"]
         recommendations.append(f"📍 Tập trung vào giờ cao điểm {peak_hour}")
     
-    recommendations.append(f"✅ Dữ liệu từ {chunk_count} chunks - năng lượng xử lý hiệu quả")
+    recommendations.append(f"✅ Dữ liệu được tổng hợp từ {chunk_count} phân đoạn để đảm bảo ổn định bộ nhớ")
     
     return recommendations

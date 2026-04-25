@@ -1,0 +1,33 @@
+{
+  "run_at": "2026-04-22T05:42:23.307672",
+  "config": {
+    "date_from": "2026-01-01",
+    "date_to": "2026-04-22",
+    "chunk_days": 1,
+    "sql_fetch_chunk_size": 20000
+  },
+  "tables": {
+    "camera_forecasts": {
+      "file": "reports/trend_analysis/data/camera_forecasts.csv",
+      "rows": 744415,
+      "sql_chunks": 134
+    },
+    "camera_detections_hourly": {
+      "file": "reports/trend_analysis/data/camera_detections_hourly.csv",
+      "rows": 23732,
+      "sql_chunks": 112
+    },
+    "ml_model_metadata": {
+      "file": "reports/trend_analysis/data/ml_model_metadata.csv",
+      "rows": 29
+    },
+    "model_metrics_history": {
+      "raw_file": "reports/trend_analysis/data/model_metrics_history_raw.csv",
+      "raw_rows": 297,
+      "flat_file": "reports/trend_analysis/data/model_metrics_history_flat.csv",
+      "flat_rows": 297,
+      "horizon_file": "reports/trend_analysis/data/model_metrics_by_horizon.csv",
+      "horizon_rows": 1475
+    }
+  }
+}

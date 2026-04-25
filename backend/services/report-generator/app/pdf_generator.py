@@ -3,7 +3,7 @@ PDF Generator - Tạo executive summary PDF reports với charts và analysis
 """
 import io
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from datetime import datetime
 
 # PDF/HTML generation
@@ -34,11 +34,27 @@ def create_executive_summary_pdf(summary: Dict[str, Any], report_meta: Dict[str,
         charts_data = _generate_chart_images(summary)
         
         # Prepare template data
+        cameras_sorted = sorted(
+            summary.get("camerasAnalysis", []),
+            key=lambda item: item.get("totalVehicles", 0),
+            reverse=True,
+        )
+        peak_hours = summary.get("overview", {}).get("peakHours", [])
+
         template_data = {
             **report_meta,
             **summary,
             "charts": charts_data,
-            "generated_date": datetime.now().strftime("%d/%m/%Y %H:%M")
+            "generated_date": datetime.now().strftime("%d/%m/%Y %H:%M"),
+            "top_cameras": cameras_sorted[:10],
+            "top_anomalies": summary.get("insights", {}).get("anomalies", [])[:8],
+            "top_trends": summary.get("insights", {}).get("trends", [])[:8],
+            "top_recommendations": summary.get("insights", {}).get("recommendations", [])[:8],
+            "peak_hours_table": peak_hours[:5],
+            "hour_window_text": _format_hour_window(
+                report_meta.get("hour_from"),
+                report_meta.get("hour_to"),
+            ),
         }
         
         # Render HTML
@@ -133,6 +149,13 @@ def _fig_to_base64(fig: Figure) -> str:
     plt.close(fig)  # Clean up memory
     return f"data:image/png;base64,{img_base64}"
 
+
+def _format_hour_window(hour_from: Optional[int], hour_to: Optional[int]) -> str:
+    """Format selected hour window for PDF metadata display."""
+    if hour_from is None or hour_to is None:
+        return "Cả ngày (00:00–24:00)"
+    return f"{int(hour_from):02d}:00–{int(hour_to):02d}:00"
+
 def _render_html_template(data: Dict[str, Any]) -> str:
     """Render HTML template with data for PDF conversion"""
     
@@ -151,10 +174,16 @@ def _render_html_template(data: Dict[str, Any]) -> str:
         .section { margin: 30px 0; }
         .section h2 { color: #1f2937; border-left: 4px solid #3b82f6; padding-left: 15px; margin-bottom: 20px; }
         
-        .overview-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin: 20px 0; }
+        .overview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 20px 0; }
         .stat-card { background: #f8fafc; padding: 15px; border-radius: 8px; border-left: 4px solid #10b981; }
         .stat-card .value { font-size: 24px; font-weight: bold; color: #059669; }
         .stat-card .label { color: #6b7280; font-size: 14px; }
+
+        .sub-meta { margin-top: 10px; color: #4b5563; font-size: 13px; }
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+        .note-box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; }
+        .note-box h3 { margin: 0 0 8px 0; font-size: 14px; color: #111827; }
+        .note-box p { margin: 4px 0; font-size: 13px; color: #374151; }
         
         .chart-container { text-align: center; margin: 20px 0; }
         .chart-container img { max-width: 100%; border: 1px solid #e5e7eb; border-radius: 8px; }
@@ -165,6 +194,10 @@ def _render_html_template(data: Dict[str, Any]) -> str:
         .cameras-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
         .cameras-table th, .cameras-table td { padding: 10px; text-align: left; border-bottom: 1px solid #e5e7eb; }
         .cameras-table th { background: #f9fafb; font-weight: 600; }
+
+        .peak-table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+        .peak-table th, .peak-table td { padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
+        .peak-table th { background: #f3f4f6; }
         
         .footer { margin-top: 50px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; }
     </style>
@@ -176,6 +209,10 @@ def _render_html_template(data: Dict[str, Any]) -> str:
         <div class="meta">
             Kỳ báo cáo: {{ period_from }} đến {{ period_to }}<br>
             Tạo lúc: {{ generated_date }}
+        </div>
+        <div class="sub-meta">
+            Khung giờ phân tích: {{ hour_window_text }}<br>
+            Dữ liệu thô: {{ "{:,}".format(raw_record_count or 0) }} bản ghi | Dữ liệu chuỗi thời gian: {{ "{:,}".format(timeseries_count or 0) }} dòng
         </div>
     </div>
     
@@ -192,12 +229,32 @@ def _render_html_template(data: Dict[str, Any]) -> str:
                 <div class="label">Điểm Mật Độ Trung Bình</div>
             </div>
             <div class="stat-card">
+                <div class="value">{{ "{:,}".format(overview.totalRecords or 0) }}</div>
+                <div class="label">Số Bản Ghi Đầu Vào</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">{{ overview.cameraCount or 0 }}</div>
+                <div class="label">Số Camera Có Dữ Liệu</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">{{ "{:,}".format((overview.avgHourlyVolume or 0)|int) }}</div>
+                <div class="label">Lưu Lượng TB Mỗi Giờ</div>
+            </div>
+            <div class="stat-card">
                 <div class="value">{{ overview.incidentCount }}</div>
                 <div class="label">Số Sự Cố</div>
             </div>
             <div class="stat-card">
                 <div class="value">{{ performance.modelAccuracy }}%</div>
                 <div class="label">Độ Chính Xác Model</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">{{ performance.coveragePercentage }}%</div>
+                <div class="label">Độ Phủ Dữ Liệu</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">{{ performance.dataQuality|upper }}</div>
+                <div class="label">Mức Chất Lượng Dữ Liệu</div>
             </div>
         </div>
     </div>
@@ -211,6 +268,30 @@ def _render_html_template(data: Dict[str, Any]) -> str:
         </div>
     </div>
     {% endif %}
+
+    {% if peak_hours_table %}
+    <div class="section">
+        <h2>⏰ Bảng Giờ Cao Điểm</h2>
+        <table class="peak-table">
+            <thead>
+                <tr>
+                    <th>Khung giờ</th>
+                    <th>Lưu lượng</th>
+                    <th>Mức độ</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for peak in peak_hours_table %}
+                <tr>
+                    <td>{{ peak.hour }}</td>
+                    <td>{{ "{:,}".format(peak.volume) }}</td>
+                    <td>{{ peak.severity|upper }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
     
     {% if charts.cameras_distribution %}
     <div class="chart-container">
@@ -222,22 +303,33 @@ def _render_html_template(data: Dict[str, Any]) -> str:
     <div class="section">
         <h2>💡 Nhận Định & Khuyến Nghị</h2>
         
-        {% if insights.trends %}
+        {% if top_trends %}
         <h3>Xu Hướng</h3>
         <div class="insights">
             <ul>
-                {% for trend in insights.trends %}
+                {% for trend in top_trends %}
                 <li>{{ trend }}</li>
                 {% endfor %}
             </ul>
         </div>
         {% endif %}
+
+        {% if top_anomalies %}
+        <h3>Bất Thường Nổi Bật</h3>
+        <div class="insights">
+            <ul>
+                {% for anomaly in top_anomalies %}
+                <li>{{ anomaly }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
         
-        {% if insights.recommendations %}
+        {% if top_recommendations %}
         <h3>Khuyến Nghị</h3>
         <div class="insights">
             <ul>
-                {% for rec in insights.recommendations %}
+                {% for rec in top_recommendations %}
                 <li>{{ rec }}</li>
                 {% endfor %}
             </ul>
@@ -260,7 +352,7 @@ def _render_html_template(data: Dict[str, Any]) -> str:
                 </tr>
             </thead>
             <tbody>
-                {% for camera in camerasAnalysis[:10] %}
+                {% for camera in top_cameras %}
                 <tr>
                     <td>{{ camera.name }}</td>
                     <td>{{ "{:,}".format(camera.totalVehicles) }}</td>
@@ -273,11 +365,27 @@ def _render_html_template(data: Dict[str, Any]) -> str:
         </table>
     </div>
     {% endif %}
+
+    <div class="section">
+        <h2>🧾 Ghi Chú Diễn Giải</h2>
+        <div class="two-col">
+            <div class="note-box">
+                <h3>Thang điểm mật độ</h3>
+                <p>Điểm mật độ nằm trong khoảng 0–5, quy đổi từ trung bình số đối tượng theo từng bản ghi.</p>
+                <p>Mức độ giờ cao điểm: LOW / MEDIUM / HIGH tương ứng theo ngưỡng tương đối trong kỳ báo cáo.</p>
+            </div>
+            <div class="note-box">
+                <h3>Độ phủ dữ liệu</h3>
+                <p>Độ phủ (%) được tính theo tỷ lệ số điểm dữ liệu giờ-camera thực có so với tổng điểm kỳ vọng.</p>
+                <p>Khi độ phủ thấp, nên xem xét kết nối camera hoặc luồng ingest.</p>
+            </div>
+        </div>
+    </div>
     
     <!-- Footer -->
     <div class="footer">
         <p>Báo cáo được tạo tự động bởi Hệ thống Giám sát Giao thông Thông minh</p>
-        <p>Dữ liệu được phân tích từ {{ performance.coveragePercentage }}% thời gian trong kỳ báo cáo</p>
+        <p>Dữ liệu được phân tích với độ phủ {{ performance.coveragePercentage }}% trong kỳ báo cáo</p>
     </div>
 </body>
 </html>

@@ -66,6 +66,7 @@ export function QuickSearchDialog({
   const [reportResults, setReportResults] = useState<SearchResult[]>([]);
   const [forecastResults, setForecastResults] = useState<SearchResult[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [dataError, setDataError] = useState(false);
 
   const [selected, setSelected] = useState<SearchResult | null>(null);
 
@@ -144,11 +145,23 @@ export function QuickSearchDialog({
           setForecastResults(
             forecastData ? buildForecastResults(cameras, forecastData) : [],
           );
+          setDataError(
+            [
+              camerasResult,
+              allVersionsResult,
+              articlesResult,
+              reportsResult,
+              forecastResult,
+            ].some((result) => result.status === "rejected"),
+          );
           setDataLoaded(true);
         },
       )
       .catch(() => {
-        if (!cancelled) setDataLoaded(true);
+        if (!cancelled) {
+          setDataError(true);
+          setDataLoaded(true);
+        }
       });
     return () => {
       cancelled = true;
@@ -300,7 +313,8 @@ export function QuickSearchDialog({
       (r) =>
         smartMatch(r.title, debouncedQ) ||
         smartMatch(r.subtitle, debouncedQ) ||
-        smartMatch(r.meta, debouncedQ),
+        smartMatch(r.meta, debouncedQ) ||
+        smartMatch(r.badge ?? "", debouncedQ),
     );
 
     // Sort theo relevance score
@@ -309,16 +323,19 @@ export function QuickSearchDialog({
         calculateRelevanceScore(a.title, debouncedQ),
         calculateRelevanceScore(a.subtitle, debouncedQ),
         calculateRelevanceScore(a.meta, debouncedQ),
+        calculateRelevanceScore(a.badge ?? "", debouncedQ),
       );
       const scoreB = Math.max(
         calculateRelevanceScore(b.title, debouncedQ),
         calculateRelevanceScore(b.subtitle, debouncedQ),
         calculateRelevanceScore(b.meta, debouncedQ),
+        calculateRelevanceScore(b.badge ?? "", debouncedQ),
       );
       return scoreB - scoreA;
     });
   }, [allResults, debouncedQ]);
 
+  const isDataLoading = !dataLoaded && !dataError;
   const hasQuery = debouncedQ.length > 0 || isSearching;
   const totalCount = filteredResults.length;
 
@@ -399,78 +416,88 @@ export function QuickSearchDialog({
             )}
 
             {/* ── Loading ── */}
-            {hasQuery && isSearching && (
+            {hasQuery && (isSearching || isDataLoading) && (
               <div className="p-3">
                 <ResultSkeleton />
               </div>
             )}
 
             {/* ── Không có kết quả ── */}
-            {hasQuery && !isSearching && filteredResults.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-10 gap-2">
-                <IconSearch className="w-8 h-8 text-muted-foreground/40" />
-                <p className="text-sm font-medium">
-                  Không tìm thấy kết quả nào
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  cho &ldquo;{debouncedQ}&rdquo;
-                </p>
-              </div>
-            )}
+            {hasQuery &&
+              !isSearching &&
+              !isDataLoading &&
+              filteredResults.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-10 gap-2">
+                  <IconSearch className="w-8 h-8 text-muted-foreground/40" />
+                  <p className="text-sm font-medium">
+                    Không tìm thấy kết quả nào
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    cho &ldquo;{debouncedQ}&rdquo;
+                  </p>
+                </div>
+              )}
 
             {/* ── Có kết quả: nhóm theo type, max MAX_PER_GROUP mỗi nhóm ── */}
-            {hasQuery && !isSearching && filteredResults.length > 0 && (
-              <div className="p-3 space-y-1">
-                {TAB_CONFIG.filter((t) => t.type).map((tab) => {
-                  const group = filteredResults.filter(
-                    (r) => r.type === (tab.type as ResultType),
-                  );
-                  if (group.length === 0) return null;
-                  const { icon: GIcon, color, label } = getTypeMeta(tab.type!);
-                  const shown = group.slice(0, MAX_PER_GROUP);
-                  return (
-                    <div key={tab.value} className="mb-3">
-                      <div className="flex items-center gap-1.5 mb-1.5 px-1">
-                        <GIcon className={`w-3 h-3 ${color}`} />
-                        <span
-                          className={`text-[10px] font-semibold uppercase tracking-wider ${color}`}
-                        >
-                          {label}
-                        </span>
-                        <Badge
-                          variant="secondary"
-                          className="text-[9px] px-1 py-0 h-3.5 leading-none"
-                        >
-                          {group.length}
-                        </Badge>
-                      </div>
-                      <div className="space-y-0.5">
-                        {shown.map((r) => (
-                          <ResultItem
-                            key={r.id}
-                            result={r}
-                            query={debouncedQ}
-                            onView={() => handleSelect(r)}
-                          />
-                        ))}
-                        {group.length > MAX_PER_GROUP && (
-                          <button
-                            className="w-full text-xs text-muted-foreground hover:text-foreground px-2.5 py-1.5 text-left transition-colors"
-                            onClick={() => handleSearchTerm(debouncedQ)}
+            {hasQuery &&
+              !isSearching &&
+              !isDataLoading &&
+              filteredResults.length > 0 && (
+                <div className="p-3 space-y-1">
+                  {TAB_CONFIG.filter((t) => t.type).map((tab) => {
+                    const group = filteredResults.filter(
+                      (r) => r.type === (tab.type as ResultType),
+                    );
+                    if (group.length === 0) return null;
+                    const {
+                      icon: GIcon,
+                      color,
+                      label,
+                    } = getTypeMeta(tab.type!);
+                    const shown = group.slice(0, MAX_PER_GROUP);
+                    return (
+                      <div key={tab.value} className="mb-3">
+                        <div className="flex items-center gap-1.5 mb-1.5 px-1">
+                          <GIcon className={`w-3 h-3 ${color}`} />
+                          <span
+                            className={`text-[10px] font-semibold uppercase tracking-wider ${color}`}
                           >
-                            +{group.length - MAX_PER_GROUP} kết quả nữa →
-                          </button>
-                        )}
+                            {label}
+                          </span>
+                          <Badge
+                            variant="secondary"
+                            className="text-[9px] px-1 py-0 h-3.5 leading-none"
+                          >
+                            {group.length}
+                          </Badge>
+                        </div>
+                        <div className="space-y-0.5">
+                          {shown.map((r) => (
+                            <ResultItem
+                              key={r.id}
+                              result={r}
+                              query={debouncedQ}
+                              onView={() => handleSelect(r)}
+                            />
+                          ))}
+                          {group.length > MAX_PER_GROUP && (
+                            <button
+                              className="w-full text-xs text-muted-foreground hover:text-foreground px-2.5 py-1.5 text-left transition-colors"
+                              onClick={() => handleSearchTerm(debouncedQ)}
+                            >
+                              +{group.length - MAX_PER_GROUP} kết quả nữa →
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              )}
           </div>
 
           {/* ── Footer ── */}
-          {hasQuery && !isSearching && totalCount > 0 && (
+          {hasQuery && !isSearching && !isDataLoading && totalCount > 0 && (
             <>
               <Separator />
               <div className="flex items-center justify-between px-4 py-2.5">

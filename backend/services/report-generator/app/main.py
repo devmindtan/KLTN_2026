@@ -5,6 +5,7 @@ Entry point for creating Smart Reports (PDF + XLSX)
 import os
 import logging
 import sys
+import gc
 from datetime import datetime, date, timedelta
 from typing import Dict, Any, Optional, List
 import json
@@ -30,7 +31,8 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────────────────────
 # CONSTANTS
 # ─────────────────────────────────────────────────────────────────────────────
-CHUNK_DAYS = 7  # Query 7 days per chunk to avoid OOM
+CHUNK_DAYS = max(1, int(os.getenv("REPORT_QUERY_CHUNK_DAYS", "1")))
+SQL_FETCH_CHUNK_SIZE = max(1000, int(os.getenv("REPORT_SQL_FETCH_CHUNK_SIZE", "20000")))
 
 def generate_report(report_id: str, report_config: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -64,7 +66,7 @@ def generate_report(report_id: str, report_config: Dict[str, Any]) -> Dict[str, 
         # ────────────────────────────────────────────────────────────────────
         if num_days > CHUNK_DAYS:
             logger.info(f"📦 Period is {num_days} days, using chunked collection strategy...")
-            analyzed_summary, all_traffic_data = _generate_report_chunked(
+            analyzed_summary, export_timeseries_data, raw_record_count = _generate_report_chunked(
                 period_from, period_to, hour_from, hour_to, report_id
             )
         else:
@@ -82,7 +84,10 @@ def generate_report(report_id: str, report_config: Dict[str, Any]) -> Dict[str, 
             # Step 3: Analytics processing
             logger.info("📊 Analyzing traffic data...")
             analyzed_summary = analyze_traffic_data(traffic_data, cameras_data)
-            all_traffic_data = traffic_data
+            export_timeseries_data = _build_timeseries_export_frame(traffic_data)
+            raw_record_count = len(traffic_data)
+            del traffic_data
+            gc.collect()
         
         # Step 4: Generate files
         report_meta = {
@@ -92,14 +97,19 @@ def generate_report(report_id: str, report_config: Dict[str, Any]) -> Dict[str, 
             "hour_from":   hour_from,
             "hour_to":     hour_to,
             "generated_at": datetime.now().isoformat(),
-            "timeseries_count": len(all_traffic_data)
+            "timeseries_count": len(export_timeseries_data),
+            "raw_record_count": raw_record_count,
         }
         
         logger.info("📄 Generating PDF...")
         pdf_bytes = create_executive_summary_pdf(analyzed_summary, report_meta)
         
         logger.info("📊 Generating XLSX...")
-        xlsx_bytes = create_structured_data_xlsx(analyzed_summary, all_traffic_data, report_meta)
+        xlsx_bytes = create_structured_data_xlsx(
+            analyzed_summary,
+            export_timeseries_data,
+            report_meta,
+        )
         
         # Step 5: Upload files to MinIO
         logger.info("☁️ Uploading to MinIO...")
@@ -135,7 +145,7 @@ def _generate_report_chunked(
     hour_from: Optional[int],
     hour_to: Optional[int],
     report_id: str,
-) -> tuple[Dict[str, Any], pd.DataFrame]:
+) -> tuple[Dict[str, Any], pd.DataFrame, int]:
     """
     🟡 CHUNKED GENERATION: Chia tháng thành 7-ngày chunks
     Query từng chunk → analyze → merge results → tránh OOM
@@ -146,11 +156,11 @@ def _generate_report_chunked(
         report_id: for logging
         
     Returns:
-        (analyzed_summary_merged, combined_traffic_dataframe)
+        (analyzed_summary_merged, combined_timeseries_dataframe, raw_record_count)
     """
     chunks: List[Dict[str, Any]] = []
-    all_traffic_data_list: List[pd.DataFrame] = []
-    cameras_data = None
+    timeseries_chunks: List[pd.DataFrame] = []
+    raw_record_count = 0
     
     current_date = period_from
     chunk_num = 0
@@ -174,14 +184,12 @@ def _generate_report_chunked(
             hour_to=hour_to,
         )
         
-        # Save camera data (same for all chunks)
-        if cameras_data is None:
-            cameras_data = cameras_chunk
-        
         if traffic_chunk.empty:
             logger.warning(f"   ⚠️  Chunk empty, skipping...")
             current_date = chunk_end + timedelta(days=1)
             continue
+
+        raw_record_count += len(traffic_chunk)
         
         # Analyze chunk
         logger.info(f"   📊 Analyzing chunk {chunk_num} ({len(traffic_chunk)} records)...")
@@ -195,8 +203,12 @@ def _generate_report_chunked(
             "record_count": len(traffic_chunk)
         })
         
-        # Store traffic data for XLSX export
-        all_traffic_data_list.append(traffic_chunk)
+        # Store only hourly-aggregated time series for XLSX export
+        timeseries_chunks.append(_build_timeseries_export_frame(traffic_chunk))
+
+        del traffic_chunk
+        del cameras_chunk
+        gc.collect()
         
         # Move to next chunk
         current_date = chunk_end + timedelta(days=1)
@@ -210,12 +222,64 @@ def _generate_report_chunked(
     logger.info(f"🔀 Merging {len(chunks)} chunks...")
     analyzed_summary_merged = merge_analyzed_chunks(chunks)
     
-    # Combine all traffic data for XLSX
-    combined_traffic_data = pd.concat(all_traffic_data_list, ignore_index=True)
+    # Combine only aggregated timeseries data for XLSX
+    combined_timeseries_data = pd.concat(timeseries_chunks, ignore_index=True)
+    combined_timeseries_data = (
+        combined_timeseries_data
+        .groupby(
+            ["hour_bucket", "camera_id", "hour", "day_of_week", "is_weekend"],
+            as_index=False,
+        )
+        .agg(
+            total_objects_sum=("total_objects_sum", "sum"),
+            avg_objects=("avg_objects", "mean"),
+            max_objects=("max_objects", "max"),
+            record_count=("record_count", "sum"),
+        )
+        .sort_values(["hour_bucket", "camera_id"])
+        .reset_index(drop=True)
+    )
+    combined_timeseries_data["avg_objects"] = combined_timeseries_data["avg_objects"].round(2)
     
-    logger.info(f"✅ Chunked generation complete: {len(chunks)} chunks, {len(combined_traffic_data)} total records")
+    logger.info(
+        f"✅ Chunked generation complete: {len(chunks)} chunks, "
+        f"{raw_record_count} raw records, {len(combined_timeseries_data)} hourly rows"
+    )
     
-    return analyzed_summary_merged, combined_traffic_data
+    return analyzed_summary_merged, combined_timeseries_data, raw_record_count
+
+def _build_timeseries_export_frame(raw_data: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate raw 5-minute rows to hourly buckets for XLSX export."""
+    if raw_data.empty:
+        return pd.DataFrame(columns=[
+            "hour_bucket", "camera_id", "total_objects_sum",
+            "avg_objects", "max_objects", "record_count",
+            "hour", "day_of_week", "is_weekend",
+        ])
+
+    df = raw_data[["camera_id", "created_at", "total_objects"]].copy()
+    df["created_at"] = pd.to_datetime(df["created_at"])
+    df["hour_bucket"] = df["created_at"].dt.floor("h")
+    df["hour"] = df["hour_bucket"].dt.hour
+    df["day_of_week"] = df["hour_bucket"].dt.dayofweek
+    df["is_weekend"] = df["day_of_week"] >= 5
+
+    aggregated = (
+        df.groupby(
+            ["hour_bucket", "camera_id", "hour", "day_of_week", "is_weekend"],
+            as_index=False,
+        )
+        .agg(
+            total_objects_sum=("total_objects", "sum"),
+            avg_objects=("total_objects", "mean"),
+            max_objects=("total_objects", "max"),
+            record_count=("total_objects", "count"),
+        )
+        .sort_values(["hour_bucket", "camera_id"])
+        .reset_index(drop=True)
+    )
+    aggregated["avg_objects"] = aggregated["avg_objects"].round(2)
+    return aggregated
 
 def _collect_traffic_data(
     period_from: str,
@@ -253,7 +317,23 @@ def _collect_traffic_data(
         ORDER BY created_at
     """)
 
-    traffic_data = pd.read_sql(traffic_query, engine, params=params)
+    traffic_frames: List[pd.DataFrame] = []
+    for sql_chunk in pd.read_sql(
+        traffic_query,
+        engine,
+        params=params,
+        chunksize=SQL_FETCH_CHUNK_SIZE,
+    ):
+        traffic_frames.append(sql_chunk)
+
+    if traffic_frames:
+        traffic_data = pd.concat(traffic_frames, ignore_index=True)
+    else:
+        traffic_data = pd.DataFrame(
+            columns=["camera_id", "created_at", "total_objects", "detections"]
+        )
+
+    del traffic_frames
     
     # Query camera metadata — bảng đúng là camera_data (cam_id, display_name, location)
     cameras_query = text("""
@@ -263,8 +343,11 @@ def _collect_traffic_data(
     
     cameras_data = pd.read_sql(cameras_query, engine)
     
-    logger.info(f"📈 Collected {len(traffic_data)} traffic records from {len(cameras_data)} cameras"
-                + (f" (giờ {hour_from}:00–{hour_to}:00)" if hour_from is not None else " (tất cả giờ)"))
+    logger.info(
+        f"📈 Collected {len(traffic_data)} traffic records from {len(cameras_data)} cameras"
+        + (f" (giờ {hour_from}:00–{hour_to}:00)" if hour_from is not None else " (tất cả giờ)")
+        + f" | sql chunksize={SQL_FETCH_CHUNK_SIZE}"
+    )
     
     return traffic_data, cameras_data
 

@@ -288,7 +288,8 @@ export function ForecastRollingChart({
   useEffect(() => {
     function applyData(data: ForecastRollingResponse) {
       setApiData(data);
-      const [apiH, apiM] = data.metadata.nowTime.split(":").map(Number);
+      const nowTime = data.metadata.nowTime ?? "07:00";
+      const [apiH, apiM] = nowTime.split(":").map(Number);
       const apiMin = apiH * 60 + apiM;
       const gridIdx = Math.max(0, Math.floor((apiMin - START_HOUR * 60) / 5));
       setSelectedIdx(Math.min(gridIdx, 203));

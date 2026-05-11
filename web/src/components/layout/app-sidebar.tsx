@@ -15,6 +15,7 @@ import {
   IconSettings,
   IconUsers,
   IconFlask,
+  IconApi,
 } from "@tabler/icons-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -77,6 +78,11 @@ function buildNavReports(p: string) {
 function buildNavSecondary(p: string) {
   return [
     { title: PAGE_TITLES.SEARCH, url: u(p, "search"), icon: IconSearch },
+    {
+      title: PAGE_TITLES.FIWARE_PUBLIC_API,
+      url: u(p, "fiware-public-api"),
+      icon: IconApi,
+    },
     { title: PAGE_TITLES.HELP, url: u(p, "help"), icon: IconHelp },
     { title: PAGE_TITLES.TEAM, url: u(p, "team"), icon: IconUsers },
     { title: PAGE_TITLES.SETTINGS, url: u(p, "settings"), icon: IconSettings },

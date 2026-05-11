@@ -4,11 +4,11 @@ import pool from "../config/database";
 // ─── LOS (Level of Service) Config ───────────────────────────────────────────
 // Ngưỡng V/C ratio (%) → mức dịch vụ giao thông
 const LOS_THRESHOLDS: { max: number; level: string; label: string }[] = [
-  { max: 40,       level: "A", label: "Thông thoáng" },
-  { max: 60,       level: "B", label: "Ổn định" },
-  { max: 75,       level: "C", label: "Bão hòa nhẹ" },
-  { max: 90,       level: "D", label: "Bão hòa" },
-  { max: 100,      level: "E", label: "Tắc nghẽn nhẹ" },
+  { max: 40, level: "A", label: "Thông thoáng" },
+  { max: 60, level: "B", label: "Ổn định" },
+  { max: 75, level: "C", label: "Bão hòa nhẹ" },
+  { max: 90, level: "D", label: "Bão hòa" },
+  { max: 100, level: "E", label: "Tắc nghẽn nhẹ" },
   { max: Infinity, level: "F", label: "Tắc nghẽn" },
 ];
 
@@ -28,10 +28,10 @@ function getLOS(vcRatio: number | null): { level: string; label: string } {
  * Dùng explicit offset thay vì toLocaleTimeString để tránh lỗi "6:00" vs "06:00"
  */
 function toHCMTime(ts: Date): string {
-  const hcm = new Date(ts.getTime() + 7 * 60 * 60 * 1000)
-  const hh = String(hcm.getUTCHours()).padStart(2, "0")
-  const mm = String(hcm.getUTCMinutes()).padStart(2, "0")
-  return `${hh}:${mm}`
+  const hcm = new Date(ts.getTime() + 7 * 60 * 60 * 1000);
+  const hh = String(hcm.getUTCHours()).padStart(2, "0");
+  const mm = String(hcm.getUTCMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
 }
 
 /** Parse query param date, trả về null nếu không hợp lệ */
@@ -106,6 +106,8 @@ export const getForecastRolling = async (req: Request, res: Response) => {
         metadata: {
           nowIndex: 0,
           totalSlots: 0,
+          nowTime: toHCMTime(new Date()),
+          generatedAt: new Date().toISOString(),
           timeRange: { start: "07:00", end: "23:55" },
           description: "Không có dữ liệu dự báo cho ngày hôm nay",
         },
@@ -124,22 +126,25 @@ export const getForecastRolling = async (req: Request, res: Response) => {
     const latestRes = await pool.query<{ latest_at: Date | null }>(
       `SELECT MAX(created_at) AS latest_at
        FROM camera_forecasts
-       WHERE created_at::date = CURRENT_DATE`
+       WHERE created_at::date = CURRENT_DATE`,
     );
     const latestAt = latestRes.rows[0]?.latest_at;
-    const now      = latestAt ? new Date(latestAt) : new Date();
-    const nowTime  = toHCMTime(now);
+    const now = latestAt ? new Date(latestAt) : new Date();
+    const nowTime = toHCMTime(now);
 
     // ── Step 3: Group rows theo camera_id ────────────────────────────────────
     type PivotRow = {
       camera_id: string;
       time_slot: Date;
       actual_value: number | null;
-      f5m: number | null; f10m: number | null; f15m: number | null;
-      f30m: number | null; f60m: number | null;
+      f5m: number | null;
+      f10m: number | null;
+      f15m: number | null;
+      f30m: number | null;
+      f60m: number | null;
       capacity: number;
       vc_ratio: number | null;
-    }
+    };
 
     const cameraMap = new Map<string, PivotRow[]>();
     for (const row of result.rows as PivotRow[]) {
@@ -149,33 +154,39 @@ export const getForecastRolling = async (req: Request, res: Response) => {
 
     // ── Step 4: Build slot array chuẩn cho 1 camera ──────────────────────────
     type SlotOut = {
-      t: string; actual: number | null; actualRef: number | null;
+      t: string;
+      actual: number | null;
+      actualRef: number | null;
       currentRatio: number | null;
       isFuture: boolean;
-      los: string; losLabel: string;
-      f5m: number | null; f10m: number | null; f15m: number | null;
-      f30m: number | null; f60m: number | null;
-    }
+      los: string;
+      losLabel: string;
+      f5m: number | null;
+      f10m: number | null;
+      f15m: number | null;
+      f30m: number | null;
+      f60m: number | null;
+    };
 
     const buildSlots = (rows: PivotRow[]): SlotOut[] => {
       const slots: SlotOut[] = rows
         .map((row) => {
-          const t        = toHCMTime(new Date(row.time_slot));
-          const vcRatio  = row.vc_ratio ?? null;
+          const t = toHCMTime(new Date(row.time_slot));
+          const vcRatio = row.vc_ratio ?? null;
           const { level: los, label: losLabel } = getLOS(vcRatio);
           return {
             t,
-            actual:       r1(row.actual_value),
-            actualRef:    null as number | null,
+            actual: r1(row.actual_value),
+            actualRef: null as number | null,
             currentRatio: vcRatio,
-            isFuture:     t >= nowTime,
+            isFuture: t >= nowTime,
             los,
             losLabel,
-            f5m:          r1(row.f5m),
-            f10m:         r1(row.f10m),
-            f15m:         r1(row.f15m),
-            f30m:         r1(row.f30m),
-            f60m:         r1(row.f60m),
+            f5m: r1(row.f5m),
+            f10m: r1(row.f10m),
+            f15m: r1(row.f15m),
+            f30m: r1(row.f30m),
+            f60m: r1(row.f60m),
           };
         })
         .sort((a, b) => a.t.localeCompare(b.t));
@@ -186,7 +197,10 @@ export const getForecastRolling = async (req: Request, res: Response) => {
       let baselineVal: number | null = null;
       for (let i = camNowIdx; i >= 0; i--) {
         const v = slots[i]?.actual ?? slots[i]?.f5m;
-        if (v != null) { baselineVal = v; break; }
+        if (v != null) {
+          baselineVal = v;
+          break;
+        }
       }
       if (baselineVal != null) {
         for (let i = camNowIdx + 1; i < slots.length; i++) {
@@ -199,9 +213,18 @@ export const getForecastRolling = async (req: Request, res: Response) => {
     // ── Step 5: Aggregate "all" = trung bình cameras theo từng time_slot ─────
     type AccSlot = {
       t: string;
-      sums: Record<string, number>; cnts: Record<string, number>;
-    }
-    const FIELDS = ["actual", "f5m", "f10m", "f15m", "f30m", "f60m", "currentRatio"] as const;
+      sums: Record<string, number>;
+      cnts: Record<string, number>;
+    };
+    const FIELDS = [
+      "actual",
+      "f5m",
+      "f10m",
+      "f15m",
+      "f30m",
+      "f60m",
+      "currentRatio",
+    ] as const;
 
     const allAcc = new Map<string, AccSlot>();
     for (const row of result.rows as PivotRow[]) {
@@ -211,9 +234,12 @@ export const getForecastRolling = async (req: Request, res: Response) => {
       }
       const s = allAcc.get(t)!;
       const vals: Record<string, number | null> = {
-        actual:       row.actual_value,
-        f5m:          row.f5m,   f10m: row.f10m, f15m: row.f15m,
-        f30m:         row.f30m,  f60m: row.f60m,
+        actual: row.actual_value,
+        f5m: row.f5m,
+        f10m: row.f10m,
+        f15m: row.f15m,
+        f30m: row.f30m,
+        f60m: row.f60m,
         currentRatio: row.vc_ratio,
       };
       for (const f of FIELDS) {
@@ -227,21 +253,24 @@ export const getForecastRolling = async (req: Request, res: Response) => {
 
     const allSlotsArray: SlotOut[] = Array.from(allAcc.values())
       .map(({ t, sums, cnts }) => {
-        const currentRatio = cnts.currentRatio > 0 ? r1(sums.currentRatio / cnts.currentRatio) : null;
+        const currentRatio =
+          cnts.currentRatio > 0
+            ? r1(sums.currentRatio / cnts.currentRatio)
+            : null;
         const { level: los, label: losLabel } = getLOS(currentRatio);
         return {
           t,
-          actual:       cnts.actual       > 0 ? r1(sums.actual       / cnts.actual)       : null,
-          actualRef:    null as number | null,
+          actual: cnts.actual > 0 ? r1(sums.actual / cnts.actual) : null,
+          actualRef: null as number | null,
           currentRatio,
-          isFuture:     t >= nowTime,
+          isFuture: t >= nowTime,
           los,
           losLabel,
-          f5m:          cnts.f5m          > 0 ? r1(sums.f5m          / cnts.f5m)          : null,
-          f10m:         cnts.f10m         > 0 ? r1(sums.f10m         / cnts.f10m)         : null,
-          f15m:         cnts.f15m         > 0 ? r1(sums.f15m         / cnts.f15m)         : null,
-          f30m:         cnts.f30m         > 0 ? r1(sums.f30m         / cnts.f30m)         : null,
-          f60m:         cnts.f60m         > 0 ? r1(sums.f60m         / cnts.f60m)         : null,
+          f5m: cnts.f5m > 0 ? r1(sums.f5m / cnts.f5m) : null,
+          f10m: cnts.f10m > 0 ? r1(sums.f10m / cnts.f10m) : null,
+          f15m: cnts.f15m > 0 ? r1(sums.f15m / cnts.f15m) : null,
+          f30m: cnts.f30m > 0 ? r1(sums.f30m / cnts.f30m) : null,
+          f60m: cnts.f60m > 0 ? r1(sums.f60m / cnts.f60m) : null,
         };
       })
       .sort((a, b) => a.t.localeCompare(b.t));
@@ -251,7 +280,10 @@ export const getForecastRolling = async (req: Request, res: Response) => {
     let allBaseline: number | null = null;
     for (let i = allNowIdx; i >= 0; i--) {
       const v = allSlotsArray[i]?.actual ?? allSlotsArray[i]?.f5m;
-      if (v != null) { allBaseline = v; break; }
+      if (v != null) {
+        allBaseline = v;
+        break;
+      }
     }
     if (allBaseline != null) {
       for (let i = allNowIdx + 1; i < allSlotsArray.length; i++) {
@@ -272,10 +304,11 @@ export const getForecastRolling = async (req: Request, res: Response) => {
 
     // ── Step 7: Capacity per camera ───────────────────────────────────────────
     const capRows = await pool.query(
-      `SELECT camera_id, COALESCE(capacity, 100) AS capacity FROM mv_forecast_capacity`
+      `SELECT camera_id, COALESCE(capacity, 100) AS capacity FROM mv_forecast_capacity`,
     );
     const capacities: Record<string, number> = {};
-    let capSum = 0, capCount = 0;
+    let capSum = 0,
+      capCount = 0;
     for (const row of capRows.rows) {
       capacities[row.camera_id] = Number(row.capacity);
       capSum += Number(row.capacity);
@@ -287,13 +320,13 @@ export const getForecastRolling = async (req: Request, res: Response) => {
     return res.json({
       success: true,
       metadata: {
-        nowIndex:     allNowIdx >= 0 ? allNowIdx : allSlotsArray.length - 1,
-        totalSlots:   allSlotsArray.length,
+        nowIndex: allNowIdx >= 0 ? allNowIdx : allSlotsArray.length - 1,
+        totalSlots: allSlotsArray.length,
         nowTime,
-        generatedAt:  new Date().toISOString(),
+        generatedAt: new Date().toISOString(),
         timeRange: {
           start: allSlotsArray[0]?.t ?? "07:00",
-          end:   allSlotsArray[allSlotsArray.length - 1]?.t ?? "23:55",
+          end: allSlotsArray[allSlotsArray.length - 1]?.t ?? "23:55",
         },
         description: "Rolling forecast data cho ngày hiện tại",
       },
@@ -309,4 +342,3 @@ export const getForecastRolling = async (req: Request, res: Response) => {
     });
   }
 };
-

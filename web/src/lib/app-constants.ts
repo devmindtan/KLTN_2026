@@ -12,7 +12,6 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-
 // ─── Primitive building blocks ───────────────────────────────────────────────
 /** Một mục term cơ bản: tiêu đề, mô tả phụ, tooltip */
 interface Term {
@@ -38,19 +37,23 @@ export const DASHBOARD_TERM = {
   card1: {
     title: "Tổng phương tiện",
     description: "Phát hiện thời gian thực",
-    tooltips: "Tổng số phương tiện được phát hiện trên toàn bộ camera đang hoạt động",
+    tooltips:
+      "Tổng số phương tiện được phát hiện trên toàn bộ camera đang hoạt động",
   },
   card2: {
     title: "Máy quay hoạt động",
-    tooltips: "Số camera đang gửi dữ liệu về hệ thống. Mỗi camera được phân loại theo mức độ giao thông LOS.",
+    tooltips:
+      "Số camera đang gửi dữ liệu về hệ thống. Mỗi camera được phân loại theo mức độ giao thông LOS.",
   },
   card3: {
     title: "Tình trạng giao thông",
-    tooltips: "Số camera ở trạng thái thông thoáng (LOS A-B). Thanh màu phản ánh tỉ lệ xanh/vàng/đỏ.",
+    tooltips:
+      "Số camera ở trạng thái thông thoáng (LOS A-B). Thanh màu phản ánh tỉ lệ xanh/vàng/đỏ.",
   },
   card4: {
     title: "Xu hướng mạng lưới",
-    tooltips: "Tỉ lệ % camera đang có xu hướng tăng lưu lượng so với chu kỳ trước.",
+    tooltips:
+      "Tỉ lệ % camera đang có xu hướng tăng lưu lượng so với chu kỳ trước.",
   },
   card5: {
     title: "Độ tin cậy dự đoán",
@@ -66,7 +69,8 @@ export const DASHBOARD_TERM = {
   },
   chart3: {
     title: "Cuốn chiếu – 5 mốc thời gian",
-    description: "Hiển thị từ 07:00 đến hiện tại (dự báo 60p tương lai đến 23:00). Quá khứ: 5 horizon bám thực tế.",
+    description:
+      "Hiển thị từ 07:00 đến hiện tại (dự báo 60p tương lai đến 23:00). Quá khứ: 5 horizon bám thực tế.",
   },
   table1: {
     title: "Nguồn máy quay trực tiếp",
@@ -78,7 +82,8 @@ export const DASHBOARD_TERM = {
 export const MONITORING_TERM = {
   page_header: {
     title: "Giám sát lưu lượng thời gian thực",
-    description: "Theo dõi lưu lượng giao thông tại các điểm quan trọng trong thành phố",
+    description:
+      "Theo dõi lưu lượng giao thông tại các điểm quan trọng trong thành phố",
   },
 } satisfies Record<string, Term>;
 
@@ -91,32 +96,38 @@ export const ANALYTICS_TERM = {
   card1: {
     title: "MAE",
     description: "Sai số tuyệt đối trung bình",
-    tooltips: "Mean Absolute Error - Sai số tuyệt đối trung bình. Đo lường chênh lệch trung bình giữa giá trị dự đoán và thực tế theo số xe."
+    tooltips:
+      "Mean Absolute Error - Sai số tuyệt đối trung bình. Đo lường chênh lệch trung bình giữa giá trị dự đoán và thực tế theo số xe.",
   },
   card2: {
     title: "MAPE",
     description: "Sai số phần trăm trung bình",
-    tooltips: "Mean Absolute Percentage Error - Sai số phần trăm tuyệt đối trung bình. Tiện ích để so sánh chất lượng dự đoán giữa các camera khác nhau."
+    tooltips:
+      "Mean Absolute Percentage Error - Sai số phần trăm tuyệt đối trung bình. Tiện ích để so sánh chất lượng dự đoán giữa các camera khác nhau.",
   },
   card3: {
     title: "Accuracy ≤ 5xe",
     description: "Tỷ lệ dự đoán trong ±5 xe",
-    tooltips: "Tỷ lệ % dự đoán có sai số trong phạm vi ±5 xe. Chiềm 75% trở lên được coi là tốt."
+    tooltips:
+      "Tỷ lệ % dự đoán có sai số trong phạm vi ±5 xe. Chiềm 75% trở lên được coi là tốt.",
   },
   card4: {
     title: "Trend Accuracy",
     description: "Độ chính xác dự đoán xu hướng",
-    tooltips: "Độ chính xác khi dự đoán xu hướng tăng/giảm/ổn định của lưu lượng giao thông. Hữu ích cho việc ra quyết định vận hành."
+    tooltips:
+      "Độ chính xác khi dự đoán xu hướng tăng/giảm/ổn định của lưu lượng giao thông. Hữu ích cho việc ra quyết định vận hành.",
   },
   card5: {
     title: "Độ tin cậy dự đoán",
     description: "",
-    tooltips: "Đánh giá chất lượng dữ liệu đầu vào (input samples) so với dữ liệu quá khứ (LAG samples) để xác định độ tin cậy của dự đoán."
+    tooltips:
+      "Đánh giá chất lượng dữ liệu đầu vào (input samples) so với dữ liệu quá khứ (LAG samples) để xác định độ tin cậy của dự đoán.",
   },
   card6: {
     title: "Độ tin cậy sai số",
     description: "",
-    tooltips: "Đánh giá độ khớp giữa dữ liệu đầu vào khi dự đoán và dữ liệu thực tế khi đồng bộ, ảnh hưởng đến độ tin cậy của error value."
+    tooltips:
+      "Đánh giá độ khớp giữa dữ liệu đầu vào khi dự đoán và dữ liệu thực tế khi đồng bộ, ảnh hưởng đến độ tin cậy của error value.",
   },
   table1: {
     title: "So sánh theo các mốc",
@@ -129,9 +140,8 @@ export const ANALYTICS_TERM = {
   },
   table4: {
     title: "Lịch sử kiểm tra gần đây",
-    description: "Dữ liệu được lưu định kỳ để hiển thị quá khứ"
-  }
-
+    description: "Dữ liệu được lưu định kỳ để hiển thị quá khứ",
+  },
 } satisfies Record<string, Term>;
 
 // ─── Models ──────────────────────────────────────────────────────────────────
@@ -166,11 +176,19 @@ export const SEARCH_TERM = {
   },
 } satisfies Record<string, Term>;
 
+export const FIWARE_PUBLIC_API_TERM = {
+  page_header: {
+    title: "Public API FIWARE",
+    description: "Tài liệu tích hợp NGSI-v2 dành cho các nhà phát triển",
+  },
+} satisfies Record<string, Term>;
+
 // ─── Word Assistant ──────────────────────────────────────────────────────────
 export const WORD_ASSISTANT_TERM = {
   page_header: {
     title: "Hỗ trợ ra quyết định",
-    description: "Khuyến nghị tự động dựa trên phân tích AI và dự đoán lưu lượng",
+    description:
+      "Khuyến nghị tự động dựa trên phân tích AI và dự đoán lưu lượng",
   },
 } satisfies Record<string, Term>;
 
@@ -192,7 +210,8 @@ export const HELP_TERM = {
 export const TEAM_TERM = {
   page_header: {
     title: "Đội ngũ phát triển",
-    description: "Thành viên tham gia dự án phát triển phần mềm đoán lưu lượng giao thông",
+    description:
+      "Thành viên tham gia dự án phát triển phần mềm đoán lưu lượng giao thông",
   },
 } satisfies Record<string, Term>;
 
@@ -200,27 +219,29 @@ export const CONNECTION_STATUS: Record<string, CONNECTION_STATUS> = {
   connected: {
     label: "Đang kết nối",
     color: "size-1.5 mr-2 rounded-full bg-green-500",
-    theme: "bg-green-500/10 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400"
+    theme:
+      "bg-green-500/10 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400",
   },
   disconnected: {
     label: "Mất kết nối",
     color: "size-1.5 mr-2 rounded-full bg-red-500",
-    theme: "bg-red-50 text-red-600 border-red-200 dark:bg-red-950/30 dark:text-red-400"
-  }
+    theme:
+      "bg-red-50 text-red-600 border-red-200 dark:bg-red-950/30 dark:text-red-400",
+  },
 };
 
 export const TREND_LABEL: Record<string, string> = {
   increasing: "Tăng",
   decreasing: "Giảm",
-  stable:     "Ổn định",
+  stable: "Ổn định",
 };
 
 /** Các term gắn với phương tiện (xe) - không trùng với LOS_LABEL / METRIC_LABELS / TIME_LABEL */
 export const GENERAL_TERM = {
-  car:      "xe lớn",
+  car: "xe lớn",
   motobike: "xe nhỏ",
-  vehicle:  "xe",
-  camera:   "máy quay",
+  vehicle: "xe",
+  camera: "máy quay",
   increase: "tăng",
   decrease: "giảm",
   vc_ratio: "Mức tải V/C",
@@ -234,9 +255,9 @@ export const GENERAL_TERM = {
 /** Map LOS key → nhãn tiếng Việt hiển thị */
 export const LOS_LABEL: Record<string, string> = {
   free_flow: import.meta.env.VITE_LOS_FREE_FLOW ?? "Thông thoáng",
-  smooth:    import.meta.env.VITE_LOS_SMOOTH    ?? "Trôi chảy",
-  moderate:  import.meta.env.VITE_LOS_MODERATE  ?? "Vừa phải",
-  heavy:     import.meta.env.VITE_LOS_HEAVY     ?? "Đông đúc",
+  smooth: import.meta.env.VITE_LOS_SMOOTH ?? "Trôi chảy",
+  moderate: import.meta.env.VITE_LOS_MODERATE ?? "Vừa phải",
+  heavy: import.meta.env.VITE_LOS_HEAVY ?? "Đông đúc",
   congested: import.meta.env.VITE_LOS_CONGESTED ?? "Ùn tắc",
 };
 
@@ -255,24 +276,24 @@ export function getLOSLabel(status: string, fallback = "Không rõ"): string {
 
 /** Tên ngắn của các metric dùng trong chip, table header, chart axis */
 export const METRIC_LABELS = {
-  MAE:        import.meta.env.VITE_METRIC_MAE       ?? "MAE",
-  MAPE:       import.meta.env.VITE_METRIC_MAPE      ?? "MAPE",
-  RMSE:       import.meta.env.VITE_METRIC_RMSE      ?? "RMSE",
-  R2:         import.meta.env.VITE_METRIC_R2        ?? "R²",
-  ACC_5:      import.meta.env.VITE_METRIC_ACC5      ?? "Accuracy ≤5xe",
-  TREND_ACC:  import.meta.env.VITE_METRIC_TREND_ACC ?? "Trend Accuracy",
-  SAMPLES:    "Mẫu huấn luyện",
+  MAE: import.meta.env.VITE_METRIC_MAE ?? "MAE",
+  MAPE: import.meta.env.VITE_METRIC_MAPE ?? "MAPE",
+  RMSE: import.meta.env.VITE_METRIC_RMSE ?? "RMSE",
+  R2: import.meta.env.VITE_METRIC_R2 ?? "R²",
+  ACC_5: import.meta.env.VITE_METRIC_ACC5 ?? "Accuracy ≤5xe",
+  TREND_ACC: import.meta.env.VITE_METRIC_TREND_ACC ?? "Trend Accuracy",
+  SAMPLES: "Mẫu huấn luyện",
 } as const;
 
 /** Mô tả chi tiết metric dùng trong tooltip */
 export const METRIC_DESCRIPTIONS: Record<keyof typeof METRIC_LABELS, string> = {
-  MAE:        "Sai số tuyệt đối trung bình (xe / 5 phút). Càng thấp càng tốt.",
-  MAPE:       "Sai số phần trăm trung bình. Càng thấp càng tốt.",
-  RMSE:       "Căn bậc hai sai số bình phương trung bình. Nhạy với outlier.",
-  R2:         "Hệ số xác định — độ khớp tổng thể mô hình (0–1, càng cao càng tốt).",
-  ACC_5:      "Tỷ lệ dự đoán có sai số trong phạm vi ±5 xe.",
-  TREND_ACC:  "Độ chính xác dự đoán xu hướng tăng / giảm của lưu lượng.",
-  SAMPLES:    "Số lượng bản ghi lịch sử dùng để huấn luyện mô hình.",
+  MAE: "Sai số tuyệt đối trung bình (xe / 5 phút). Càng thấp càng tốt.",
+  MAPE: "Sai số phần trăm trung bình. Càng thấp càng tốt.",
+  RMSE: "Căn bậc hai sai số bình phương trung bình. Nhạy với outlier.",
+  R2: "Hệ số xác định — độ khớp tổng thể mô hình (0–1, càng cao càng tốt).",
+  ACC_5: "Tỷ lệ dự đoán có sai số trong phạm vi ±5 xe.",
+  TREND_ACC: "Độ chính xác dự đoán xu hướng tăng / giảm của lưu lượng.",
+  SAMPLES: "Số lượng bản ghi lịch sử dùng để huấn luyện mô hình.",
 };
 
 // ─── 3. Time Interval Labels ─────────────────────────────────────────────────
@@ -280,17 +301,17 @@ export const METRIC_DESCRIPTIONS: Record<keyof typeof METRIC_LABELS, string> = {
 
 /** Map key khoảng thời gian → nhãn tiếng Việt */
 export const TIME_LABEL: Record<string, string> = {
-  "5m":  "5 phút",
+  "5m": "5 phút",
   "10m": "10 phút",
   "15m": "15 phút",
   "30m": "30 phút",
   "60m": "60 phút",
   // Forecast windows (prefix f)
-  "f5m":  "Dự báo 5 phút",
-  "f10m": "Dự báo 10 phút",
-  "f15m": "Dự báo 15 phút",
-  "f30m": "Dự báo 30 phút",
-  "f60m": "Dự báo 60 phút",
+  f5m: "Dự báo 5 phút",
+  f10m: "Dự báo 10 phút",
+  f15m: "Dự báo 15 phút",
+  f30m: "Dự báo 30 phút",
+  f60m: "Dự báo 60 phút",
 };
 
 /**
@@ -307,10 +328,19 @@ export function getTimeLabel(key: string, fallback?: string): string {
 
 /** Map job status → nhãn tiếng Việt + màu badge (Tailwind class) */
 export const JOB_STATUS: Record<string, { label: string; color: string }> = {
-  running:   { label: "Đang chạy",   color: "bg-blue-50 text-blue-700 border-blue-200"   },
-  succeeded: { label: "Thành công",  color: "bg-green-50 text-green-700 border-green-200" },
-  failed:    { label: "Thất bại",    color: "bg-red-50 text-red-700 border-red-200"       },
-  pending:   { label: "Chờ xử lý",  color: "bg-yellow-50 text-yellow-700 border-yellow-200" },
+  running: {
+    label: "Đang chạy",
+    color: "bg-blue-50 text-blue-700 border-blue-200",
+  },
+  succeeded: {
+    label: "Thành công",
+    color: "bg-green-50 text-green-700 border-green-200",
+  },
+  failed: { label: "Thất bại", color: "bg-red-50 text-red-700 border-red-200" },
+  pending: {
+    label: "Chờ xử lý",
+    color: "bg-yellow-50 text-yellow-700 border-yellow-200",
+  },
 };
 
 /**
@@ -326,7 +356,6 @@ export function getJobStatusLabel(status: string): string {
 
 /** Map xu hướng → nhãn tiếng Việt */
 
-
 /**
  * Trả về nhãn xu hướng.
  * @param trend - Canonical trend key
@@ -339,28 +368,28 @@ export function getTrendLabel(trend: string, fallback = "—"): string {
 // Các thuật ngữ chuyên ngành giao thông xuất hiện rải rác trên UI.
 
 export const TRAFFIC_TERMS = {
-  VEHICLES:             "Phương tiện",
-  VEHICLE_COUNT:        "Tổng phương tiện",
-  FLOW_RATE:            "Lưu lượng",
-  FLOW_RATE_HOURLY:     "Lưu lượng theo giờ",
-  PEAK_HOUR:            "Giờ cao điểm",
-  VC_RATIO:             "Mức tải V/C",
-  FORECAST_SLOT:        "Thời điểm dự báo",
-  UNIT_PER_HOUR:        "xe/h",
-  UNIT_VEHICLE:         "xe",
+  VEHICLES: "Phương tiện",
+  VEHICLE_COUNT: "Tổng phương tiện",
+  FLOW_RATE: "Lưu lượng",
+  FLOW_RATE_HOURLY: "Lưu lượng theo giờ",
+  PEAK_HOUR: "Giờ cao điểm",
+  VC_RATIO: "Mức tải V/C",
+  FORECAST_SLOT: "Thời điểm dự báo",
+  UNIT_PER_HOUR: "xe/h",
+  UNIT_VEHICLE: "xe",
 } as const;
 
 // ─── 7. Forecast Terms ───────────────────────────────────────────────────────
 
 export const FORECAST_TERMS = {
-  FORECAST:       "Dự báo",
-  ACTUAL:         "Thực tế",
-  CURRENT:        "Hiện tại",
-  PAST:           "Quá khứ",
-  FUTURE:         "Tương lai",
-  ROLLING:        "Cuốn chiếu",
-  FORECAST_FULL:  "Dự báo lưu lượng giao thông",
-  FORECAST_5M:    "Dự Báo 5 Phút",
+  FORECAST: "Dự báo",
+  ACTUAL: "Thực tế",
+  CURRENT: "Hiện tại",
+  PAST: "Quá khứ",
+  FUTURE: "Tương lai",
+  ROLLING: "Cuốn chiếu",
+  FORECAST_FULL: "Dự báo lưu lượng giao thông",
+  FORECAST_5M: "Dự Báo 5 Phút",
   DETECT_AND_FORECAST: "Phát hiện & Dự báo",
 } as const;
 
@@ -369,34 +398,36 @@ export const FORECAST_TERMS = {
 
 /** Tiêu đề trang dùng trong sidebar, page header, breadcrumb */
 export const PAGE_TITLES = {
-  DASHBOARD:    import.meta.env.VITE_PAGE_DASHBOARD    ?? "Tổng quan",
-  MONITORING:   import.meta.env.VITE_PAGE_MONITORING   ?? "Giám sát lưu lượng",
-  ANALYTICS:    import.meta.env.VITE_PAGE_ANALYTICS    ?? "Phân tích mô hình",
-  MODELS:       import.meta.env.VITE_PAGE_MODELS       ?? "Danh sách mô hình",
+  DASHBOARD: import.meta.env.VITE_PAGE_DASHBOARD ?? "Tổng quan",
+  MONITORING: import.meta.env.VITE_PAGE_MONITORING ?? "Giám sát lưu lượng",
+  ANALYTICS: import.meta.env.VITE_PAGE_ANALYTICS ?? "Phân tích mô hình",
+  MODELS: import.meta.env.VITE_PAGE_MODELS ?? "Danh sách mô hình",
   DATA_LIBRARY: import.meta.env.VITE_PAGE_DATA_LIBRARY ?? "Dữ liệu giao thông",
-  REPORTS:      import.meta.env.VITE_PAGE_REPORTS      ?? "Báo cáo giao thông",
-  SEARCH:       import.meta.env.VITE_PAGE_SEARCH       ?? "Tìm kiếm nhanh",
-  DOCS:         "Tài liệu hướng dẫn",
-  HELP:         "Liên hệ & Hướng dẫn",
-  TEAM:         "Đội ngũ phát triển",
-  SETTINGS:     "Cài đặt",
+  REPORTS: import.meta.env.VITE_PAGE_REPORTS ?? "Báo cáo giao thông",
+  SEARCH: import.meta.env.VITE_PAGE_SEARCH ?? "Tìm kiếm nhanh",
+  FIWARE_PUBLIC_API:
+    import.meta.env.VITE_PAGE_FIWARE_PUBLIC_API ?? "Public API FIWARE",
+  DOCS: "Tài liệu hướng dẫn",
+  HELP: "Liên hệ & Hướng dẫn",
+  TEAM: "Đội ngũ phát triển",
+  SETTINGS: "Cài đặt",
 } as const;
 
 // ─── 9. Camera Labels ────────────────────────────────────────────────────────
 
 export const CAMERA_LABELS = {
-  CAMERA:         "Máy quay",
-  ACTIVE:         "Máy quay hoạt động",
-  SELECT:         "Chọn máy quay",
-  ALL:            "Tất cả máy quay",
-  ALL_AVERAGE:    "Toàn mạng lưới",
-  ID:             "Mã máy quay",
-  NAME:           "Tên máy quay",
-  LIST:           "Danh sách máy quay",
-  MONITOR_TITLE:  "Giám sát lưu lượng",
-  NOT_FOUND:      "Không tìm thấy máy quay nào nào",
-  OFFLINE_MSG:    "Máy quay mất kết nối — kiểm tra kết nối mạng và nguồn điện",
-  SEARCH_HINT:    "Tìm máy quay, mã ID...",
+  CAMERA: "Máy quay",
+  ACTIVE: "Máy quay hoạt động",
+  SELECT: "Chọn máy quay",
+  ALL: "Tất cả máy quay",
+  ALL_AVERAGE: "Toàn mạng lưới",
+  ID: "Mã máy quay",
+  NAME: "Tên máy quay",
+  LIST: "Danh sách máy quay",
+  MONITOR_TITLE: "Giám sát lưu lượng",
+  NOT_FOUND: "Không tìm thấy máy quay nào nào",
+  OFFLINE_MSG: "Máy quay mất kết nối — kiểm tra kết nối mạng và nguồn điện",
+  SEARCH_HINT: "Tìm máy quay, mã ID...",
 } as const;
 
 // ─── 10. Common UI Labels ────────────────────────────────────────────────────
@@ -404,29 +435,29 @@ export const CAMERA_LABELS = {
 
 export const UI_LABELS = {
   // Loading states
-  LOADING:           "Đang tải dữ liệu...",
-  LOADING_FORECAST:  "Đang tải dữ liệu dự báo...",
-  WAIT_CONNECTION:   "Vui lòng đợi kết nối với hệ thống",
+  LOADING: "Đang tải dữ liệu...",
+  LOADING_FORECAST: "Đang tải dữ liệu dự báo...",
+  WAIT_CONNECTION: "Vui lòng đợi kết nối với hệ thống",
 
   // Empty / error states
-  NOT_FOUND:         "Không tìm thấy",
-  NO_DATA:           "N/A",
-  UNKNOWN:           "Không rõ",
-  NO_REPORT:         "Không tìm thấy báo cáo nào",
+  NOT_FOUND: "Không tìm thấy",
+  NO_DATA: "N/A",
+  UNKNOWN: "Không rõ",
+  NO_REPORT: "Không tìm thấy báo cáo nào",
 
   // Actions
-  ALL:               "Tất cả",
-  DETAIL:            "Xem chi tiết",
-  QUICK_VIEW:        "Xem nhanh",
-  CLEAR_FILTER:      "Xóa bộ lọc",
-  SEARCH:            "Tìm kiếm...",
+  ALL: "Tất cả",
+  DETAIL: "Xem chi tiết",
+  QUICK_VIEW: "Xem nhanh",
+  CLEAR_FILTER: "Xóa bộ lọc",
+  SEARCH: "Tìm kiếm...",
 
   // Filter hints
-  FILTER_HINT:       "Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm",
+  FILTER_HINT: "Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm",
   SEARCH_HINT_GLOBAL: "Thử tìm: tên camera, phiên bản mô hình, báo cáo",
 
   // Comparison
-  AVERAGE:           "Trung bình",
-  VS_BASE:           "Δ vs Cơ sở",
-  COMPARE_BY:        "So sánh theo các mốc",
+  AVERAGE: "Trung bình",
+  VS_BASE: "Δ vs Cơ sở",
+  COMPARE_BY: "So sánh theo các mốc",
 } as const;

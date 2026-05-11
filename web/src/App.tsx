@@ -26,6 +26,9 @@ const Reports = React.lazy(() => import("@/pages/reports"));
 const Help = React.lazy(() => import("@/pages/help.tsx"));
 const Documentation = React.lazy(() => import("@/pages/documentation.tsx"));
 const Search = React.lazy(() => import("@/pages/search.tsx"));
+const FiwarePublicApi = React.lazy(
+  () => import("@/pages/fiware-public-api.tsx"),
+);
 const Login = React.lazy(() => import("@/pages/login.tsx"));
 
 // Chỉ load sandbox trong môi trường development — Vite tree-shake khỏi production bundle
@@ -239,6 +242,11 @@ const router = createBrowserRouter([
             element: <Search />,
             loader: () => new Promise((r) => setTimeout(r, 0)),
           },
+          {
+            path: "fiware-public-api",
+            element: <FiwarePublicApi />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
           ...(import.meta.env.DEV && SandboxPage
             ? [
                 {
@@ -314,6 +322,11 @@ const router = createBrowserRouter([
           {
             path: "search",
             element: <Search />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
+          {
+            path: "fiware-public-api",
+            element: <FiwarePublicApi />,
             loader: () => new Promise((r) => setTimeout(r, 0)),
           },
           ...(import.meta.env.DEV && SandboxPage

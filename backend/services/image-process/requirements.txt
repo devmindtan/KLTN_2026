@@ -1,0 +1,12 @@
+aiohttp==3.13.3
+boto3==1.42.50
+numpy==2.4.2
+opencv_python==4.13.0.90
+psycopg2_binary==2.9.11
+python-dotenv==1.2.1
+shared==0.0.32
+ultralytics==8.4.9
+pandas==3.0.0
+query==0.1.4
+shared==0.0.32
+SQLAlchemy==2.0.46

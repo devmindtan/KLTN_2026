@@ -1,0 +1,498 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="1300" height="1280"
+     viewBox="0 0 1300 1280"
+     font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif">
+
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#37474F"/>
+    </marker>
+    <marker id="arr-loop" viewBox="0 0 10 10" refX="1" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 10 0 L 0 5 L 10 10 z" fill="#37474F"/>
+    </marker>
+  </defs>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SWIMLANE BACKGROUNDS                            -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <rect x="0"   y="55" width="185" height="1225" fill="#E3F2FD"/>
+  <rect x="185" y="55" width="330" height="1225" fill="#FFF3E0"/>
+  <rect x="515" y="55" width="280" height="1225" fill="#E8F5E9"/>
+  <rect x="795" y="55" width="505" height="1225" fill="#F3E5F5"/>
+
+  <!-- Outer border -->
+  <rect x="0" y="0" width="1300" height="1280" fill="none" stroke="#90A4AE" stroke-width="2"/>
+
+  <!-- Lane dividers -->
+  <line x1="185" y1="0" x2="185" y2="1280" stroke="#B0BEC5" stroke-width="1.5"/>
+  <line x1="515" y1="0" x2="515" y2="1280" stroke="#B0BEC5" stroke-width="1.5"/>
+  <line x1="795" y1="0" x2="795" y2="1280" stroke="#B0BEC5" stroke-width="1.5"/>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SWIMLANE HEADERS                               -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <rect x="0"   y="0" width="185" height="55" fill="#0D47A1"/>
+  <text x="92"  y="22" text-anchor="middle" dominant-baseline="middle" fill="white"   font-size="12" font-weight="700">📷 Camera &amp;</text>
+  <text x="92"  y="40" text-anchor="middle" dominant-baseline="middle" fill="#BBDEFB" font-size="11">Thu Nhận Dữ Liệu</text>
+
+  <rect x="185" y="0" width="330" height="55" fill="#BF360C"/>
+  <text x="350" y="20" text-anchor="middle" dominant-baseline="middle" fill="white"   font-size="12" font-weight="700">⚙️ Xử Lý &amp; Dự Báo</text>
+  <text x="350" y="40" text-anchor="middle" dominant-baseline="middle" fill="#FFCCBC" font-size="10">image-process / image-predict / sync-actual</text>
+
+  <rect x="515" y="0" width="280" height="55" fill="#1B5E20"/>
+  <text x="655" y="22" text-anchor="middle" dominant-baseline="middle" fill="white"   font-size="12" font-weight="700">💾 Lưu Trữ &amp; Phân Phối</text>
+  <text x="655" y="40" text-anchor="middle" dominant-baseline="middle" fill="#C8E6C9" font-size="10">FIWARE / PostgreSQL / MinIO / Socket</text>
+
+  <rect x="795" y="0" width="505" height="55" fill="#4A148C"/>
+  <text x="1047" y="22" text-anchor="middle" dominant-baseline="middle" fill="white"   font-size="12" font-weight="700">🖥️ Giao Diện &amp; Người Dùng</text>
+  <text x="1047" y="40" text-anchor="middle" dominant-baseline="middle" fill="#E1BEE7" font-size="10">Frontend Web App / Node.js REST API</text>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- START NODES                                     -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- System pipeline start -->
+  <circle cx="92"   cy="72" r="10" fill="#263238"/>
+  <line x1="92"  y1="82"  x2="92"  y2="98"  stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- User flow start -->
+  <circle cx="1047" cy="72" r="10" fill="#263238"/>
+  <line x1="1047" y1="82" x2="1047" y2="98" stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SYSTEM PIPELINE FLOW                           -->
+  <!-- ═══════════════════════════════════════════════ -->
+
+  <!-- S1: Camera thu nhận frame [Lane A | y=98–142] -->
+  <rect x="10" y="98" width="165" height="44" rx="7"
+        fill="white" stroke="#0D47A1" stroke-width="1.5"/>
+  <text x="92" y="117" text-anchor="middle" dominant-baseline="middle"
+        fill="#0D47A1" font-size="11.5" font-weight="700">Camera thu nhận</text>
+  <text x="92" y="133" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">Luồng video / frame (5–30s)</text>
+
+  <!-- Arrow S1 → S2 (cross-lane) -->
+  <line x1="175" y1="120" x2="193" y2="120"
+        stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- S2: Nhận frame qua Pub/Sub [Lane B | y=98–142] -->
+  <rect x="193" y="98" width="314" height="44" rx="7"
+        fill="white" stroke="#BF360C" stroke-width="1.5"/>
+  <text x="350" y="117" text-anchor="middle" dominant-baseline="middle"
+        fill="#BF360C" font-size="11.5" font-weight="700">Nhận frame qua Google Pub/Sub</text>
+  <text x="350" y="133" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">image-process subscribe message</text>
+
+  <!-- Arrow S2 → S3 -->
+  <line x1="350" y1="142" x2="350" y2="158"
+        stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- S3: YOLO detect [Lane B | y=158–202] -->
+  <rect x="193" y="158" width="314" height="44" rx="7"
+        fill="white" stroke="#BF360C" stroke-width="1.5"/>
+  <text x="350" y="177" text-anchor="middle" dominant-baseline="middle"
+        fill="#BF360C" font-size="11.5" font-weight="700">Phát hiện phương tiện (YOLO v11)</text>
+  <text x="350" y="193" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">Object detection → total_objects / frame</text>
+
+  <!-- Arrow S3 → S4 -->
+  <line x1="350" y1="202" x2="350" y2="218"
+        stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- S4: Tính LOS real-time [Lane B | y=218–262] -->
+  <rect x="193" y="218" width="314" height="44" rx="7"
+        fill="white" stroke="#BF360C" stroke-width="1.5"/>
+  <text x="350" y="237" text-anchor="middle" dominant-baseline="middle"
+        fill="#BF360C" font-size="11.5" font-weight="700">Tính LOS &amp; Trạng thái real-time</text>
+  <text x="350" y="253" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">los_utils.py — V/C ratio → LOS A–F</text>
+
+  <!-- Arrow S4 → FORK1 -->
+  <line x1="350" y1="262" x2="350" y2="280"
+        stroke="#37474F" stroke-width="1.5"/>
+
+  <!-- FORK1 BAR [y=280–288 | spans B→C x=270–710] -->
+  <rect x="270" y="280" width="440" height="8" rx="3" fill="#263238"/>
+  <line x1="350" y1="288" x2="350" y2="304"
+        stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="655" y1="288" x2="655" y2="304"
+        stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- S5a: Lưu camera_detections [Lane B | y=304–348] -->
+  <rect x="193" y="304" width="314" height="44" rx="7"
+        fill="white" stroke="#BF360C" stroke-width="1.5"/>
+  <text x="350" y="323" text-anchor="middle" dominant-baseline="middle"
+        fill="#BF360C" font-size="11.5" font-weight="700">Lưu camera_detections</text>
+  <text x="350" y="339" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">PostgreSQL + ảnh snapshot → MinIO</text>
+
+  <!-- S5b: Cập nhật FIWARE Camera [Lane C | y=304–348] -->
+  <rect x="523" y="304" width="264" height="44" rx="7"
+        fill="white" stroke="#1B5E20" stroke-width="1.5"/>
+  <text x="655" y="323" text-anchor="middle" dominant-baseline="middle"
+        fill="#1B5E20" font-size="11.5" font-weight="700">Cập nhật FIWARE Camera</text>
+  <text x="655" y="339" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">status.current, realtime data</text>
+
+  <!-- Arrows S5a, S5b → JOIN1 -->
+  <line x1="350" y1="348" x2="350" y2="368" stroke="#37474F" stroke-width="1.5"/>
+  <line x1="655" y1="348" x2="655" y2="368" stroke="#37474F" stroke-width="1.5"/>
+
+  <!-- JOIN1 BAR [y=368–376 | spans B→C x=270–710] -->
+  <rect x="270" y="368" width="440" height="8" rx="3" fill="#263238"/>
+  <line x1="490" y1="376" x2="350" y2="376" stroke="#37474F" stroke-width="1.5"/>
+  <line x1="350" y1="376" x2="350" y2="390"
+        stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- CronJob trigger note [Lane B | y=390–418] -->
+  <rect x="193" y="390" width="314" height="28" rx="6"
+        fill="#FBE9E7" stroke="#E64A19" stroke-width="1" stroke-dasharray="5,3"/>
+  <text x="350" y="404" text-anchor="middle" dominant-baseline="middle"
+        fill="#BF360C" font-size="10.5" font-weight="600">⏱  K8s CronJob kích hoạt — mỗi 5 phút</text>
+
+  <!-- Arrow CronJob → S6 -->
+  <line x1="350" y1="418" x2="350" y2="434"
+        stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- S6: Query dữ liệu [Lane B | y=434–478] -->
+  <rect x="193" y="434" width="314" height="44" rx="7"
+        fill="white" stroke="#BF360C" stroke-width="1.5"/>
+  <text x="350" y="453" text-anchor="middle" dominant-baseline="middle"
+        fill="#BF360C" font-size="11.5" font-weight="700">image-predict: Query dữ liệu</text>
+  <text x="350" y="469" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">Tổng hợp 5 phút / camera (PostgreSQL)</text>
+
+  <!-- Arrow S6 → S7 -->
+  <line x1="350" y1="478" x2="350" y2="494"
+        stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- S7: Xây dựng features [Lane B | y=494–538] -->
+  <rect x="193" y="494" width="314" height="44" rx="7"
+        fill="white" stroke="#BF360C" stroke-width="1.5"/>
+  <text x="350" y="513" text-anchor="middle" dominant-baseline="middle"
+        fill="#BF360C" font-size="11.5" font-weight="700">Xây dựng feature vectors</text>
+  <text x="350" y="529" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">LAG, giờ / ngày / tháng, lịch sử dữ liệu</text>
+
+  <!-- Arrow S7 → S8 -->
+  <line x1="350" y1="538" x2="350" y2="554"
+        stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- S8: RF Dự báo [Lane B | y=554–598] -->
+  <rect x="193" y="554" width="314" height="44" rx="7"
+        fill="white" stroke="#BF360C" stroke-width="1.5"/>
+  <text x="350" y="573" text-anchor="middle" dominant-baseline="middle"
+        fill="#BF360C" font-size="11.5" font-weight="700">Dự báo Random Forest Regressor</text>
+  <text x="350" y="589" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">Dự báo tại: 5m / 10m / 15m / 30m / 60m</text>
+
+  <!-- Arrow S8 → S9 -->
+  <line x1="350" y1="598" x2="350" y2="614"
+        stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- S9: Tính GTI [Lane B | y=614–658] -->
+  <rect x="193" y="614" width="314" height="44" rx="7"
+        fill="white" stroke="#BF360C" stroke-width="1.5"/>
+  <text x="350" y="633" text-anchor="middle" dominant-baseline="middle"
+        fill="#BF360C" font-size="11.5" font-weight="700">Tính GTI &amp; Phân loại xu hướng</text>
+  <text x="350" y="649" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">GTI (%) → increasing / stable / decreasing</text>
+
+  <!-- Arrow S9 → FORK2 -->
+  <line x1="350" y1="658" x2="350" y2="676" stroke="#37474F" stroke-width="1.5"/>
+
+  <!-- FORK2 BAR [y=676–684 | spans B→C x=270–710] -->
+  <rect x="270" y="676" width="440" height="8" rx="3" fill="#263238"/>
+  <line x1="350" y1="684" x2="350" y2="700"
+        stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="655" y1="684" x2="655" y2="700"
+        stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- S10a: Lưu camera_forecasts [Lane B | y=700–744] -->
+  <rect x="193" y="700" width="314" height="44" rx="7"
+        fill="white" stroke="#BF360C" stroke-width="1.5"/>
+  <text x="350" y="719" text-anchor="middle" dominant-baseline="middle"
+        fill="#BF360C" font-size="11.5" font-weight="700">Lưu camera_forecasts (PostgreSQL)</text>
+  <text x="350" y="735" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">sync-actual +3p → cập nhật actual_value</text>
+
+  <!-- S10b: Cập nhật FIWARE prediction [Lane C | y=700–744] -->
+  <rect x="523" y="700" width="264" height="44" rx="7"
+        fill="white" stroke="#1B5E20" stroke-width="1.5"/>
+  <text x="655" y="719" text-anchor="middle" dominant-baseline="middle"
+        fill="#1B5E20" font-size="11.5" font-weight="700">Cập nhật FIWARE Camera</text>
+  <text x="655" y="735" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">prediction, GTI, status.forecast, trend</text>
+
+  <!-- Arrows S10a, S10b → JOIN2 -->
+  <line x1="350" y1="744" x2="350" y2="764" stroke="#37474F" stroke-width="1.5"/>
+  <line x1="655" y1="744" x2="655" y2="764" stroke="#37474F" stroke-width="1.5"/>
+
+  <!-- JOIN2 BAR [y=764–772 | spans B→C x=270–710] -->
+  <rect x="270" y="764" width="440" height="8" rx="3" fill="#263238"/>
+  <line x1="490" y1="772" x2="655" y2="772" stroke="#37474F" stroke-width="1.5"/>
+  <line x1="655" y1="772" x2="655" y2="788"
+        stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- S11: Signal ForecastReady [Lane C | y=788–832] -->
+  <rect x="523" y="788" width="264" height="44" rx="7"
+        fill="white" stroke="#1B5E20" stroke-width="1.5"/>
+  <text x="655" y="807" text-anchor="middle" dominant-baseline="middle"
+        fill="#1B5E20" font-size="11.5" font-weight="700">Signal ForecastReady (FIWARE)</text>
+  <text x="655" y="823" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">Entity ForecastReady → triggered_at update</text>
+
+  <!-- Arrow S11 → S12 -->
+  <line x1="655" y1="832" x2="655" y2="848"
+        stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- S12: Socket.IO Broadcast [Lane C | y=848–892] -->
+  <rect x="523" y="848" width="264" height="44" rx="7"
+        fill="white" stroke="#1B5E20" stroke-width="1.5"/>
+  <text x="655" y="867" text-anchor="middle" dominant-baseline="middle"
+        fill="#1B5E20" font-size="11.5" font-weight="700">app-route → Socket.IO Broadcast</text>
+  <text x="655" y="883" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">CAMERA_UPDATED / FORECAST_UPDATED</text>
+
+  <!-- Cross-lane arrow S12 → U_recv -->
+  <line x1="787" y1="870" x2="803" y2="870"
+        stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Camera continuous feed note (Lane A) -->
+  <line x1="92" y1="142" x2="92" y2="172" stroke="#37474F" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <rect x="10" y="172" width="165" height="28" rx="6"
+        fill="#E3F2FD" stroke="#0D47A1" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="92" y="186" text-anchor="middle" dominant-baseline="middle"
+        fill="#0D47A1" font-size="10" font-weight="600">🔄 Luồng liên tục (loop)</text>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- USER FLOW (Lane D)                            -->
+  <!-- ═══════════════════════════════════════════════ -->
+
+  <!-- U1: Người dùng truy cập [Lane D | y=98–142] -->
+  <rect x="803" y="98" width="489" height="44" rx="7"
+        fill="white" stroke="#4A148C" stroke-width="1.5"/>
+  <text x="1047" y="117" text-anchor="middle" dominant-baseline="middle"
+        fill="#4A148C" font-size="11.5" font-weight="700">Người dùng truy cập hệ thống</text>
+  <text x="1047" y="133" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">Mở Web App tại domain Cloudflare</text>
+
+  <!-- Arrow U1 → U2 -->
+  <line x1="1047" y1="142" x2="1047" y2="158"
+        stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- U2: Xác thực JWT [Lane D | y=158–202] -->
+  <rect x="803" y="158" width="489" height="44" rx="7"
+        fill="white" stroke="#4A148C" stroke-width="1.5"/>
+  <text x="1047" y="177" text-anchor="middle" dominant-baseline="middle"
+        fill="#4A148C" font-size="11.5" font-weight="700">Xác thực JWT (Node.js API)</text>
+  <text x="1047" y="193" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">Viewer: anonymous token (24h)  ·  Technician: login</text>
+
+  <!-- Arrow U2 → Decision -->
+  <line x1="1047" y1="202" x2="1047" y2="222"
+        stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- DECISION: Phân quyền người dùng [diamond | cy=246] -->
+  <polygon points="1047,222 1127,246 1047,270 967,246"
+           fill="white" stroke="#4A148C" stroke-width="2"/>
+  <text x="1047" y="246" text-anchor="middle" dominant-baseline="middle"
+        fill="#4A148C" font-size="10.5" font-weight="700">Quyền?</text>
+
+  <!-- Decision left branch → Viewer (cx=900) -->
+  <line x1="967" y1="246" x2="900" y2="246"  stroke="#37474F" stroke-width="1.5"/>
+  <line x1="900" y1="246" x2="900" y2="280"  stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="934" y="238" text-anchor="middle" fill="#546E7A" font-size="10">Viewer</text>
+
+  <!-- Decision right branch → Technician (cx=1197) -->
+  <line x1="1127" y1="246" x2="1197" y2="246" stroke="#37474F" stroke-width="1.5"/>
+  <line x1="1197" y1="246" x2="1197" y2="280" stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="1162" y="238" text-anchor="middle" fill="#546E7A" font-size="10">Technician</text>
+
+  <!-- U_viewer: Viewer access [y=280–340, cx=900] -->
+  <rect x="810" y="280" width="178" height="60" rx="7"
+        fill="#EDE7F6" stroke="#4A148C" stroke-width="1.5"/>
+  <text x="899" y="297" text-anchor="middle" dominant-baseline="middle"
+        fill="#4A148C" font-size="11" font-weight="700">Viewer (READ)</text>
+  <text x="899" y="312" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">Dashboard · Analytics</text>
+  <text x="899" y="327" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">Reports · Search</text>
+
+  <!-- U_tech: Technician access [y=280–340, cx=1197] -->
+  <rect x="1106" y="280" width="186" height="60" rx="7"
+        fill="#EDE7F6" stroke="#4A148C" stroke-width="1.5"/>
+  <text x="1199" y="297" text-anchor="middle" dominant-baseline="middle"
+        fill="#4A148C" font-size="11" font-weight="700">Technician (CRUD)</text>
+  <text x="1199" y="312" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">Models · Data Library</text>
+  <text x="1199" y="327" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">Sandbox · Team</text>
+
+  <!-- Arrows to JOIN_U -->
+  <line x1="899"  y1="340" x2="899"  y2="362" stroke="#37474F" stroke-width="1.5"/>
+  <line x1="1199" y1="340" x2="1199" y2="362" stroke="#37474F" stroke-width="1.5"/>
+
+  <!-- JOIN_U BAR [y=362–370 | spans D x=810–1292] -->
+  <rect x="810" y="362" width="482" height="8" rx="3" fill="#263238"/>
+  <line x1="1047" y1="370" x2="1047" y2="386"
+        stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- U5: Xem Dashboard real-time [Lane D | y=386–430] -->
+  <rect x="803" y="386" width="489" height="44" rx="7"
+        fill="white" stroke="#4A148C" stroke-width="1.5"/>
+  <text x="1047" y="405" text-anchor="middle" dominant-baseline="middle"
+        fill="#4A148C" font-size="11.5" font-weight="700">Xem Dashboard &amp; Giám sát real-time</text>
+  <text x="1047" y="421" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">Biểu đồ lưu lượng · Trạng thái camera · Dự báo</text>
+
+  <!-- Arrow U5 → U6a -->
+  <line x1="1047" y1="430" x2="1047" y2="446"
+        stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- U6a: Xem chi tiết camera [Lane D | y=446–490] -->
+  <rect x="803" y="446" width="489" height="44" rx="7"
+        fill="white" stroke="#4A148C" stroke-width="1.5"/>
+  <text x="1047" y="465" text-anchor="middle" dominant-baseline="middle"
+        fill="#4A148C" font-size="11.5" font-weight="700">Xem chi tiết Camera &amp; Dự báo</text>
+  <text x="1047" y="481" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">LOS A–F · GTI · Biểu đồ forecast 5m–60m · V/C ratio</text>
+
+  <!-- Arrow U6a → U6b -->
+  <line x1="1047" y1="490" x2="1047" y2="506"
+        stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- U6b: Phân tích & Báo cáo [Lane D | y=506–550] -->
+  <rect x="803" y="506" width="489" height="44" rx="7"
+        fill="white" stroke="#4A148C" stroke-width="1.5"/>
+  <text x="1047" y="525" text-anchor="middle" dominant-baseline="middle"
+        fill="#4A148C" font-size="11.5" font-weight="700">Xem Phân tích &amp; Xuất Báo cáo</text>
+  <text x="1047" y="541" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">Analytics · Smart Reports (PDF / XLSX)</text>
+
+  <!-- Arrow U6b → U_api -->
+  <line x1="1047" y1="550" x2="1047" y2="566"
+        stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- U_api: Node.js REST API [Lane D | y=566–610] -->
+  <rect x="803" y="566" width="489" height="44" rx="7"
+        fill="white" stroke="#4A148C" stroke-width="1.5"/>
+  <text x="1047" y="585" text-anchor="middle" dominant-baseline="middle"
+        fill="#4A148C" font-size="11.5" font-weight="700">Node.js API phục vụ REST requests</text>
+  <text x="1047" y="601" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">/api/traffic · /api/forecast · /api/reports · /api/cameras</text>
+
+  <!-- Arrow U_api → U_tech_act -->
+  <line x1="1047" y1="610" x2="1047" y2="626"
+        stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- U_tech_act: Technical – vòng đời mô hình [Lane D | y=626–670] -->
+  <rect x="803" y="626" width="489" height="44" rx="7"
+        fill="white" stroke="#4A148C" stroke-width="1.5"/>
+  <text x="1047" y="645" text-anchor="middle" dominant-baseline="middle"
+        fill="#4A148C" font-size="11.5" font-weight="700">Technician: Quản lý vòng đời mô hình ML</text>
+  <text x="1047" y="661" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">Train · Đánh giá metrics · Cập nhật tham số · MinIO</text>
+
+  <!-- Dashed waiting line U_tech_act → U_recv -->
+  <line x1="1047" y1="670" x2="1047" y2="846"
+        stroke="#B0BEC5" stroke-width="1.5" stroke-dasharray="6,4"/>
+  <text x="1053" y="758" fill="#90A4AE" font-size="10" dominant-baseline="middle"
+        font-style="italic">Đang giám sát...</text>
+
+  <!-- U_recv: Frontend nhận socket [Lane D | y=846–890] — aligns with S12 -->
+  <rect x="803" y="846" width="489" height="44" rx="7"
+        fill="white" stroke="#4A148C" stroke-width="1.5"/>
+  <text x="1047" y="865" text-anchor="middle" dominant-baseline="middle"
+        fill="#4A148C" font-size="11.5" font-weight="700">Frontend nhận socket event</text>
+  <text x="1047" y="881" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">SocketContext cập nhật state → trigger re-render</text>
+
+  <!-- Arrow U_recv → U_update -->
+  <line x1="1047" y1="890" x2="1047" y2="906"
+        stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- U_update: Cập nhật giao diện real-time [Lane D | y=906–950] -->
+  <rect x="803" y="906" width="489" height="44" rx="7"
+        fill="white" stroke="#4A148C" stroke-width="1.5"/>
+  <text x="1047" y="925" text-anchor="middle" dominant-baseline="middle"
+        fill="#4A148C" font-size="11.5" font-weight="700">Cập nhật giao diện real-time</text>
+  <text x="1047" y="941" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="10">Re-render biểu đồ · bảng camera · cảnh báo LOS</text>
+
+  <!-- Arrow U_update → DECISION loop -->
+  <line x1="1047" y1="950" x2="1047" y2="977"
+        stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- DECISION loop: Tiếp tục giám sát? [diamond | cy=1001] -->
+  <polygon points="1047,977 1127,1001 1047,1025 967,1001"
+           fill="white" stroke="#4A148C" stroke-width="2"/>
+  <text x="1047" y="996" text-anchor="middle" dominant-baseline="middle"
+        fill="#4A148C" font-size="10.5" font-weight="700">Tiếp tục</text>
+  <text x="1047" y="1010" text-anchor="middle" dominant-baseline="middle"
+        fill="#4A148C" font-size="10.5" font-weight="700">giám sát?</text>
+
+  <!-- Loop back "Có" → U1 (left side of Lane D) -->
+  <line x1="967"  y1="1001" x2="802"  y2="1001" stroke="#37474F" stroke-width="1.5"/>
+  <line x1="802"  y1="1001" x2="802"  y2="120"  stroke="#37474F" stroke-width="1.5"/>
+  <line x1="802"  y1="120"  x2="803"  y2="120"  stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="810" y="994" fill="#37474F" font-size="10">Có</text>
+
+  <!-- "Không" → End -->
+  <line x1="1047" y1="1025" x2="1047" y2="1055"
+        stroke="#37474F" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="1052" y="1042" fill="#37474F" font-size="10">Không</text>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- END NODE                                       -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <circle cx="1047" cy="1075" r="12" fill="none" stroke="#263238" stroke-width="3"/>
+  <circle cx="1047" cy="1075" r="8"  fill="#263238"/>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- LEGEND                                         -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <rect x="10" y="1100" width="340" height="160" rx="8"
+        fill="white" stroke="#B0BEC5" stroke-width="1.2"/>
+  <text x="180" y="1122" text-anchor="middle" dominant-baseline="middle"
+        fill="#263238" font-size="12" font-weight="700">Chú giải ký hiệu</text>
+
+  <!-- Start/End -->
+  <circle cx="40" cy="1148" r="8" fill="#263238"/>
+  <text x="58" y="1148" dominant-baseline="middle" fill="#546E7A" font-size="11">Điểm bắt đầu</text>
+  <circle cx="120" cy="1148" r="10" fill="none" stroke="#263238" stroke-width="2.5"/>
+  <circle cx="120" cy="1148" r="7"  fill="#263238"/>
+  <text x="138" y="1148" dominant-baseline="middle" fill="#546E7A" font-size="11">Kết thúc</text>
+
+  <!-- Activity -->
+  <rect x="25" y="1165" width="70" height="22" rx="4"
+        fill="white" stroke="#546E7A" stroke-width="1.5"/>
+  <text x="60" y="1176" text-anchor="middle" dominant-baseline="middle"
+        fill="#546E7A" font-size="9.5">Activity</text>
+  <text x="105" y="1176" dominant-baseline="middle" fill="#546E7A" font-size="11">Hoạt động (Activity)</text>
+
+  <!-- Fork/Join -->
+  <rect x="25" y="1197" width="70" height="7" rx="2" fill="#263238"/>
+  <text x="105" y="1200" dominant-baseline="middle" fill="#546E7A" font-size="11">Fork / Join (song song)</text>
+
+  <!-- Decision -->
+  <polygon points="55,1218 75,1230 55,1242 35,1230"
+           fill="white" stroke="#4A148C" stroke-width="1.5"/>
+  <text x="105" y="1230" dominant-baseline="middle" fill="#546E7A" font-size="11">Quyết định (Decision)</text>
+
+  <!-- Annotation note -->
+  <rect x="25" y="1248" width="70" height="16" rx="4"
+        fill="#FBE9E7" stroke="#E64A19" stroke-width="1" stroke-dasharray="4,2"/>
+  <text x="105" y="1256" dominant-baseline="middle" fill="#546E7A" font-size="11">Ghi chú / Trigger</text>
+
+  <!-- Diagram title (bottom right) -->
+  <text x="1290" y="1115" text-anchor="end" dominant-baseline="middle"
+        fill="#90A4AE" font-size="11" font-style="italic">Activity Diagram — Quy Trình Nghiệp Vụ Hệ Thống</text>
+  <text x="1290" y="1133" text-anchor="end" dominant-baseline="middle"
+        fill="#90A4AE" font-size="10" font-style="italic">Ứng dụng Học máy trong Dự đoán Lưu lượng Giao thông Đô thị</text>
+  <text x="1290" y="1150" text-anchor="end" dominant-baseline="middle"
+        fill="#B0BEC5" font-size="10">KLTN 2026 — 11/04/2026</text>
+
+</svg>

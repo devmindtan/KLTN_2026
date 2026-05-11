@@ -1,0 +1,5 @@
+# Ignore all YOLO model files
+*.pt
+
+# Keep .gitignore
+!.gitignore

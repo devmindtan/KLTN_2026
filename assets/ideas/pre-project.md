@@ -94,7 +94,7 @@
     - Phần cứng dùng: 
       1. Rasperberry pi 4 (4GB RAM, 4 Cores CPU, 64GB Memory Card) - UI Server
       2. PC (16GB RAM, 6 Cores / 12 Threads CPU, GTX 1660 SUPER 6G, 512GB SSD) - Logic Server
-      3. Laptop (24GB RAM, 4 Cores / 8 Threads CPU, Iris Xe Graphics, 256GB SSD) - Control Server, Demo and Develop Applications 
+      3. Laptop (service) - Control Server, Demo and Develop Applications 
     - Chi tiết cách thực hiện:
       a. Giai đoạn chuẩn bị
         * Tiến hành pull, cấu hình và ảnh xạ cổng cho các docker image (Fiware, Postgres, MongoDB, Minio) lên server

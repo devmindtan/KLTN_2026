@@ -1,0 +1,44 @@
+# Ignore ENV files (don't copy secrets into image)
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Python cache
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+.Python
+
+# Virtual environments
+**/venv/
+**/env/
+**/.venv
+
+# Documentation (không cần trong image)
+**/commands/
+**/*.md
+!**/README.md
+
+# Migrations (chạy manual, không build vào image)
+**/migrations/
+
+# Git & IDE
+.git
+.gitignore
+**/.vscode/
+**/.idea/
+
+# Test files
+**/test_*.py
+**/*_test.py
+**/tests/
+
+# Build artifacts
+**/*.egg-info/
+**/dist/
+**/build/
+
+# Misc
+**/.DS_Store
+**/*.log

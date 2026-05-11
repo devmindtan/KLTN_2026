@@ -1,2 +1,10 @@
 .idea
 .env
+*.key
+*.pem
+k8s-configs
+*.joblib
+/.venv
+*.csv
+my-agent-skills/*
+my-agent-skills

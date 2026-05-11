@@ -6,7 +6,6 @@ import { Separator } from "@/components/ui/separator";
 import {
   BookOpen,
   CheckCircle2,
-  Circle,
   Copy,
   ExternalLink,
   Globe,

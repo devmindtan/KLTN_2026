@@ -12,6 +12,7 @@ import modelApi from "./routes/model.api";
 import authApi from "./routes/auth.api";
 import dataLibraryApi from "./routes/data-library.api";
 import trafficPatternApi from "./routes/traffic-pattern.api";
+import trafficHistoryApi from "./routes/traffic-history.api";
 import forecastApi from "./routes/forecast.api";
 import helpApi from "./routes/help.api";
 import { reportsRoutes } from "./routes/reports.api";
@@ -74,6 +75,9 @@ app.use("/api/data-library", requireAuth, dataLibraryApi);
 
 // Traffic Pattern routes – lấy dữ liệu phân bố mật độ giao thông (direct query)
 app.use("/api/traffic", requireAuth, trafficPatternApi);
+
+// Traffic History routes – lấy dữ liệu lịch sử giao thông theo ngày cụ thể
+app.use("/api/traffic", requireAuth, trafficHistoryApi);
 
 // Forecast routes – tổng hợp, chuỗi thời gian và chi tiết slot dự báo
 app.use("/api/forecast", requireAuth, forecastApi);

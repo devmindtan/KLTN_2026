@@ -8,12 +8,13 @@ import { SectionCards } from "@/components/dashboard/overview/section-cards";
 import { TrafficDensityChart } from "@/components/dashboard/overview/traffic-density-chart";
 import { ForecastStatCards } from "@/components/dashboard/forecast/forecast-stat-cards";
 import { ForecastRollingChart } from "@/components/dashboard/forecast/forecast-rolling-chart";
+import { HistoryTrafficChart } from "@/components/dashboard/history/history-traffic-chart";
 import { getForecastRolling } from "@/services/forecast.service";
 import type { ForecastRollingResponse } from "@/services/forecast.service";
 import { PageHeader } from "@/components/custom/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { IconDashboard, IconChartBar } from "@tabler/icons-react";
+import { IconDashboard, IconChartBar, IconClockHour4 } from "@tabler/icons-react";
 import { DASHBOARD_TERM, CONNECTION_STATUS } from "@/lib/app-constants";
 // import { SocketDebug } from "@/components/socket-debug";
 import { useSocket } from "@/contexts/SocketContext";
@@ -157,6 +158,10 @@ export default function Dashboard() {
             <IconChartBar className="size-3.5" />
             {DASHBOARD_TERM.tab2.title}
           </TabsTrigger>
+          <TabsTrigger value="history" className="gap-1.5 text-xs">
+            <IconClockHour4 className="size-3.5" />
+            {DASHBOARD_TERM.tab3.title}
+          </TabsTrigger>
         </TabsList>
 
         {/* ══════════════ TAB TỔNG QUAN ══════════════ */}
@@ -184,6 +189,11 @@ export default function Dashboard() {
             sharedAllData={rollingData}
             initialCameraId={forecastCameraId}
           />
+        </TabsContent>
+
+        {/* ══════════════ TAB LỊCH SỬ ══════════════ */}
+        <TabsContent value="history" className="mt-0">
+          <HistoryTrafficChart />
         </TabsContent>
       </Tabs>
     </div>

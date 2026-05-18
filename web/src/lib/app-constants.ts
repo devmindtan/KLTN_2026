@@ -34,6 +34,7 @@ export const DASHBOARD_TERM = {
   },
   tab1: { title: "Tổng quan" },
   tab2: { title: "Dự báo" },
+  tab3: { title: "Lịch sử" },
   card1: {
     title: "Tổng phương tiện",
     description: "Phát hiện thời gian thực",

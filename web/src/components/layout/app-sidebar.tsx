@@ -10,6 +10,7 @@ import {
   IconFolder,
   IconHelp,
   IconListDetails,
+  IconMapPins,
   IconReport,
   IconSearch,
   IconSettings,
@@ -71,6 +72,7 @@ function buildNavReports(p: string) {
       icon: IconDatabase,
     },
     { name: PAGE_TITLES.REPORTS, url: u(p, "reports"), icon: IconReport },
+    { name: PAGE_TITLES.TRAFFIC_MAP, url: u(p, "traffic-map"), icon: IconMapPins },
     // { name: "Hỗ trợ ra quyết định",  url: u(p, "assistant"),         icon: IconFileWord },
     { name: PAGE_TITLES.DOCS, url: u(p, "documentation"), icon: IconBook },
   ];

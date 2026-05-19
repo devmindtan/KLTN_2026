@@ -5,7 +5,7 @@ WORKDIR /app
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-COPY requirements.txt .
+COPY decision-analyzer/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Runtime stage
@@ -20,7 +20,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 COPY --from=builder /opt/venv /opt/venv
 
 # Copy app
-COPY app/ ./
+COPY decision-analyzer/app/ ./
 
 # Timezone support
 RUN apt-get update && apt-get install -y tzdata && rm -rf /var/lib/apt/lists/*

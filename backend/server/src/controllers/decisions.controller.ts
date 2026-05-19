@@ -102,9 +102,7 @@ export async function analyzeDecisions(req: Request, res: Response) {
     }
 
     // Order and limit
-    sql += ` ORDER BY score_${query.sort_by === "score" ? "compound" : query.sort_by} ${
-      query.sort_order === "desc" ? "DESC" : "ASC"
-    }`;
+    sql += ` ORDER BY score_compound DESC`;
     sql += ` LIMIT $${paramIdx}`;
     params.push(query.limit);
 
@@ -122,7 +120,7 @@ export async function analyzeDecisions(req: Request, res: Response) {
     });
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ success: false, error: error.errors });
+      res.status(400).json({ success: false, error: error.issues });
       return;
     }
     console.error("[analyzeDecisions] error:", error);
@@ -199,7 +197,7 @@ export async function listDecisions(req: Request, res: Response) {
     });
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ success: false, error: error.errors });
+      res.status(400).json({ success: false, error: error.issues });
       return;
     }
     console.error("[listDecisions] error:", error);
@@ -312,7 +310,7 @@ export async function reviewDecision(req: Request, res: Response) {
     });
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ success: false, error: error.errors });
+      res.status(400).json({ success: false, error: error.issues });
       return;
     }
     console.error("[reviewDecision] error:", error);

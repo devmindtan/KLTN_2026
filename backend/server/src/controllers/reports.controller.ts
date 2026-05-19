@@ -8,8 +8,19 @@ import { z } from "zod";
 import { Pool } from "pg";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { Readable } from "stream";
-import * as k8s from "@kubernetes/client-node";
 import archiver from "archiver";
+
+let k8sModulePromise: Promise<typeof import("@kubernetes/client-node")> | null = null;
+
+/**
+ * Load module Kubernetes theo lazy/dynamic import để tương thích local CJS runtime.
+ */
+async function getK8sModule() {
+  if (!k8sModulePromise) {
+    k8sModulePromise = import("@kubernetes/client-node");
+  }
+  return k8sModulePromise;
+}
 
 // ─── MinIO client (dùng cho streaming download) ───────────────────────────────
 function _getS3Client() {
@@ -527,6 +538,7 @@ async function _triggerReportGeneration(
   config: any,
   db: Pool,
 ) {
+  const k8s = await getK8sModule();
   const kc = new k8s.KubeConfig();
   kc.loadFromDefault(); // in-cluster ServiceAccount hoặc ~/.kube/config local
 
@@ -541,7 +553,7 @@ async function _triggerReportGeneration(
   const jobName = `report-${shortId}`;
   const configJson = JSON.stringify(config);
 
-  const job: k8s.V1Job = {
+  const job = {
     apiVersion: "batch/v1",
     kind: "Job",
     metadata: {

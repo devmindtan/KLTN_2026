@@ -234,6 +234,8 @@ interface SocketContextType {
   modelReload:  ModelReloadData | null; // Trạng thái realtime khi reload model sau activate
   /** Tăng lên 1 mỗi khi nhận FORECAST_UPDATED → chart re-fetch */
   forecastVersion: number;
+  /** Tăng lên 1 mỗi khi nhận DECISION_UPDATED → decision list auto-refresh */
+  decisionVersion: number;
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
@@ -246,6 +248,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [trainingJob, setTrainingJob] = useState<TrainingJobData | null>(null);
   const [modelReload, setModelReload] = useState<ModelReloadData | null>(null);
   const [forecastVersion, setForecastVersion] = useState<number>(0);
+  const [decisionVersion, setDecisionVersion] = useState<number>(0);
 
   // Chờ AuthProvider hoàn tất khởi tạo (fetch guest token) trước khi gọi API
   const { isLoading: authLoading } = useAuth();
@@ -465,6 +468,11 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       logger.log("📊 FORECAST_UPDATED – tăng forecastVersion");
     });
 
+    socketInstance.on("DECISION_UPDATED", (data: { count?: number; triggered_at?: string }) => {
+      setDecisionVersion((v) => v + 1);
+      logger.log(`🧠 DECISION_UPDATED – ${data?.count ?? 0} decisions mới`);
+    });
+
     socketInstance.on("MODEL_RELOAD_UPDATED", (raw: RawModelReloadEntity) => {
       const reload: ModelReloadData = {
         reload_id:     raw.reload_id?.value     ?? "",
@@ -526,6 +534,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       socketInstance.off("CAMERA_UPDATED");
       socketInstance.off("TRAINING_JOB_UPDATED");
       socketInstance.off("FORECAST_UPDATED");
+      socketInstance.off("DECISION_UPDATED");
       socketInstance.off("MODEL_RELOAD_UPDATED");
       socketInstance.off("connect_error");
       socketInstance.off("reconnect");
@@ -632,6 +641,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     trainingJob,
     modelReload,
     forecastVersion,
+    decisionVersion,
   };
 
   return (

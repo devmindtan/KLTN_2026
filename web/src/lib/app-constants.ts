@@ -34,6 +34,7 @@ export const DASHBOARD_TERM = {
   },
   tab1: { title: "Tổng quan" },
   tab2: { title: "Dự báo" },
+  tab3: { title: "Lịch sử" },
   card1: {
     title: "Tổng phương tiện",
     description: "Phát hiện thời gian thực",
@@ -404,6 +405,8 @@ export const PAGE_TITLES = {
   MODELS: import.meta.env.VITE_PAGE_MODELS ?? "Danh sách mô hình",
   DATA_LIBRARY: import.meta.env.VITE_PAGE_DATA_LIBRARY ?? "Dữ liệu giao thông",
   REPORTS: import.meta.env.VITE_PAGE_REPORTS ?? "Báo cáo giao thông",
+  TRAFFIC_MAP: import.meta.env.VITE_PAGE_TRAFFIC_MAP ?? "Bản đồ giao thông",
+  DECISION_MAKING: import.meta.env.VITE_PAGE_DECISION_MAKING ?? "Hỗ trợ Ra quyết định",
   SEARCH: import.meta.env.VITE_PAGE_SEARCH ?? "Tìm kiếm nhanh",
   FIWARE_PUBLIC_API:
     import.meta.env.VITE_PAGE_FIWARE_PUBLIC_API ?? "Public API FIWARE",

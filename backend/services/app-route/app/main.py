@@ -99,6 +99,15 @@ def fiware_webhook():
                     'cycle_cameras': cycle_cameras,
                 })
                 logger.info(f"📈 Emit FORECAST_UPDATED: {cycle_cameras} cameras @ {triggered_at}")
+            elif entity_type == 'DecisionReady':
+                # Phát event DECISION_UPDATED → frontend decision list auto-refresh
+                count = entity.get('count', {}).get('value', 0)
+                triggered_at = entity.get('triggered_at', {}).get('value', '')
+                socketio.emit('DECISION_UPDATED', {
+                    'count': count,
+                    'triggered_at': triggered_at,
+                })
+                logger.info(f"🧠 Emit DECISION_UPDATED: {count} decisions @ {triggered_at}")
             else:
                 logger.warning(f"⚠️ Unknown entity type: {entity_type}")
 

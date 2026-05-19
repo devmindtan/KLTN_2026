@@ -1,7 +1,18 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import * as k8s from "@kubernetes/client-node";
 import pool from "../config/database";
+
+let k8sModulePromise: Promise<typeof import("@kubernetes/client-node")> | null = null;
+
+/**
+ * Load module Kubernetes theo lazy/dynamic import để tương thích local CJS runtime.
+ */
+async function getK8sModule() {
+  if (!k8sModulePromise) {
+    k8sModulePromise = import("@kubernetes/client-node");
+  }
+  return k8sModulePromise;
+}
 
 // ============================================================
 // K8S CLIENT HELPER
@@ -11,7 +22,8 @@ import pool from "../config/database";
  * - Trong k8s Pod: tự động dùng in-cluster config (ServiceAccount token).
  * - Dev local: fallback về ~/.kube/config (hoặc KUBECONFIG env var).
  */
-function createK8sClients() {
+async function createK8sClients() {
+  const k8s = await getK8sModule();
   const kc = new k8s.KubeConfig();
   kc.loadFromDefault();
   return {
@@ -31,7 +43,7 @@ const IMAGE_PREDICT_IMAGE_FALLBACK =
  */
 async function getImagePredictImage(): Promise<string> {
   try {
-    const { apps } = createK8sClients();
+    const { apps } = await createK8sClients();
     const deploy = await apps.readNamespacedDeployment({
       name: "image-predict",
       namespace: "backend",
@@ -398,7 +410,7 @@ export const trainModel = async (req: Request, res: Response) => {
   const job_id  = `${model_type}_${ts}`;
 
   // Env vars khớp với image-predict-deployment.yaml
-  const jobEnv: k8s.V1EnvVar[] = [
+  const jobEnv = [
     { name: "POSTGRES_HOST",     value: process.env.POSTGRES_HOST ?? "postgres-postgresql.database.svc.cluster.local" },
     { name: "POSTGRES_DBS",      value: process.env.POSTGRES_DBS ?? "kltn_db" },
     { name: "POSTGRES_USERNAME", value: process.env.POSTGRES_USERNAME ?? "admin" },
@@ -411,7 +423,7 @@ export const trainModel = async (req: Request, res: Response) => {
     { name: "MINIO_BUCKET_NAME", value: "ml-models" },
   ];
 
-  const jobManifest: k8s.V1Job = {
+  const jobManifest = {
     apiVersion: "batch/v1",
     kind: "Job",
     metadata: {
@@ -454,7 +466,7 @@ export const trainModel = async (req: Request, res: Response) => {
     const image = await getImagePredictImage();
     jobManifest.spec!.template.spec!.containers![0].image = image;
 
-    const { batch } = createK8sClients();
+    const { batch } = await createK8sClients();
     await batch.createNamespacedJob({ namespace: "backend", body: jobManifest });
 
     console.info(`[Train Job] Created: ${jobName} (${model_type} | ${start_date} → ${end_date}) image=${image}`);

@@ -435,11 +435,11 @@ export function ForecastRollingChart({
     fullGrid.findIndex((s) => s.t === clientNowTime),
   );
 
-  // actualAtNow: tìm lùi slot cuối cùng có actual; fallback f5m nếu sync chưa cập nhật
+  // actualAtNow: tìm lùi slot cuối cùng có actual thật (KHÔNG fallback f5m)
+  // → tránh trùng lặp khi baseline = f5m và row f5m trong table cũng = f5m
   const actualAtNow = (() => {
     for (let i = CLIENT_NOW_INDEX; i >= 0; i--) {
-      const val = fullGrid[i]?.actual ?? fullGrid[i]?.f5m;
-      if (val != null) return val;
+      if (fullGrid[i]?.actual != null) return fullGrid[i].actual;
     }
     return null;
   })();

@@ -10,12 +10,14 @@ import {
   IconFolder,
   IconHelp,
   IconListDetails,
+  IconMapPins,
   IconReport,
   IconSearch,
   IconSettings,
   IconUsers,
   IconFlask,
   IconApi,
+  IconBrain,
 } from "@tabler/icons-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -50,6 +52,11 @@ function buildNavMain(p: string) {
       icon: IconDashboard,
     },
     {
+      title: PAGE_TITLES.TRAFFIC_MAP,
+      url: u(p, "traffic-map"),
+      icon: IconMapPins,
+    },
+    {
       title: PAGE_TITLES.MONITORING,
       url: u(p, "monitoring"),
       icon: IconListDetails,
@@ -71,6 +78,7 @@ function buildNavReports(p: string) {
       icon: IconDatabase,
     },
     { name: PAGE_TITLES.REPORTS, url: u(p, "reports"), icon: IconReport },
+    { name: PAGE_TITLES.DECISION_MAKING, url: u(p, "decision-making"), icon: IconBrain },
     // { name: "Hỗ trợ ra quyết định",  url: u(p, "assistant"),         icon: IconFileWord },
     { name: PAGE_TITLES.DOCS, url: u(p, "documentation"), icon: IconBook },
   ];

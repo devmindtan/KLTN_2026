@@ -23,6 +23,7 @@ const Models = React.lazy(() => import("@/pages/models.tsx"));
 const Team = React.lazy(() => import("@/pages/team.tsx"));
 const Reports = React.lazy(() => import("@/pages/reports"));
 const TrafficMap = React.lazy(() => import("@/pages/traffic-map"));
+const DecisionMaking = React.lazy(() => import("@/pages/decision-making"));
 // const WordAssistant = React.lazy(() => import("@/pages/assistant"));
 const Help = React.lazy(() => import("@/pages/help.tsx"));
 const Documentation = React.lazy(() => import("@/pages/documentation.tsx"));
@@ -223,6 +224,11 @@ const router = createBrowserRouter([
             element: <TrafficMap />,
             loader: () => new Promise((r) => setTimeout(r, 0)),
           },
+          {
+            path: "decision-making",
+            element: <DecisionMaking />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
           // {
           //   path: "assistant",
           //   element: <WordAssistant />,
@@ -312,6 +318,11 @@ const router = createBrowserRouter([
           {
             path: "traffic-map",
             element: <TrafficMap />,
+            loader: () => new Promise((r) => setTimeout(r, 0)),
+          },
+          {
+            path: "decision-making",
+            element: <DecisionMaking />,
             loader: () => new Promise((r) => setTimeout(r, 0)),
           },
           // {path: "assistant",        element: <WordAssistant/>, loader: () => new Promise(r => setTimeout(r, 0))},

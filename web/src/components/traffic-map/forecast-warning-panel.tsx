@@ -105,7 +105,7 @@ export function ForecastWarningPanel({ cameras, onFocusCamera }: Props) {
       </div>
 
       {/* Body */}
-      <div className="overflow-y-auto max-h-[180px]">
+      <div className="overflow-y-auto max-h-[200px]">
         {warned.length === 0 ? (
           <div className="flex items-center gap-2 px-4 py-4 text-sm text-muted-foreground">
             <IconCircleCheckFilled className="w-4 h-4 text-green-500 shrink-0" />

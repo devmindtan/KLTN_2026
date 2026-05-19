@@ -405,7 +405,8 @@ export const PAGE_TITLES = {
   MODELS: import.meta.env.VITE_PAGE_MODELS ?? "Danh sách mô hình",
   DATA_LIBRARY: import.meta.env.VITE_PAGE_DATA_LIBRARY ?? "Dữ liệu giao thông",
   REPORTS: import.meta.env.VITE_PAGE_REPORTS ?? "Báo cáo giao thông",
-  TRAFFIC_MAP: import.meta.env.VITE_PAGE_TRAFFIC_MAP ?? "Bản đồ & Ra quyết định",
+  TRAFFIC_MAP: import.meta.env.VITE_PAGE_TRAFFIC_MAP ?? "Bản đồ giao thông",
+  DECISION_MAKING: import.meta.env.VITE_PAGE_DECISION_MAKING ?? "Hỗ trợ Ra quyết định",
   SEARCH: import.meta.env.VITE_PAGE_SEARCH ?? "Tìm kiếm nhanh",
   FIWARE_PUBLIC_API:
     import.meta.env.VITE_PAGE_FIWARE_PUBLIC_API ?? "Public API FIWARE",

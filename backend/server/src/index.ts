@@ -16,6 +16,7 @@ import trafficHistoryApi from "./routes/traffic-history.api";
 import forecastApi from "./routes/forecast.api";
 import helpApi from "./routes/help.api";
 import { reportsRoutes } from "./routes/reports.api";
+import { decisionsRoutes } from "./routes/decisions.api";
 import { requireAuth } from "./middleware/auth.middleware";
 import { runMigrations } from "./migrations/runner";
 
@@ -87,6 +88,9 @@ app.use("/api/help", requireAuth, helpApi);
 
 // Reports routes – Smart Reports system (PDF + XLSX generation)
 app.use("/api/reports", requireAuth, reportsRoutes);
+
+// Decisions routes – Decision-Making system (recommendations & analysis)
+app.use("/api/decisions", requireAuth, decisionsRoutes);
 
 // Legacy test route
 app.use("/", testControllerApi);

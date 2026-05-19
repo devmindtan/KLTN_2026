@@ -13,6 +13,7 @@ const PLAIN_MIGRATIONS = [
   "003_data_library.sql",
   "006_help_articles.sql",
   "008_reports_tables.sql",
+  "009_decisions_tables.sql",
 ];
 
 const MV_MIGRATION = "002_traffic_pattern_views.sql";

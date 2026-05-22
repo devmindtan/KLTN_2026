@@ -11,6 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -287,6 +288,9 @@ export function DecisionCard({ decision, onUpdate }: DecisionCardProps) {
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
+            <DialogDescription className="sr-only">
+              Chi tiết quyết định điều phối giao thông và các hành động xử lý.
+            </DialogDescription>
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <span>{categoryInfo.icon}</span>
               <Badge variant="secondary" className={`text-xs ${categoryInfo.color}`}>

@@ -4,10 +4,54 @@
  */
 
 import { apiFetch } from '@/lib/apiFetch';
+import { refreshTokenRequest } from '@/services/auth.service';
 import type { Decision, DecisionFilters, ReviewDecisionRequest, ReviewDecisionResponse, ListDecisionsResponse, AnalyzeDecisionsResponse } from './decisions-types';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL as string;
 const API_BASE = `${BACKEND_URL}/api/decisions`;
+
+const TOKEN_KEY = 'auth_token';
+
+function buildAuthHeaders(token?: string): { skipAuth: true; headers: { Authorization: string } } | {} {
+  if (!token) return {};
+  return { skipAuth: true, headers: { Authorization: `Bearer ${token}` } };
+}
+
+async function parseApiError(response: Response): Promise<string> {
+  const text = await response.text().catch(() => '');
+  if (!text) return `Lỗi ${response.status}`;
+
+  try {
+    const parsed = JSON.parse(text) as { message?: string };
+    return parsed.message || `Lỗi ${response.status}`;
+  } catch {
+    return `Lỗi ${response.status}: ${text.slice(0, 200)}`;
+  }
+}
+
+async function callWithAuthRetry(url: string, init: RequestInit, token?: string): Promise<Response> {
+  const initialToken = token || localStorage.getItem(TOKEN_KEY) || undefined;
+
+  let response = await apiFetch(url, {
+    ...init,
+    ...buildAuthHeaders(initialToken),
+  });
+
+  if (response.status !== 401) return response;
+
+  // Token có thể đã hết hạn: thử refresh bằng cookie HttpOnly rồi retry 1 lần
+  const newToken = await refreshTokenRequest();
+  if (!newToken) return response;
+
+  localStorage.setItem(TOKEN_KEY, newToken);
+
+  response = await apiFetch(url, {
+    ...init,
+    ...buildAuthHeaders(newToken),
+  });
+
+  return response;
+}
 
 /**
  * Trigger analysis and get current recommendations
@@ -86,15 +130,14 @@ export async function getDecisionHistory(cameraId: string, limit = 50): Promise<
  * Review a decision and provide feedback
  */
 export async function reviewDecision(id: string, request: ReviewDecisionRequest, token?: string): Promise<ReviewDecisionResponse> {
-  const response = await apiFetch(`${API_BASE}/${id}/review`, {
+  const response = await callWithAuthRetry(`${API_BASE}/${id}/review`, {
     method: 'POST',
     body: JSON.stringify(request),
-    ...(token ? { skipAuth: true, headers: { Authorization: `Bearer ${token}` } } : {}),
-  });
+  }, token);
 
   if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.message || `Lỗi ${response.status}: ${response.statusText}`);
+    const message = await parseApiError(response);
+    throw new Error(message);
   }
 
   return response.json();
@@ -104,15 +147,14 @@ export async function reviewDecision(id: string, request: ReviewDecisionRequest,
  * Mark a decision as implemented
  */
 export async function implementDecision(id: string, implementation_details?: string, token?: string): Promise<ReviewDecisionResponse> {
-  const response = await apiFetch(`${API_BASE}/${id}/implement`, {
+  const response = await callWithAuthRetry(`${API_BASE}/${id}/implement`, {
     method: 'POST',
     body: JSON.stringify({ implementation_details }),
-    ...(token ? { skipAuth: true, headers: { Authorization: `Bearer ${token}` } } : {}),
-  });
+  }, token);
 
   if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.message || `Lỗi ${response.status}: ${response.statusText}`);
+    const message = await parseApiError(response);
+    throw new Error(message);
   }
 
   return response.json();
@@ -122,14 +164,13 @@ export async function implementDecision(id: string, implementation_details?: str
  * Dismiss a decision
  */
 export async function dismissDecision(id: string, token?: string): Promise<ReviewDecisionResponse> {
-  const response = await apiFetch(`${API_BASE}/${id}`, {
+  const response = await callWithAuthRetry(`${API_BASE}/${id}`, {
     method: 'DELETE',
-    ...(token ? { skipAuth: true, headers: { Authorization: `Bearer ${token}` } } : {}),
-  });
+  }, token);
 
   if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.message || `Lỗi ${response.status}: ${response.statusText}`);
+    const message = await parseApiError(response);
+    throw new Error(message);
   }
 
   return response.json();

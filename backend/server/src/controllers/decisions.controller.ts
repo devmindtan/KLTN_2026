@@ -53,6 +53,10 @@ function getTimeWindowMinutes(timeWindow: string): number {
   return windows[timeWindow] || 1440;
 }
 
+function getAuthUserId(req: Request): string | undefined {
+  return req.auth?.userId || (req.auth as { sub?: string } | undefined)?.sub;
+}
+
 // ─── API Endpoints ────────────────────────────────────────────────────────────
 
 /**
@@ -275,7 +279,7 @@ export async function reviewDecision(req: Request, res: Response) {
     const { id } = req.params;
     const body = reviewDecisionSchema.parse(req.body);
     const db = req.app.locals.db as Pool;
-    const userId = (req as any).auth?.sub;  // From JWT middleware
+    const userId = getAuthUserId(req);
 
     if (!userId) {
       res.status(401).json({ success: false, error: "Unauthorized" });
@@ -298,9 +302,9 @@ export async function reviewDecision(req: Request, res: Response) {
 
     // Log activity
     await db.query(
-      `INSERT INTO activity_logs (user_id, action, resource, resource_id, metadata, created_at)
-       VALUES ($1, 'REVIEW_DECISION', 'decisions', $2, $3, NOW())`,
-      [userId, id, JSON.stringify({ status: body.status, feedback: body.feedback })]
+      `INSERT INTO activity_logs (account_id, action, resource, resource_id, details, ip_address)
+       VALUES ($1, 'REVIEW_DECISION', 'decisions', $2, $3, $4)`,
+      [userId, id, JSON.stringify({ status: body.status, feedback: body.feedback }), req.ip]
     );
 
     res.json({
@@ -330,7 +334,7 @@ export async function implementDecision(req: Request, res: Response) {
     const { id } = req.params;
     const { implementation_details } = req.body;
     const db = req.app.locals.db as Pool;
-    const userId = (req as any).auth?.sub;
+    const userId = getAuthUserId(req);
 
     if (!userId) {
       res.status(401).json({ success: false, error: "Unauthorized" });
@@ -353,9 +357,9 @@ export async function implementDecision(req: Request, res: Response) {
 
     // Log activity
     await db.query(
-      `INSERT INTO activity_logs (user_id, action, resource, resource_id, metadata, created_at)
-       VALUES ($1, 'IMPLEMENT_DECISION', 'decisions', $2, $3, NOW())`,
-      [userId, id, JSON.stringify({ implementation_details })]
+      `INSERT INTO activity_logs (account_id, action, resource, resource_id, details, ip_address)
+       VALUES ($1, 'IMPLEMENT_DECISION', 'decisions', $2, $3, $4)`,
+      [userId, id, JSON.stringify({ implementation_details }), req.ip]
     );
 
     res.json({
@@ -377,7 +381,7 @@ export async function dismissDecision(req: Request, res: Response) {
   try {
     const { id } = req.params;
     const db = req.app.locals.db as Pool;
-    const userId = (req as any).auth?.sub;
+    const userId = getAuthUserId(req);
 
     if (!userId) {
       res.status(401).json({ success: false, error: "Unauthorized" });
@@ -417,7 +421,7 @@ export async function dismissDecision(req: Request, res: Response) {
 export async function createDecision(req: Request, res: Response) {
   try {
     const db = req.app.locals.db as Pool;
-    const userId = (req as any).auth?.sub;
+    const userId = getAuthUserId(req);
 
     if (!userId) {
       res.status(401).json({ success: false, error: "Unauthorized" });
@@ -464,9 +468,9 @@ export async function createDecision(req: Request, res: Response) {
 
     // Log activity
     await db.query(
-      `INSERT INTO activity_logs (user_id, action, resource, resource_id, metadata, created_at)
-       VALUES ($1, 'CREATE_DECISION', 'decisions', $2, $3, NOW())`,
-      [userId, result.rows[0].id, JSON.stringify({ category, title })]
+      `INSERT INTO activity_logs (account_id, action, resource, resource_id, details, ip_address)
+       VALUES ($1, 'CREATE_DECISION', 'decisions', $2, $3, $4)`,
+      [userId, result.rows[0].id, JSON.stringify({ category, title }), req.ip]
     );
 
     res.status(201).json({

@@ -12,6 +12,14 @@ const ACCESS_TOKEN_TTL  = "8h";
 const REFRESH_TOKEN_TTL = "30d";
 const GUEST_TOKEN_TTL   = "24h";
 
+function getCookieSecurity() {
+  const isProd = process.env.NODE_ENV === "production";
+  return {
+    secure: isProd,
+    sameSite: (isProd ? "none" : "lax") as "none" | "lax",
+  };
+}
+
 // ── Schema Validation ───────────────────────────────────────────────
 const LoginSchema = z.object({
   email:    z.string().email("Email không hợp lệ"),
@@ -72,12 +80,21 @@ export const login = async (req: Request, res: Response) => {
 
   const accessToken  = jwt.sign(payload, JWT_SECRET, { expiresIn: ACCESS_TOKEN_TTL });
   const refreshToken = jwt.sign({ userId: account.id }, JWT_REFRESH_SECRET, { expiresIn: REFRESH_TOKEN_TTL });
+  const cookieSecurity = getCookieSecurity();
 
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    secure: cookieSecurity.secure,
+    sameSite: cookieSecurity.sameSite,
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 ngày
+  });
+
+  // Backup auth channel cho production proxy: middleware có thể đọc từ cookie khi Authorization header bị mất
+  res.cookie("accessToken", accessToken, {
+    httpOnly: true,
+    secure: cookieSecurity.secure,
+    sameSite: cookieSecurity.sameSite,
+    maxAge: 8 * 60 * 60 * 1000, // 8 giờ
   });
 
   res.json({
@@ -101,6 +118,15 @@ export const refreshToken = (req: Request, res: Response) => {
     const decoded = jwt.verify(token, JWT_REFRESH_SECRET) as { userId: string };
     const payload: JwtPayload = { type: "authenticated", role: "technician", userId: decoded.userId };
     const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: ACCESS_TOKEN_TTL });
+    const cookieSecurity = getCookieSecurity();
+
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true,
+      secure: cookieSecurity.secure,
+      sameSite: cookieSecurity.sameSite,
+      maxAge: 8 * 60 * 60 * 1000,
+    });
+
     res.json({ success: true, token: accessToken });
   } catch {
     return res.status(401).json({ success: false, message: "Refresh token hết hạn, vui lòng đăng nhập lại" });
@@ -112,7 +138,17 @@ export const refreshToken = (req: Request, res: Response) => {
  * POST /api/auth/logout
  */
 export const logout = (_req: Request, res: Response) => {
-  res.clearCookie("refreshToken", { httpOnly: true, sameSite: "strict" });
+  const cookieSecurity = getCookieSecurity();
+  res.clearCookie("refreshToken", {
+    httpOnly: true,
+    secure: cookieSecurity.secure,
+    sameSite: cookieSecurity.sameSite,
+  });
+  res.clearCookie("accessToken", {
+    httpOnly: true,
+    secure: cookieSecurity.secure,
+    sameSite: cookieSecurity.sameSite,
+  });
   res.json({ success: true, message: "Đăng xuất thành công" });
 };
 

@@ -3,6 +3,8 @@ import jwt from "jsonwebtoken";
 import pool from "../config/database";
 
 const JWT_SECRET = process.env.JWT_SECRET || "change_me_in_production";
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || "change_refresh_secret_in_production";
+const ACCESS_TOKEN_TTL = "8h";
 
 export interface JwtPayload {
   type: "anonymous" | "authenticated";
@@ -11,6 +13,61 @@ export interface JwtPayload {
   email?: string;
   iat?: number;
   exp?: number;
+}
+
+function extractToken(req: Request): string | null {
+  const header = req.headers.authorization;
+  if (header && header.startsWith("Bearer ")) {
+    return header.slice(7);
+  }
+
+  const altHeader = req.headers["x-access-token"];
+  if (typeof altHeader === "string" && altHeader.trim()) {
+    return altHeader.trim();
+  }
+
+  const cookieToken = req.cookies?.accessToken;
+  if (typeof cookieToken === "string" && cookieToken.trim()) {
+    return cookieToken.trim();
+  }
+
+  return null;
+}
+
+function getCookieSecurity() {
+  const isProd = process.env.NODE_ENV === "production";
+  return {
+    secure: isProd,
+    sameSite: (isProd ? "none" : "lax") as "none" | "lax",
+  };
+}
+
+function issueAccessTokenFromRefresh(req: Request, res: Response): JwtPayload | null {
+  const refreshToken = req.cookies?.refreshToken;
+  if (!refreshToken || typeof refreshToken !== "string") return null;
+
+  try {
+    const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET) as { userId: string };
+    const payload: JwtPayload = {
+      type: "authenticated",
+      role: "technician",
+      userId: decoded.userId,
+    };
+
+    const newAccessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: ACCESS_TOKEN_TTL });
+    const cookieSecurity = getCookieSecurity();
+
+    res.cookie("accessToken", newAccessToken, {
+      httpOnly: true,
+      secure: cookieSecurity.secure,
+      sameSite: cookieSecurity.sameSite,
+      maxAge: 8 * 60 * 60 * 1000,
+    });
+
+    return payload;
+  } catch {
+    return null;
+  }
 }
 
 /** Mở rộng Request để gắn payload JWT */
@@ -27,16 +84,25 @@ declare global {
  * Dùng cho các route cần xác thực nhưng không giới hạn role
  */
 export const requireAuth = (req: Request, res: Response, next: NextFunction) => {
-  const header = req.headers.authorization;
-  if (!header || !header.startsWith("Bearer ")) {
+  const token = extractToken(req);
+  if (!token) {
+    const refreshedPayload = issueAccessTokenFromRefresh(req, res);
+    if (refreshedPayload) {
+      req.auth = refreshedPayload;
+      return next();
+    }
     return res.status(401).json({ success: false, message: "Thiếu token xác thực" });
   }
 
-  const token = header.slice(7);
   try {
     req.auth = jwt.verify(token, JWT_SECRET) as JwtPayload;
     next();
   } catch {
+    const refreshedPayload = issueAccessTokenFromRefresh(req, res);
+    if (refreshedPayload) {
+      req.auth = refreshedPayload;
+      return next();
+    }
     return res.status(401).json({ success: false, message: "Token không hợp lệ hoặc đã hết hạn" });
   }
 };
@@ -46,12 +112,16 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction) => 
  * Phải dùng sau requireAuth
  */
 export const requireTechnician = (req: Request, res: Response, next: NextFunction) => {
-  const header = req.headers.authorization;
-  if (!header || !header.startsWith("Bearer ")) {
+  const token = extractToken(req);
+  if (!token) {
+    const refreshedPayload = issueAccessTokenFromRefresh(req, res);
+    if (refreshedPayload?.role === "technician") {
+      req.auth = refreshedPayload;
+      return next();
+    }
     return res.status(401).json({ success: false, message: "Thiếu token xác thực" });
   }
 
-  const token = header.slice(7);
   try {
     const payload = jwt.verify(token, JWT_SECRET) as JwtPayload;
     if (payload.role !== "technician") {
@@ -60,6 +130,11 @@ export const requireTechnician = (req: Request, res: Response, next: NextFunctio
     req.auth = payload;
     next();
   } catch {
+    const refreshedPayload = issueAccessTokenFromRefresh(req, res);
+    if (refreshedPayload?.role === "technician") {
+      req.auth = refreshedPayload;
+      return next();
+    }
     return res.status(401).json({ success: false, message: "Token không hợp lệ hoặc đã hết hạn" });
   }
 };

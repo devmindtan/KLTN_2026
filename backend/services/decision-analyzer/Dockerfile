@@ -1,5 +1,12 @@
 # Multi-stage build for decision-analyzer service
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS builder
+
+# Build deps for psycopg2
+RUN apt-get update && apt-get install -y \
+    gcc \
+    python3-dev \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 RUN python -m venv /opt/venv
@@ -23,7 +30,10 @@ COPY --from=builder /opt/venv /opt/venv
 COPY decision-analyzer/app/ ./
 
 # Timezone support
-RUN apt-get update && apt-get install -y tzdata && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y \
+    libpq5 \
+    tzdata \
+    && rm -rf /var/lib/apt/lists/*
 ENV TZ=Asia/Ho_Chi_Minh
 
 # Healthcheck

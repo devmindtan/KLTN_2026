@@ -28,6 +28,7 @@ export interface Decision {
     forecastData?: string;
     modelMetrics?: string;
     currentStatus?: string;
+    [key: string]: unknown;
   };
   action_items: {
     action: string;

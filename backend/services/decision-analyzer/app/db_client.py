@@ -4,12 +4,13 @@ Handles PostgreSQL connections and queries
 """
 
 import os
+from pathlib import Path
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import logging
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / ".env")
 
 logger = logging.getLogger(__name__)
 

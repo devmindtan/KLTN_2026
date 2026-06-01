@@ -5,8 +5,8 @@ Main orchestrator for generating traffic management recommendations
 Runs as CronJob (every 15 minutes) or triggered on-demand
 
 Usage:
-  python main.py [--test]  # Run full analysis
-  python main.py --test    # Run with test data (no DB write)
+  python main.py          # Run full analysis
+  python main.py --test   # Run with test data (no DB write)
 """
 
 import os
@@ -20,7 +20,6 @@ from datetime import datetime, timedelta
 from typing import Optional
 import argparse
 
-# Add app to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from db_client import get_db_connection, close_db_connection
@@ -30,12 +29,14 @@ from analyzers.optimization_analyzer import OptimizationAnalyzer
 from analyzers.quality_analyzer import QualityAnalyzer
 from analyzers.monitoring_analyzer import MonitoringAnalyzer
 
-# Setup logging
 logging.basicConfig(
     level=logging.INFO,
     format="[%(asctime)s] %(levelname)s - %(name)s: %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+# Decisions with compound score below this are not stored
+_MIN_COMPOUND_SCORE_TO_STORE = 30.0
 
 
 class DecisionAnalyzerOrchestrator:
@@ -46,15 +47,13 @@ class DecisionAnalyzerOrchestrator:
         self.db_conn = None
         self.analyzers = []
         self.all_decisions = []
-        
+
     async def initialize(self):
-        """Initialize database connection and analyzers"""
         try:
             if not self.test_mode:
                 self.db_conn = get_db_connection()
                 logger.info("✅ Database connection established")
-            
-            # Initialize all analyzers
+
             self.analyzers = [
                 CongestionAnalyzer(self.db_conn),
                 PredictiveAnalyzer(self.db_conn),
@@ -63,73 +62,94 @@ class DecisionAnalyzerOrchestrator:
                 MonitoringAnalyzer(self.db_conn),
             ]
             logger.info(f"✅ Initialized {len(self.analyzers)} analyzer modules")
-            
+
         except Exception as e:
             logger.error(f"❌ Failed to initialize: {e}")
             raise
-    
+
     async def run_analysis(self) -> list:
-        """
-        Run all analyzers in parallel and collect decisions
-        Returns: list of Decision objects
-        """
         logger.info("=" * 60)
         logger.info("Starting Decision Analysis")
         logger.info("=" * 60)
-        
+
         try:
-            # Run all analyzers concurrently
             tasks = [analyzer.analyze() for analyzer in self.analyzers]
             results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            # Collect decisions from all analyzers
+
             all_decisions = []
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
                     logger.error(f"❌ Analyzer {i} failed: {result}")
                 else:
                     decisions = result or []
-                    logger.info(f"✅ Analyzer {i} generated {len(decisions)} decisions")
+                    logger.info(f"✅ Analyzer {i} ({self.analyzers[i].name}) generated {len(decisions)} decisions")
                     all_decisions.extend(decisions)
-            
+
+            # Filter out any decisions that slipped through with too-low compound score
+            before = len(all_decisions)
+            all_decisions = [
+                d for d in all_decisions
+                if d.get("score_compound", 0) >= _MIN_COMPOUND_SCORE_TO_STORE
+            ]
+            filtered = before - len(all_decisions)
+            if filtered:
+                logger.info(f"🔽 Filtered {filtered} low-quality decisions (compound < {_MIN_COMPOUND_SCORE_TO_STORE})")
+
             self.all_decisions = all_decisions
-            logger.info(f"📊 Total decisions generated: {len(all_decisions)}")
+            self._log_confidence_summary(all_decisions)
+            logger.info(f"📊 Total decisions to store: {len(all_decisions)}")
             return all_decisions
-            
+
         except Exception as e:
             logger.error(f"❌ Analysis failed: {e}")
             raise
-    
+
+    def _log_confidence_summary(self, decisions: list):
+        """Log a breakdown of confidence tiers so operators can assess batch quality."""
+        if not decisions:
+            return
+        tiers = {"high (≥75)": 0, "medium (50-74)": 0, "low (<50)": 0}
+        for d in decisions:
+            c = d.get("score_confidence", 0)
+            if c >= 75:
+                tiers["high (≥75)"] += 1
+            elif c >= 50:
+                tiers["medium (50-74)"] += 1
+            else:
+                tiers["low (<50)"] += 1
+        logger.info(
+            f"📈 Confidence breakdown — "
+            + " | ".join(f"{k}: {v}" for k, v in tiers.items())
+        )
+
     async def store_decisions(self):
-        """Store generated decisions to database, skipping active duplicates"""
+        """Store generated decisions to database, skipping active duplicates."""
         if self.test_mode or not self.db_conn:
             logger.info("ℹ️ Test mode: Decisions not stored to DB")
             return
-        
+
         if not self.all_decisions:
             logger.info("ℹ️ No decisions to store")
             return
-        
+
         try:
             cursor = self.db_conn.cursor()
 
-            # Load active (new/reviewed) decisions from last 24h to skip duplicates
+            # Load active decisions from last 24h to dedup
+            # Key = (category, camera_id, title_prefix_40_chars) — more specific than before
             cursor.execute("""
-                SELECT category, camera_ids
+                SELECT category, camera_ids, LEFT(title, 40)
                 FROM decisions
                 WHERE status IN ('new', 'reviewed')
                   AND generated_at > NOW() - INTERVAL '24 hours'
             """)
             existing = cursor.fetchall()
             existing_keys: set = set()
-            for cat, cam_ids_val in existing:
-                if isinstance(cam_ids_val, list):
-                    cam_list = cam_ids_val
-                else:
-                    cam_list = json.loads(cam_ids_val or "[]")
+            for cat, cam_ids_val, title_prefix in existing:
+                cam_list = cam_ids_val if isinstance(cam_ids_val, list) else json.loads(cam_ids_val or "[]")
                 primary = cam_list[0] if cam_list else ""
-                existing_keys.add((cat, primary))
-            
+                existing_keys.add((cat, primary, title_prefix))
+
             stored_count = 0
             skipped_count = 0
             seen_this_run: set = set()
@@ -137,7 +157,8 @@ class DecisionAnalyzerOrchestrator:
             for decision in self.all_decisions:
                 cam_list = decision.get("camera_ids") or []
                 primary_cam = cam_list[0] if cam_list else ""
-                dedup_key = (decision["category"], primary_cam)
+                title_prefix = decision.get("title", "")[:40]
+                dedup_key = (decision["category"], primary_cam, title_prefix)
 
                 if dedup_key in existing_keys or dedup_key in seen_this_run:
                     skipped_count += 1
@@ -167,14 +188,13 @@ class DecisionAnalyzerOrchestrator:
                     "system"
                 ))
                 stored_count += 1
-            
+
             self.db_conn.commit()
             logger.info(f"✅ Stored {stored_count} decisions (skipped {skipped_count} duplicates)")
-            
-            # Notify app-route để broadcast DECISION_UPDATED qua Socket.IO
+
             if stored_count > 0:
                 await self._notify_decision_ready(stored_count)
-            
+
         except Exception as e:
             logger.error(f"❌ Failed to store decisions: {e}")
             if self.db_conn:
@@ -183,17 +203,17 @@ class DecisionAnalyzerOrchestrator:
         finally:
             if cursor:
                 cursor.close()
-    
+
     async def _notify_decision_ready(self, count: int):
         """
-        Gửi HTTP POST đến app-route webhook để broadcast DECISION_UPDATED qua Socket.IO
-        Không throw nếu thất bại – đây là best-effort notification
+        POST to app-route webhook to broadcast DECISION_UPDATED via Socket.IO.
+        Best-effort — never raises.
         """
         webhook_url = os.getenv("APP_ROUTE_WEBHOOK_URL", "")
         if not webhook_url:
-            logger.debug("ℹ️ APP_ROUTE_WEBHOOK_URL chưa cấu hình, bỏ qua notify")
+            logger.debug("ℹ️ APP_ROUTE_WEBHOOK_URL not configured, skipping notify")
             return
-        
+
         payload = json.dumps({
             "data": [{
                 "type": "DecisionReady",
@@ -202,7 +222,7 @@ class DecisionAnalyzerOrchestrator:
                 "triggered_at": {"type": "Text", "value": datetime.now().isoformat()},
             }]
         }).encode("utf-8")
-        
+
         try:
             req = urllib.request.Request(
                 webhook_url,
@@ -218,13 +238,11 @@ class DecisionAnalyzerOrchestrator:
             logger.warning(f"⚠️ Failed to notify app-route: {e}")
 
     async def cleanup(self):
-        """Clean up resources"""
         if self.db_conn:
             close_db_connection(self.db_conn)
             logger.info("✅ Database connection closed")
-    
+
     async def run(self) -> list:
-        """Main entry point"""
         try:
             await self.initialize()
             decisions = await self.run_analysis()
@@ -235,27 +253,31 @@ class DecisionAnalyzerOrchestrator:
 
 
 async def main():
-    """Main entry point"""
     parser = argparse.ArgumentParser(description="Decision-Making System Analyzer")
     parser.add_argument("--test", action="store_true", help="Run in test mode (no DB write)")
     args = parser.parse_args()
-    
+
     orchestrator = DecisionAnalyzerOrchestrator(test_mode=args.test)
-    
+
     try:
         decisions = await orchestrator.run()
-        
+
         logger.info("=" * 60)
         logger.info("Analysis Complete ✅")
         logger.info("=" * 60)
-        
+
         if args.test:
             logger.info("\n📋 Generated Decisions:")
-            for decision in decisions:
-                logger.info(f"  - [{decision['score_compound']:.1f}] {decision['title']}")
-        
+            for d in decisions:
+                logger.info(
+                    f"  [{d['score_compound']:.1f}] "
+                    f"conf={d['score_confidence']:.0f} "
+                    f"| {d['category']:<15} "
+                    f"| {d['title']}"
+                )
+
         return 0
-        
+
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)
         return 1

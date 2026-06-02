@@ -1,28 +1,33 @@
 # Release v1.0.0
 
-## 1. Pham vi ban phat hanh
+**Release Date:** 2026-06-02  
+**Status:** Stable Release
 
-Release v1.0.0 dong bo cac module cot loi:
+## 1. Phạm vi bản phát hành
 
-- Realtime camera monitoring (image-process + FIWARE + Socket.IO)
-- Forecast pipeline 5 horizons (image-predict)
-- Sync actual va model performance metrics
-- Decision-Making system (backend API + decision-analyzer + realtime update)
-- Data Library (import/download/manage collections)
-- Smart Reports (generate PDF/XLSX)
-- JWT authentication (viewer + technician)
+Release v1.0.0 đồng bộ các module cốt lõi:
 
-## 2. Thanh phan chinh
+- Realtime Camera Monitoring (`image-process` + FIWARE + Socket.IO)
+- Forecast Pipeline với 5 khoảng dự báo (`image-predict`)
+- Đồng bộ dữ liệu thực tế và đánh giá hiệu suất mô hình (`sync-actual`, `model-performance`)
+- Decision-Making System (Backend API + `decision-analyzer` + Realtime Update)
+- Data Library (Import / Download / Quản lý bộ dữ liệu)
+- Smart Reports (Sinh báo cáo PDF/XLSX)
+- JWT Authentication (Viewer + Technician)
+
+---
+
+## 2. Thành phần chính
 
 ### Backend API
 
 - Auth: guest-token, login, refresh, logout, me, change-password, activity logs
-- Decision APIs: list/analyze/review/implement/dismiss
-- Reports APIs: list/detail/generate/download/delete
+- Decision APIs: list, analyze, review, implement, dismiss
+- Reports APIs: list, detail, generate, download, delete
 - Data Library APIs: collections CRUD + entries import/download
-- Forecast/Traffic/Camera/Model APIs
+- Forecast, Traffic, Camera và Model APIs
 
-### Python services
+### Python Services
 
 - image-process
 - image-predict
@@ -36,92 +41,115 @@ Release v1.0.0 dong bo cac module cot loi:
 ### Frontend
 
 - Dashboard, Monitoring, Analytics, Models, Reports
-- Dashboard tab Lich su luu luong (so sanh da moc ngay)
-- Decision-Making page
-- Data Library page
-- Camera Wall mode
-- Traffic Map page voi route overlay ho tro dieu phoi
-- Login and role-based route handling
+- Dashboard tab **Lịch sử lưu lượng** (so sánh đa mốc thời gian)
+- Decision-Making Page
+- Data Library Page
+- Camera Wall Mode
+- Traffic Map với Route Overlay hỗ trợ điều phối giao thông
+- Login và xử lý phân quyền theo vai trò (Role-Based Route Handling)
 
-## 3. Diem moi noi bat trong v1.0.0
+---
 
-- Decision analyzer da duoc harden voi confidence scoring va dedup 24h.
-- Decision card v2 hien thi evidence nang cao (confidence breakdown, freshness, model MAPE).
-- Realtime su kien DECISION_UPDATED thong qua DecisionReady webhook.
-- Dashboard co tab lich su luu luong giao thong (actual vs forecast theo slot 5 phut).
-- Traffic Map duoc nang cap route overlay (chon A/B tren map, danh gia camera tren tuyen).
-- Data Library co luong import/download va edit collection metadata.
-- Auth write-actions da duoc hardening (header/cookie/refresh path).
+## 3. Điểm mới nổi bật trong v1.0.0
 
-## 4. Bien moi truong toi thieu
+- Decision Analyzer được harden với cơ chế Confidence Scoring và Dedup trong vòng 24 giờ.
+- Decision Card v2 hiển thị bằng chứng nâng cao (Confidence Breakdown, Freshness, Model MAPE).
+- Realtime event `DECISION_UPDATED` thông qua webhook `DecisionReady`.
+- Dashboard bổ sung tab **Lịch sử lưu lượng giao thông** (Actual vs Forecast theo từng khung 5 phút).
+- Traffic Map được nâng cấp với Route Overlay (chọn điểm A/B trên bản đồ, đánh giá camera theo tuyến).
+- Data Library hỗ trợ luồng Import / Download và chỉnh sửa metadata của Collection.
+- Các thao tác ghi dữ liệu (Write Actions) trong Auth được tăng cường bảo mật (Header / Cookie / Refresh Path).
 
-### Backend server
+---
 
-- PORT (mac dinh 8080)
-- DATABASE_URL
-- JWT_SECRET
-- JWT_REFRESH_SECRET
-- CORS_ORIGIN
+## 4. Biến môi trường tối thiểu
 
-### Decision analyzer
+### Backend Server
 
-- POSTGRES_HOST
-- POSTGRES_PORT
-- POSTGRES_DBS
-- POSTGRES_USERNAME
-- POSTGRES_PASSWORD
-- APP_ROUTE_WEBHOOK_URL
+- `PORT` (mặc định: 8080)
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `JWT_REFRESH_SECRET`
+- `CORS_ORIGIN`
 
-### Cac service khac
+### Decision Analyzer
 
-- FIWARE_ORION_BASE
-- MINIO endpoint/access/secret theo service
-- Namespace/service URLs trong K8s
+- `POSTGRES_HOST`
+- `POSTGRES_PORT`
+- `POSTGRES_DBS`
+- `POSTGRES_USERNAME`
+- `POSTGRES_PASSWORD`
+- `APP_ROUTE_WEBHOOK_URL`
 
-## 5. Checklist pre-release
+### Các Service khác
 
-1. Build backend thanh cong (`backend/server`: `npm run build`).
-2. Build frontend thanh cong (`web`: `npm run build`).
-3. Lint frontend pass (`web`: `npm run lint`).
-4. Xac nhan migration tu dong khi backend startup.
-5. Xac nhan cronjob decision-analyzer da dung image va env.
-6. Xac nhan app-route co event `DECISION_UPDATED`.
-7. Xac nhan login technician hoat dong voi hash password dung.
-8. Xac nhan dashboard va decision-making nhan duoc event realtime.
-9. Xac nhan dashboard tab lich su goi duoc `/api/traffic/history` va hien thi du lieu.
-10. Xac nhan traffic map route overlay tim duong va danh gia camera tren tuyen.
-11. Xac nhan data-library import/download hoat dong.
-12. Xac nhan report generation flow hoat dong (pending -> ready -> download).
+- `FIWARE_ORION_BASE`
+- Thông tin MinIO (`endpoint`, `access`, `secret`) tương ứng theo từng service
+- Namespace và Service URLs trong Kubernetes
 
-## 6. Smoke test sau deploy
+---
 
-1. Dang nhap technician va goi `/api/auth/me` thanh cong.
-2. Goi `/api/decisions` co du lieu (hoac empty nhung status 200).
-3. Trigger analyze decisions va xac nhan co ban ghi moi.
-4. Xac nhan frontend tu dong refresh khi co DECISION_UPDATED.
-5. Kiem tra 1 camera co du lieu realtime va du bao.
-6. Kiem tra Dashboard tab Lich su co du lieu 252 slots.
-7. Kiem tra Traffic Map tim duong A/B va thay doi tuyen khi pick lai diem.
-8. Kiem tra trang Analytics tai duoc metrics moi nhat.
+## 5. Checklist Pre-Release
 
-## 7. Known notes
+1. Build Backend thành công (`backend/server`: `npm run build`).
+2. Build Frontend thành công (`web`: `npm run build`).
+3. Frontend lint pass (`web`: `npm run lint`).
+4. Xác nhận migration tự động chạy khi Backend khởi động.
+5. Xác nhận CronJob `decision-analyzer` sử dụng đúng image và environment variables.
+6. Xác nhận `app-route` phát event `DECISION_UPDATED`.
+7. Xác nhận tài khoản Technician đăng nhập thành công với password hash hợp lệ.
+8. Xác nhận Dashboard và Decision-Making nhận được realtime events.
+9. Xác nhận Dashboard tab **Lịch sử** gọi thành công API `/api/traffic/history` và hiển thị dữ liệu.
+10. Xác nhận Traffic Map Route Overlay tìm đường và đánh giá camera theo tuyến.
+11. Xác nhận Data Library Import / Download hoạt động bình thường.
+12. Xác nhận luồng sinh báo cáo hoạt động đầy đủ (`pending → ready → download`).
 
-- Swagger dang tam dong trong backend server de cho dot revamp.
-- Cac file docs lich su co the chua danh dau ro context cu, xem AGENT_LOG de doi chieu.
-- Neu dung port-forward tren may khac, phai dat host theo IP LAN, khong dung localhost.
+---
 
-## 8. Rollback strategy
+## 6. Smoke Test Sau Deploy
 
-1. Rollback image tags ve ban on dinh gan nhat cho `server`, `web`, va services chinh.
-2. Re-apply manifests K8s voi image tags rollback.
-3. Kiem tra lai login, dashboard realtime, va decision APIs.
-4. Neu can, tam tat cronjob decision-analyzer de tranh phat sinh du lieu moi trong luc rollback.
+1. Đăng nhập bằng tài khoản Technician và gọi thành công `/api/auth/me`.
+2. Gọi `/api/decisions` trả về dữ liệu (hoặc rỗng nhưng có HTTP 200).
+3. Trigger phân tích quyết định và xác nhận xuất hiện bản ghi mới.
+4. Xác nhận Frontend tự động cập nhật khi nhận event `DECISION_UPDATED`.
+5. Kiểm tra ít nhất một camera có dữ liệu realtime và dữ liệu dự báo.
+6. Kiểm tra Dashboard tab **Lịch sử** hiển thị đủ 252 slots dữ liệu.
+7. Kiểm tra Traffic Map tìm đường A/B và cập nhật tuyến khi thay đổi điểm.
+8. Kiểm tra trang Analytics tải thành công các metrics mới nhất.
 
-## 9. Tai lieu tham chieu
+---
 
-- reports/DATA_FLOW.md
-- reports/Functional Decomposition.md
-- reports/report.md
-- reports/FUNCTION_LIST.md
-- reports/AGENT_LOG.md
-- backend/services/decision-analyzer/README.md
+## 7. Known Notes
+
+- Swagger hiện đang tạm thời đóng trong Backend Server để chuẩn bị cho đợt revamp tiếp theo.
+- Một số tài liệu lịch sử có thể chưa ghi rõ ngữ cảnh cũ; tham khảo `AGENT_LOG` để đối chiếu.
+- Khi sử dụng Port Forward trên máy khác, cần cấu hình Host theo địa chỉ IP LAN thay vì `localhost`.
+
+---
+
+## 8. Rollback Strategy
+
+1. Rollback image tags về phiên bản ổn định gần nhất cho:
+   - `server`
+   - `web`
+   - các services chính
+
+2. Re-apply Kubernetes Manifests với các image tags đã rollback.
+
+3. Kiểm tra lại:
+   - Login
+   - Dashboard Realtime
+   - Decision APIs
+
+4. Nếu cần thiết, tạm thời vô hiệu hóa CronJob `decision-analyzer` để tránh phát sinh dữ liệu mới trong quá trình rollback.
+
+---
+
+## 9. Tài liệu tham chiếu
+
+- `reports/DATA_FLOW.md`
+- `reports/Functional Decomposition.md`
+- `reports/report.md`
+- `reports/FUNCTION_LIST.md`
+- `reports/AGENT_LOG.md`
+- `backend/services/decision-analyzer/README.md`

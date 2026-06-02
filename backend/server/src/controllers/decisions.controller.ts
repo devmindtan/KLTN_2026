@@ -355,12 +355,16 @@ export async function implementDecision(req: Request, res: Response) {
       return;
     }
 
-    // Log activity
-    await db.query(
-      `INSERT INTO activity_logs (account_id, action, resource, resource_id, details, ip_address)
-       VALUES ($1, 'IMPLEMENT_DECISION', 'decisions', $2, $3, $4)`,
-      [userId, id, JSON.stringify({ implementation_details }), req.ip]
-    );
+    // Log activity should not block successful business flow.
+    try {
+      await db.query(
+        `INSERT INTO activity_logs (account_id, action, resource, resource_id, details, ip_address)
+         VALUES ($1, 'IMPLEMENT_DECISION', 'decisions', $2, $3, $4)`,
+        [userId, id, JSON.stringify({ implementation_details }), req.ip]
+      );
+    } catch (logError) {
+      console.warn("[implementDecision] activity log insert failed:", logError);
+    }
 
     res.json({
       success: true,

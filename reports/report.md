@@ -103,3 +103,30 @@
 |  97 | ThemeContext                                 | Đảm bảo giao diện hiển thị đồng nhất theo chế độ theme đã chọn.                               | Frontend Core                          |
 |  98 | Route guard theo role/prefix                 | Đảm bảo người dùng luôn vào đúng nhánh chức năng theo quyền của mình.                         | Frontend Core                          |
 |  99 | Top progress khi chuyển route                | Hiển thị phản hồi trực quan khi người dùng chuyển trang để tránh cảm giác chờ đợi.            | Frontend UX                            |
+
+---
+
+## Bổ sung tính năng cho Release v1.0.0 (append)
+
+> Phần này chỉ bổ sung mới, không thay đổi nội dung bảng gốc phía trên.
+
+| STT | Tên chức năng                                             | Diễn giải tổng quan                                                                                         | Loại                                  |
+| --: | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| 100 | Decision Analyzer (service)                               | Phân tích đa nguồn dữ liệu và sinh khuyến nghị điều phối theo 5 nhóm: congestion, predictive, optimization, quality, monitoring. | Backend Service (CronJob Analytics)   |
+| 101 | Lọc quyết định theo ngưỡng compound score                 | Chỉ lưu các quyết định đạt ngưỡng ưu tiên tối thiểu để giảm nhiễu vận hành.                               | Backend Service (Decision Scoring)    |
+| 102 | Dedup quyết định 24h                                      | Tránh lưu trùng quyết định còn hiệu lực theo category/camera/title-prefix.                                | Backend Service (Database Write Guard) |
+| 103 | DecisionReady webhook signal                              | Sau khi lưu quyết định mới, phát tín hiệu để frontend cập nhật gần realtime.                              | Backend Service (Realtime Signal)     |
+| 104 | WebSocket DECISION_UPDATED                                | app-route phát event cập nhật quyết định mới cho giao diện.                                                | Realtime Event                        |
+| 105 | Trang Decision-Making                                     | Màn hình chuyên biệt để xem/xử lý quyết định theo trạng thái, mức ưu tiên và bằng chứng.                 | Frontend Page                         |
+| 106 | Decision card v2 với confidence/evidence nâng cao         | Hiển thị confidence breakdown, freshness, model MAPE, mẫu dữ liệu và cảnh báo low-confidence.             | Frontend Component                    |
+| 107 | API GET /api/decisions                                    | Truy vấn danh sách quyết định có filter/sort/pagination.                                                   | Backend API                           |
+| 108 | API POST /api/decisions/analyze                           | Kích hoạt phân tích sinh quyết định theo ngữ cảnh hiện tại.                                                | Backend API                           |
+| 109 | API POST /api/decisions/:id/review                        | Cập nhật quyết định sang trạng thái đã xem xét.                                                            | Backend API                           |
+| 110 | API POST /api/decisions/:id/implement                     | Đánh dấu đã thực hiện quyết định.                                                                          | Backend API                           |
+| 111 | API DELETE /api/decisions/:id                             | Bỏ qua quyết định khỏi luồng xử lý hiện tại.                                                               | Backend API                           |
+| 112 | Hardening auth write-actions                              | Tăng độ bền xác thực cho các action review/implement/dismiss (header/cookie/refresh).                     | Backend API Security                  |
+| 113 | Data Library chỉnh sửa collection (UI + API update flow)  | Cho phép sửa metadata collection trực tiếp từ giao diện quản trị.                                          | Frontend + Backend API                |
+| 114 | Camera Wall mode                                           | Chế độ hiển thị nhiều camera theo lưới, fullscreen, auto-rotate, phím tắt vận hành.                       | Frontend Feature                      |
+| 115 | Dashboard tab Lịch sử lưu lượng                            | Biểu đồ so sánh lịch sử đa mốc ngày (hôm nay, hôm qua, 7 ngày trước, 14 ngày trước) theo khung 5 phút.   | Frontend Feature (Dashboard)          |
+| 116 | API GET /api/traffic/history                               | Cung cấp 252 slot lịch sử 5 phút (03:00-23:55) gồm actual và forecast để vẽ chart lịch sử lưu lượng.      | Backend API                           |
+| 117 | Trang Bản đồ giao thông nâng cao                           | Bổ sung kiểm tra tuyến đường, chọn A/B trên bản đồ, cập nhật tuyến realtime theo mật độ camera.            | Frontend Feature (Traffic Map)        |

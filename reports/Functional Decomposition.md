@@ -175,3 +175,29 @@
 | `sample_count`               | Ghi số lượng mẫu dùng cho lần sync.                      |
 | `error_value`                | Tính sai số giữa dự báo và thực tế.                      |
 | `Skip bucket`                | Bỏ qua bucket chưa hoàn thành để tránh sai lệch dữ liệu. |
+
+---
+
+### 9) decision-analyzer
+
+**Giải thích từng chức năng**
+
+| Chức năng                         | Mô tả                                                                                       |
+| --------------------------------- | ------------------------------------------------------------------------------------------- |
+| `Initialize Orchestrator`         | Khởi tạo kết nối DB và danh sách analyzer để chạy đồng thời.                               |
+| `CongestionAnalyzer`              | Phát hiện điểm ùn tắc hiện tại theo V/C, recency và sample count.                          |
+| `PredictiveAnalyzer`              | Đánh giá nguy cơ ùn tắc sắp tới từ dữ liệu forecast 10-60 phút.                            |
+| `OptimizationAnalyzer`            | Tìm cơ hội tối ưu theo tải lịch sử 7 ngày và khung giờ cao điểm.                           |
+| `QualityAnalyzer`                 | Giám sát chất lượng mô hình qua MAPE/samples và gợi ý retrain/điều tra dữ liệu.            |
+| `MonitoringAnalyzer`              | Cảnh báo camera mất tín hiệu hoặc dữ liệu stale vượt ngưỡng.                                |
+| `Confidence Scoring`              | Tính và pha trộn confidence theo samples, recency, horizon và model quality.               |
+| `Compound Score Filter`           | Lọc quyết định dưới ngưỡng compound score trước khi lưu DB.                                 |
+| `Decision Dedup`                  | Chặn trùng quyết định còn hiệu lực trong cửa sổ 24 giờ.                                     |
+| `Store Decisions`                 | Ghi quyết định vào bảng `decisions` kèm evidence/action items.                              |
+| `Notify DecisionReady`            | Gửi webhook báo có quyết định mới để app-route phát realtime event.                         |
+
+### 10) app-route (bổ sung event)
+
+| Chức năng bổ sung         | Mô tả                                                                 |
+| ------------------------- | --------------------------------------------------------------------- |
+| `DecisionReady -> DECISION_UPDATED` | Nhận entity DecisionReady và phát event realtime cập nhật quyết định. |

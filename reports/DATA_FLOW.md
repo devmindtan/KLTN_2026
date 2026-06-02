@@ -605,3 +605,240 @@ fiware-servicepath: /
 - **image-process**: cache 6 giờ trong `capacity_map` dict (module-level), refresh bằng `refresh_capacity_map_if_needed()`
 - **image-predict**: đọc mới mỗi chu kỳ 5 phút qua `get_capacity_from_mv()`
 - Fallback: `DEFAULT_CAPACITY` từ `shared/los_utils.py` nếu camera chưa có data
+
+---
+
+### F-11 — Decision-Making Flow
+
+**Service**: `decision-analyzer` (CronJob `*/15 * * * *`)
+**Source code**: `backend/services/decision-analyzer/app/main.py` + `app/analyzers/*.py`
+
+```text
+CronJob decision-analyzer
+  └─► main.py::DecisionAnalyzerOrchestrator
+    ├─ initialize() -> db connection + 5 analyzers
+    ├─ run_analysis() -> asyncio.gather() all analyzers
+    │     ├─ CongestionAnalyzer      (camera_detections recent + capacity p90)
+    │     ├─ PredictiveAnalyzer      (camera_forecasts 10-60m + model_mape)
+    │     ├─ OptimizationAnalyzer    (camera_detections 7d peak-hour aggregates)
+    │     ├─ QualityAnalyzer         (camera_forecasts actual_value 24h)
+    │     └─ MonitoringAnalyzer      (missing/stale camera detections)
+    ├─ Filter decisions: score_compound >= 30
+    ├─ store_decisions()
+    │     ├─ dedup active decisions in last 24h
+    │     └─ INSERT decisions table
+    └─ _notify_decision_ready(count)
+      └─ POST app-route /webhook (DecisionReady)
+        └─ Socket.IO emit DECISION_UPDATED
+          └─ Frontend Decision page re-fetch list
+```
+
+```mermaid
+graph TD
+    %% Định nghĩa các Style màu sắc
+    classDef cron fill:#fff3e0,stroke:#ff9800,color:#e65100;
+    classDef orchestrator fill:#e3f2fd,stroke:#2196f3,color:#0d47a1;
+    classDef analyzer fill:#f3e5f5,stroke:#9c27b0,color:#4a148c;
+    classDef storage fill:#e8f5e9,stroke:#4caf50,color:#1b5e20;
+    classDef network fill:#ffebee,stroke:#f44336,color:#b71c1c;
+
+    %% ========================================================================
+    %% 1. KÍCH HOẠT & KHỞI TẠO (TRIGGER & INITIALIZATION)
+    %% ========================================================================
+    CronTrigger([CronJob Trigger<br/>*/15 * * * *])
+    CronTrigger --> Orchestrator["main.py::DecisionAnalyzerOrchestrator<br/>initialize()"]
+    Orchestrator --> ConnectDB["Khởi tạo DB Connection<br/>& Nạp 5 bộ Analyzers"]
+
+    %% ========================================================================
+    %% 2. PHÂN TÍCH SONG SONG (ASYNCIO.GATHER)
+    %% ========================================================================
+    ConnectDB --> RunAnalysis["run_analysis()<br/>asyncio.gather()"]
+
+    %% 5 bộ phân tích song song
+    RunAnalysis --> Congestion["CongestionAnalyzer<br/>(camera_detections recent + capacity p90)"]
+    RunAnalysis --> Predictive["PredictiveAnalyzer<br/>(camera_forecasts 10-60m + model_mape)"]
+    RunAnalysis --> Optimization["OptimizationAnalyzer<br/>(camera_detections 7d peak-hour aggregates)"]
+    RunAnalysis --> Quality["QualityAnalyzer<br/>(camera_forecasts actual_value 24h)"]
+    RunAnalysis --> Monitoring["MonitoringAnalyzer<br/>(missing/stale camera detections)"]
+
+    %% ========================================================================
+    %% 3. XỬ LÝ KẾT QUẢ & LƯU TRỮ (FILTER & STORE)
+    %% ========================================================================
+    Congestion & Predictive & Optimization & Quality & Monitoring --> FilterDecisions{"Filter Decisions:<br/>score_compound >= 30?"}
+    
+    FilterDecisions -- "No" --> EndNoAction([Bỏ qua / Kết thúc])
+    
+    FilterDecisions -- "Yes" --> StoreDecisions["store_decisions()"]
+    StoreDecisions --> Dedup["Dedup active decisions<br/>trong vòng 24h qua"]
+    Dedup --> InsertDB["INSERT vào bảng decisions"]
+
+    %% ========================================================================
+    %% 4. THÔNG BÁO THỜI GIAN THỰC (NOTIFICATION PIPELINE)
+    %% ========================================================================
+    InsertDB --> NotifyReady["_notify_decision_ready(count)"]
+    NotifyReady --> Webhook["POST app-route /webhook<br/>(DecisionReady)"]
+    Webhook --> SocketIO["Socket.IO emit<br/>DECISION_UPDATED"]
+    SocketIO --> Frontend["Frontend Decision Page<br/>Re-fetch list dữ liệu mới"]
+
+    %% Gán class cho các Node
+    class CronTrigger cron;
+    class Orchestrator,ConnectDB,RunAnalysis orchestrator;
+    class Congestion,Predictive,Optimization,Quality,Monitoring analyzer;
+    class FilterDecisions,StoreDecisions,Dedup,InsertDB storage;
+    class NotifyReady,Webhook,SocketIO,Frontend network;
+```
+
+**DB writes:**
+
+| Bảng        | Columns chính |
+| :---------- | :------------ |
+| `decisions` | `category`, `title`, `recommendation`, `rationale`, `score_*`, `camera_ids`, `evidence`, `action_items`, `status` |
+
+### F-10b — FIWARE/App-route event bổ sung
+
+| Entity Type      | Ai tạo             | Socket event         |
+| :--------------- | :----------------- | :------------------- |
+| `DecisionReady`  | decision-analyzer  | `DECISION_UPDATED`   |
+
+### F-12 — Dashboard History Flow (Traffic History)
+
+**Frontend consumer**: `web/src/components/dashboard/history/history-traffic-chart.tsx`
+**Backend API**: `GET /api/traffic/history?date=YYYY-MM-DD&camera_id=all|<id>`
+**Controller**: `backend/server/src/controllers/traffic-history.controller.ts`
+
+```text
+Dashboard tab "Lịch sử"
+  └─► HistoryTrafficChart
+        ├─ default series: hôm nay, hôm qua, 7 ngày trước, 14 ngày trước
+        ├─ optional custom date series
+        └─ gọi getTrafficHistory(date, cameraId)
+              └─ GET /api/traffic/history
+                    ├─ Query camera_detections -> actual (5-minute buckets)
+                    ├─ Query camera_forecasts  -> forecast (horizon=5)
+                    ├─ Merge thành 252 slots (03:00 -> 23:55)
+                    └─ Trả data cho chart đa series
+```
+```mermaid
+graph TD
+    %% Định nghĩa các Style màu sắc
+    classDef frontend fill:#e3f2fd,stroke:#2196f3,color:#0d47a1;
+    classDef api fill:#fff3e0,stroke:#ff9800,color:#e65100;
+    classDef database fill:#e8f5e9,stroke:#4caf50,color:#1b5e20;
+    classDef processing fill:#f3e5f5,stroke:#9c27b0,color:#4a148c;
+
+    %% ========================================================================
+    %% 1. FRONTEND: CẤU HÌNH SERIES & GỌI API
+    %% ========================================================================
+    TabHistory([Dashboard: Vào Tab 'Lịch sử'])
+    TabHistory --> ChartInit[Khởi tạo HistoryTrafficChart]
+    
+    %% Cấu hình các chuỗi dữ liệu (Series)
+    ChartInit --> SeriesDefault["Thiết lập Default Series:<br/>- Hôm nay<br/>- Hôm qua<br/>- 7 ngày trước<br/>- 14 ngày trước"]
+    ChartInit --> SeriesCustom["Cho phép thêm:<br/>Optional custom date series"]
+    
+    %% Gọi Hàm Fetch
+    SeriesDefault & SeriesCustom --> CallRepo["Gọi hàm: getTrafficHistory(date, cameraId)"]
+    CallRepo --> HTTPGet[["GET /api/traffic/history?date=...&cameraId=..."]]
+
+    %% ========================================================================
+    %% 2. BACKEND: TRUY VẤN DỮ LIỆU PHÂN TẦNG (DB QUERY)
+    %% ========================================================================
+    HTTPGet --> APIHandler["Backend Controller / Handler"]
+    
+    %% Truy vấn song song/tuần tự xuống 2 bảng dữ liệu
+    APIHandler --> QueryActual["Query bảng 'camera_detections':<br/>Lấy lưu lượng thực tế (actual)"]
+    APIHandler --> QueryForecast["Query bảng 'camera_forecasts':<br/>Lấy lưu lượng dự báo (forecast) với horizon=5"]
+
+    %% ========================================================================
+    %% 3. BACKEND: XỬ LÝ SỐ LIỆU & GỘP BUCKETS (DATA PROCESSING)
+    %% ========================================================================
+    QueryActual --> Bucket5m["Gộp nhóm dữ liệu thực tế<br/>vào các Buckets 5 phút"]
+    QueryForecast --> ExtractForecast["Trích xuất chuỗi dự báo tương ứng"]
+    
+    %% Thuật toán Merge và Map mốc thời gian
+    Bucket5m & ExtractForecast --> MergeSlots["Merge & Align dữ liệu thành 252 slots<br/>(Cửa sổ thời gian từ 03:00 -> 23:55)"]
+    
+    %% Phản hồi kết quả
+    MergeSlots --> APIReturn["Trả về cấu trúc JSON<br/>(Định dạng chuẩn cho Multi-Series Chart)"]
+
+    %% ========================================================================
+    %% 4. FRONTEND: RENDER BIỂU ĐỒ
+    %% ========================================================================
+    APIReturn --> ChartRender["Frontend nhận dữ liệu<br/>Render Biểu đồ đa chuỗi (Multi-series Chart)"]
+
+    %% Gán class cho các Node
+    class TabHistory,ChartInit,SeriesDefault,SeriesCustom,CallRepo,ChartRender frontend;
+    class HTTPGet,APIHandler,APIReturn api;
+    class QueryActual,QueryForecast database;
+    class Bucket5m,ExtractForecast,MergeSlots processing;
+```
+
+### F-13 — Traffic Map Route Decision Flow (Map)
+
+**Frontend page**: `web/src/pages/traffic-map.tsx`
+**Core overlay**: `web/src/components/traffic-map/map-route-overlay.tsx`
+
+```text
+Traffic Map page
+  ├─ nhận processedCameras realtime từ SocketContext
+  ├─ user nhập/chọn A-B (text, GPS, click map)
+  ├─ MapRouteOverlay gọi geocode/fetchRoute
+  ├─ findCamerasOnRoute() gắn camera theo tuyến primary/alt
+  ├─ đánh giá cảnh báo ùn tắc theo LOS camera trên tuyến
+  └─ cho phép cập nhật A/B và tính lại tuyến tức thời
+```
+```mermaid
+graph TD
+    %% Định nghĩa các Style màu sắc
+    classDef realTime fill:#f3e5f5,stroke:#9c27b0,color:#4a148c;
+    classDef frontend fill:#e3f2fd,stroke:#2196f3,color:#0d47a1;
+    classDef geoProcessing fill:#fff3e0,stroke:#ff9800,color:#e65100;
+    classDef analytics fill:#fbe9e7,stroke:#ffab91,color:#bf360c;
+
+    %% ========================================================================
+    %% 1. DỮ LIỆU ĐẦU VÀO REALTIME
+    %% ========================================================================
+    SocketCtx([SocketContext Realtime])
+    SocketCtx -->|"Emit: processedCameras"| MapPage["Traffic Map Page<br/>(traffic-map.tsx)"]
+
+    %% ========================================================================
+    %% 2. TƯƠNG TÁC NGƯỜI DÙNG (INPUT A-B)
+    %% ========================================================================
+    UserInteraction([User chọn Điểm đi A và Điểm đến B])
+    UserInteraction -->|Methods: Text Input / GPS / Click Map| MapPage
+    
+    %% Kích hoạt Overlay tính toán
+    MapPage --> Overlay["MapRouteOverlay<br/>(map-route-overlay.tsx)"]
+
+    %% ========================================================================
+    %% 3. XỬ LÝ KHÔNG GIAN & ĐỊNH TUYẾN (ROUTING PIPELINE)
+    %% ========================================================================
+    Overlay --> GeoRoute["Gọi geocode / fetchRoute"]
+    GeoRoute --> GenRoutes["Tạo các tùy chọn tuyến đường:<br/>- Tuyến chính (Primary Route)<br/>- Tuyến thay thế (Alternative Route)"]
+
+    %% Thuật toán gắn Camera vào Polyline tuyến đường
+    GenRoutes --> FindCameras["findCamerasOnRoute()"]
+    FindCameras --> MapCameraToRoute["Quét tọa độ & Gắn danh sách các Camera<br/>nằm dọc theo từng tuyến đường (Primary/Alt)"]
+
+    %% ========================================================================
+    %% 4. ĐÁNH GIÁ CẢNH BÁO (TRAFFIC ASSESSMENT)
+    %% ========================================================================
+    MapCameraToRoute --> MergeRealtime["Hợp nhất danh sách Camera trên tuyến<br/>với dữ liệu processedCameras realtime"]
+    MergeRealtime --> EvalLOS["Đánh giá mức độ ùn tắc<br/>dựa trên chỉ số LOS (Level of Service) của Camera"]
+    
+    EvalLOS --> RenderOverlay["Render lên Map:<br/>1. Vẽ Polyline màu sắc theo tình trạng (Xanh/Vàng/Đỏ)<br/>2. Hiển thị Popup cảnh báo ùn tắc tại các nút giao"]
+
+    %% ========================================================================
+    %% 5. VÒNG LẶP ĐIỀU CHỈNH TỨC THỜI (RE-CALCULATION LOOP)
+    %% ========================================================================
+    RenderOverlay --> ReCalc{"User thay đổi<br/>vị trí A/B?"}
+    ReCalc -- "Có" --> GeoRoute
+    ReCalc -- "Không" --> KeepListening["Tiếp tục lắng nghe biến động LOS từ Socket"]
+    KeepListening -.->|"Cập nhật màu tuyến realtime"| MergeRealtime
+
+    %% Gán class cho các Node
+    class SocketCtx,KeepListening realTime;
+    class MapPage,UserInteraction,Overlay,RenderOverlay frontend;
+    class GeoRoute,GenRoutes,FindCameras,MapCameraToRoute geoProcessing;
+    class MergeRealtime,EvalLOS,ReCalc analytics;
+```

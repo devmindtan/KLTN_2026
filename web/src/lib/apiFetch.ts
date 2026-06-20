@@ -2,6 +2,8 @@
  * Tiện ích HTTP tập trung: tự động đính kèm JWT Bearer token vào mọi request.
  * GET requests được cache theo TTL để giảm số lần gọi API khi navigate qua lại.
  */
+import { isMockEnabled, isMockExemptPath } from "@/mock/engine/mock-mode";
+import { mockApiFetch } from "@/mock/engine/mock-router";
 
 const TOKEN_KEY = "auth_token";
 
@@ -70,6 +72,13 @@ export async function apiFetch(
     if (token) {
       (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
     }
+  }
+
+  // ── Mock Mode: phục vụ từ bộ sinh dữ liệu giả lập thay vì gọi backend thật ──
+  // (auth luôn dùng API thật — xem isMockExemptPath)
+  const apiPath = url.includes("/api/") ? url.slice(url.indexOf("/api/")) : url;
+  if (isMockEnabled() && !isMockExemptPath(apiPath)) {
+    return mockApiFetch(url, { ...rest, method, headers });
   }
 
   // ── Cache logic: chỉ cache GET, không bypass ──────────────────────────

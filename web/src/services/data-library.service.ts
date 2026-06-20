@@ -2,6 +2,9 @@
  * Data Library Service - API calls cho collections và entries
  */
 import { apiFetch, clearApiCache } from "@/lib/apiFetch";
+import { isMockEnabled } from "@/mock/engine/mock-mode";
+import { importEntry as mockImportEntry } from "@/mock/generators/data-library";
+import { networkDelay } from "@/mock/engine/utils";
 
 const BASE = import.meta.env.VITE_BACKEND_URL;
 
@@ -150,6 +153,21 @@ export async function importEntry(payload: {
   if (payload.data_type)   form.append("data_type",   payload.data_type);
   if (payload.description) form.append("description", payload.description);
 
+  if (isMockEnabled()) {
+    await networkDelay();
+    const result = mockImportEntry({
+      collection_id: payload.collection_id,
+      snapshot_date: payload.snapshot_date,
+      filename: payload.file.name,
+      fileSize: payload.file.size,
+      new_title: payload.new_title,
+      data_type: payload.data_type,
+      description: payload.description,
+    });
+    clearApiCache(/\/api\/data-library\/collections/);
+    return result.data;
+  }
+
   const res = await fetch(`${BASE}/api/data-library/entries`, {
     method:  "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -177,17 +195,25 @@ export async function deleteEntry(id: string): Promise<void> {
  * GET /api/data-library/entries/:id/download?file={key|all}
  */
 export async function downloadEntryFile(entryId: string, fileKey: string, filename: string): Promise<void> {
-  const token = localStorage.getItem("auth_token");
-  const res   = await fetch(
-    `${BASE}/api/data-library/entries/${entryId}/download?file=${fileKey}`,
-    {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      credentials: "include",
-    }
-  );
-  if (!res.ok) throw new Error("Tải file thất bại");
+  let blob: Blob;
 
-  const blob  = await res.blob();
+  if (isMockEnabled()) {
+    await networkDelay();
+    const content = `Đây là file mô phỏng (Mock Mode)\nEntry: ${entryId}\nFile: ${fileKey}\nThời gian: ${new Date().toLocaleString("vi-VN")}\n`;
+    blob = new Blob([content], { type: "text/plain" });
+  } else {
+    const token = localStorage.getItem("auth_token");
+    const res = await fetch(
+      `${BASE}/api/data-library/entries/${entryId}/download?file=${fileKey}`,
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
+      }
+    );
+    if (!res.ok) throw new Error("Tải file thất bại");
+    blob = await res.blob();
+  }
+
   const url   = URL.createObjectURL(blob);
   const a     = document.createElement("a");
   a.href      = url;

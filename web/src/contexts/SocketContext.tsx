@@ -5,6 +5,9 @@ import io, { Socket } from "socket.io-client";
 import { getAllCameras, type CameraInfo } from "@/services/camera.service";
 import { useAuth } from "@/contexts/AuthContext";
 import logger from "@/lib/logger";
+import { isMockEnabled } from "@/mock/engine/mock-mode";
+import { initialCameraEntities, tickCameraEntities } from "@/mock/engine/camera-engine";
+import { onMockEvent } from "@/mock/engine/bus";
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
 const MINIO_URL = import.meta.env.VITE_MINIO_URL;
@@ -18,7 +21,7 @@ if (!MINIO_URL) {
 }
 
 // Interface cho NGSI-LD Camera payload từ Orion Context Broker
-interface NGSILDCamera {
+export interface NGSILDCamera {
   _id: {
     id: string;
     type: string;
@@ -39,6 +42,12 @@ interface NGSILDCamera {
       modDate: number;
     };
     minio_key?: {
+      value: string;
+      type: string;
+      modDate: number;
+    };
+    /** Chỉ có khi chạy ở Mock Mode — ảnh placeholder thay cho ảnh MinIO thật */
+    mock_image_url?: {
       value: string;
       type: string;
       modDate: number;
@@ -365,6 +374,39 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   }, [authLoading]); // re-run khi auth sẵn sàng (authLoading false → có token)
 
   useEffect(() => {
+    if (isMockEnabled()) {
+      // ─── Mock Mode: mô phỏng dữ liệu camera real-time, KHÔNG kết nối Socket.IO thật ───
+      const toCamerasMap = (list: ReturnType<typeof initialCameraEntities>) =>
+        Object.fromEntries(list.map((c) => [c._id.id, c]));
+
+      setIsConnected(true);
+      setCameras(toCamerasMap(initialCameraEntities()));
+      logger.log("🧪 Mock Mode: khởi tạo camera giả lập, bỏ qua kết nối Socket.IO thật");
+
+      const tickInterval = setInterval(() => {
+        setCameras(toCamerasMap(tickCameraEntities()));
+      }, 4000);
+
+      // Payload từ mock event bus đã đúng format TrainingJobData/ModelReloadData,
+      // không cần giải mã FIWARE attr như socket thật
+      const offTraining = onMockEvent("TRAINING_JOB_UPDATED", (payload) => {
+        setTrainingJob(payload as TrainingJobData);
+      });
+      const offReload = onMockEvent("MODEL_RELOAD_UPDATED", (payload) => {
+        setModelReload(payload as ModelReloadData);
+      });
+      const offForecast = onMockEvent("FORECAST_UPDATED", () => setForecastVersion((v) => v + 1));
+      const offDecision = onMockEvent("DECISION_UPDATED", () => setDecisionVersion((v) => v + 1));
+
+      return () => {
+        clearInterval(tickInterval);
+        offTraining();
+        offReload();
+        offForecast();
+        offDecision();
+      };
+    }
+
     // Khởi tạo socket connection một lần duy nhất
     const socketInstance = io(SOCKET_URL, {
       transports: ["websocket"],
@@ -587,7 +629,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         motorbikeCount: cam.attrs.detections?.value?.motorbike ?? 0,
         imageUrl: cam.attrs.minio_key?.value
           ? `${MINIO_URL}/images/${cam.attrs.minio_key.value}`
-          : "",
+          : cam.attrs.mock_image_url?.value ?? "",
         // Ép kiểu về string để khớp với Interface CameraData
         lastUpdated: rawLastUpdated ? String(rawLastUpdated) : "",
         status: {

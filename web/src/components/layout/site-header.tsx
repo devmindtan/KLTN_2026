@@ -18,6 +18,8 @@ import {useTheme} from "@/contexts/ThemeContext"
 import { useAuth } from "@/contexts/AuthContext"
 import { IconSearch } from "@tabler/icons-react"
 import { QuickSearchDialog } from "@/components/search/quick-search-dialog"
+import { isMockEnabled } from "@/mock/engine/mock-mode"
+import { Badge } from "@/components/ui/badge"
 import React from "react"
 
 export function SiteHeader() {
@@ -50,6 +52,14 @@ export function SiteHeader() {
       <div className="flex w-full items-center gap-2 px-4">
         <SidebarTrigger className="-ml-1"/>
         <Separator orientation="vertical" className="mx-2 h-4"/>
+
+        {isMockEnabled() && (
+          <Link to={routePrefix ? `/${routePrefix}/setting` : "/setting"} className="shrink-0">
+            <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/40 dark:text-amber-300 text-[10px]">
+              Dữ liệu mô phỏng
+            </Badge>
+          </Link>
+        )}
 
         <Breadcrumb>
           <BreadcrumbList>

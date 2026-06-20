@@ -11,7 +11,7 @@ import type { NGSILDCamera, TrendInfo } from "@/contexts/SocketContext";
 import type { LosLevel, RiskLevel } from "@/services/forecast.service";
 import { CAMERA_SEEDS, type CameraSeed } from "../generators/cameras";
 import { combinedLoadFactor, loadFactorAt, vnHourMinute, vnNow } from "./time-curve";
-import { clamp, jitter, rand } from "./utils";
+import { clamp, jitter, pick, rand, randInt } from "./utils";
 import { liveTrafficImageUrl } from "./traffic-images";
 
 interface LiveState {
@@ -22,6 +22,105 @@ interface LiveState {
 
 const liveState = new Map<string, LiveState>();
 
+// ─── Hotspot: đảm bảo luôn có ít nhất 1 camera ở mức "đông đúc" (vc ≥ 0.8) trở lên ──
+// Lý do cần cơ chế riêng: random-walk theo time-curve hiếm khi tự vượt 0.8 ở nhiều
+// khung giờ, nên nếu không "ép" sẽ có lúc demo trông quá yên ả, không có gì để xem.
+// Cách làm: chọn ngẫu nhiên 1 camera làm "điểm nóng" hiện tại, giữ nó ở mức đông đúc/
+// ùn tắc trong một khoảng thời gian (rồi đổi sang camera khác) — giống kẹt xe thật
+// dồn ở 1 điểm rồi tan dần, không phải tất cả các camera cùng kẹt cùng lúc.
+interface HotspotState {
+  camId: string;
+  /** Mốc thời gian (ms) hotspot này hết hạn, sẽ được chọn lại camera khác */
+  expiresAt: number;
+  /** Mức V/C mục tiêu được ép tới cho camera này, random mỗi lần chọn hotspot mới */
+  targetVc: number;
+}
+
+let currentHotspot: HotspotState | null = null;
+
+/** Ngưỡng được coi là "đông đúc trở lên" — khớp với losFromVc (heavy bắt đầu từ 0.8) */
+const HOTSPOT_VC_MIN = 0.8;
+
+function pickNewHotspot(excludeCamId?: string): HotspotState {
+  const candidates = CAMERA_SEEDS.filter((s) => s.cam_id !== excludeCamId);
+  const pool = candidates.length > 0 ? candidates : CAMERA_SEEDS;
+  const chosen = pick(pool);
+  return {
+    camId: chosen.cam_id,
+    // Giữ hotspot trong 3-7 phút (đổi giữa các lần tick) rồi mới chuyển điểm khác
+    expiresAt: Date.now() + randInt(3, 7) * 60_000,
+    // Mục tiêu V/C 0.85-1.15: chắc chắn rơi vào "heavy" hoặc "congested"
+    targetVc: rand(0.85, 1.15),
+  };
+}
+
+/** Có camera nào (ngoài cơ chế ép) đã tự nhiên đạt mức đông đúc trở lên chưa */
+function hasNaturalCongestion(excludeCamId?: string): boolean {
+  for (const [camId, state] of liveState.entries()) {
+    if (camId === excludeCamId) continue;
+    const seed = CAMERA_SEEDS.find((s) => s.cam_id === camId);
+    if (!seed) continue;
+    if (vcRatio(state.volume, seed.capacity) >= HOTSPOT_VC_MIN) return true;
+  }
+  return false;
+}
+
+/**
+ * Đảm bảo có đúng 1 hotspot hợp lệ tại thời điểm gọi — tạo mới nếu chưa có,
+ * hết hạn, hoặc nếu hotspot cũ rồi mà thực tế đã có camera khác tự nhiên đông đúc
+ * (lúc đó không cần ép nữa, để hotspot trôi tự nhiên theo random-walk).
+ */
+/**
+ * Đảm bảo có đúng 1 hotspot hợp lệ tại thời điểm gọi. Tạo hotspot mới khi:
+ *  - chưa có hotspot nào, HOẶC
+ *  - hotspot hiện tại đã hết hạn thời gian, HOẶC
+ *  - hotspot hiện tại đã tụt xuống dưới ngưỡng đông đúc (do random-walk kéo về
+ *    target bình thường nhanh hơn dự kiến) — tránh khoảng hở khi không có camera
+ *    nào đông đúc giữa lúc chuyển điểm nóng.
+ * Nếu phát hiện có camera KHÁC tự nhiên đông đúc rồi thì tạm tắt hotspot, để hệ
+ * thống không ép thêm (giữ đúng tinh thần "ít nhất 1", không phải "chính xác 1").
+ */
+function ensureHotspot(): void {
+  const now = Date.now();
+  const currentStillValid =
+    currentHotspot !== null &&
+    currentHotspot.expiresAt > now &&
+    isCamCongested(currentHotspot.camId);
+
+  if (currentStillValid) return;
+
+  if (hasNaturalCongestion(currentHotspot?.camId)) {
+    // Đã có camera khác tự nhiên đông đúc rồi, không cần ép — tạm tắt hotspot
+    currentHotspot = null;
+    return;
+  }
+  currentHotspot = pickNewHotspot(currentHotspot?.camId);
+  // Áp ngay state cho hotspot mới, không chờ random-walk leo dần qua nhiều tick —
+  // tránh khoảng trống "không có camera nào đông đúc" giữa lúc chuyển điểm nóng.
+  applyHotspotToState();
+}
+
+function isCamCongested(camId: string): boolean {
+  const seed = CAMERA_SEEDS.find((s) => s.cam_id === camId);
+  const state = liveState.get(camId);
+  if (!seed || !state) return false;
+  return vcRatio(state.volume, seed.capacity) >= HOTSPOT_VC_MIN;
+}
+
+/**
+ * Set thẳng volume của camera đang là hotspot vào liveState ngay lập tức,
+ * thay vì chờ random-walk tiệm cận dần qua nhiều tick (dùng cho lần init đầu
+ * tiên, để ngay khi mở trang đã thấy 1 camera đông đúc, không cần đợi vài tick).
+ */
+function applyHotspotToState(): void {
+  if (!currentHotspot) return;
+  const seed = CAMERA_SEEDS.find((s) => s.cam_id === currentHotspot!.camId);
+  const state = liveState.get(currentHotspot.camId);
+  if (!seed || !state) return;
+  const vol = clamp(seed.capacity * currentHotspot.targetVc * jitter(1, 0.05), 1, seed.capacity * 1.4);
+  liveState.set(currentHotspot.camId, { ...state, volume: vol, prevVolume: state.volume });
+}
+
 function ensureInit(): void {
   if (liveState.size > 0) return;
   const now = vnNow();
@@ -30,6 +129,9 @@ function ensureInit(): void {
     const vol = clamp(seed.capacity * factor * jitter(1, 0.3), 1, seed.capacity * 1.25);
     liveState.set(seed.cam_id, { volume: vol, prevVolume: vol, carShare: rand(0.35, 0.55) });
   });
+  // Khởi tạo luôn 1 hotspot ngay từ đầu, để lần load đầu tiên cũng có điểm đông đúc
+  ensureHotspot();
+  applyHotspotToState();
 }
 
 // ─── LOS / V-C helpers (dùng chung cho forecast, traffic-pattern, decisions...) ────
@@ -114,13 +216,27 @@ export function projectForecast(
 function tickOne(seed: CameraSeed): LiveState {
   ensureInit();
   const state = liveState.get(seed.cam_id)!;
-  const { hour, minute } = vnHourMinute();
-  const targetFactor = loadFactorAt(hour, minute) * jitter(1, 0.15);
-  const target = clamp(seed.capacity * targetFactor, 1, seed.capacity * 1.3);
+  const isHotspot = currentHotspot?.camId === seed.cam_id;
+
+  let target: number;
+  if (isHotspot) {
+    // Camera này đang là điểm nóng: kéo volume về mức V/C mục tiêu (đông đúc/ùn tắc)
+    // thay vì theo đường cong giờ bình thường.
+    target = clamp(seed.capacity * currentHotspot!.targetVc * jitter(1, 0.05), 1, seed.capacity * 1.4);
+  } else {
+    const { hour, minute } = vnHourMinute();
+    const targetFactor = loadFactorAt(hour, minute) * jitter(1, 0.15);
+    target = clamp(seed.capacity * targetFactor, 1, seed.capacity * 1.3);
+    // Camera KHÔNG phải hotspot: chặn trần ở sát dưới ngưỡng "đông đúc" (0.8), để
+    // tránh hiện tượng nhiều camera cùng trôi dạt lên đông đúc không kiểm soát qua
+    // nhiều tick (chỉ hotspot mới được phép đông đúc/ùn tắc tại một thời điểm).
+    target = Math.min(target, seed.capacity * 0.78);
+  }
+
   const next = clamp(
-    state.volume + (target - state.volume) * 0.35 + jitter(0, seed.capacity * 0.04),
+    state.volume + (target - state.volume) * 0.35 + jitter(0, seed.capacity * (isHotspot ? 0.04 : 0.02)),
     1,
-    seed.capacity * 1.35
+    isHotspot ? seed.capacity * 1.4 : seed.capacity * 0.79
   );
   const updated: LiveState = {
     volume: next,
@@ -217,6 +333,7 @@ export function initialCameraEntities(): NGSILDCamera[] {
 /** Tick định kỳ — mô phỏng các bản tin CAMERA_UPDATED liên tục */
 export function tickCameraEntities(): NGSILDCamera[] {
   ensureInit();
+  ensureHotspot();
   return CAMERA_SEEDS.map((seed) => buildCameraEntity(seed, tickOne(seed)));
 }
 

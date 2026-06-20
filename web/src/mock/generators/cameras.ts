@@ -1,19 +1,4 @@
 /**
- * Danh sách camera mock — đặt tại các giao lộ/trục đường thực tế ở TP.HCM để demo
- * trông tự nhiên. `capacity` là số xe/5 phút ước lượng ở giờ cao điểm (MAX 7 ngày),
- * dùng làm mẫu số tính V/C ratio giống cách hệ thống thật vận hành.
- */
-
-export interface CameraSeed {
-  cam_id: string;
-  display_name: string;
-  lat: number;
-  lng: number;
-  capacity: number;
-  roadType: RoadType;
-}
-
-/**
  * Danh sách camera mock — DÙNG ĐÚNG cam_id, tên giao lộ và toạ độ THẬT (TP.HCM),
  * khớp với các thư mục ảnh thật trong src/mock/engine/mock-cameras/<cam_id>/.
  * KHÔNG tự sinh cam_id giả nữa — bắt buộc giữ nguyên cam_id thật để traffic-images.ts

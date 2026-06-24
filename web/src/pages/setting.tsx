@@ -15,9 +15,11 @@ import {
   IconLock,
   IconActivity,
   IconShield,
+  IconFlask,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { changePasswordRequest, getActivityLogsRequest, type ActivityLog } from "@/services/auth.service";
+import { isMockEnabled, setMockEnabled } from "@/mock/engine/mock-mode";
 
 /**
  * Trang cài đặt tài khoản – hiển thị theo role (viewer / technician)
@@ -29,11 +31,54 @@ export default function Setting() {
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
       <PageHeader icon={<IconSettings size={20} />} title={SETTINGS_TERM.page_header.title} description={SETTINGS_TERM.page_header.description} />
+      <MockModeSection />
       {isAuthenticated && role === "technician" ? (
         <TechnicianSettings user={user} token={token!} />
       ) : (
         <ViewerSettings onLoginClick={() => navigate("/login")} />
       )}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Mock Mode — bật/tắt nguồn dữ liệu mô phỏng khi hệ thống thật gặp sự cố
+// ──────────────────────────────────────────────────────────────────
+function MockModeSection() {
+  const [enabled, setEnabled] = useState(isMockEnabled());
+
+  const handleToggle = () => {
+    const next = !enabled;
+    setEnabled(next);
+    toast.info(next ? "Đang bật chế độ mô phỏng — trang sẽ tải lại..." : "Đang tắt chế độ mô phỏng — trang sẽ tải lại...");
+    setMockEnabled(next); // tự reload trang để khởi tạo lại dữ liệu/Socket theo nguồn mới
+  };
+
+  return (
+    <div
+      className={`max-w-lg rounded-xl border p-5 space-y-3 ${
+        enabled
+          ? "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800"
+          : "bg-muted/40"
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        <IconFlask size={18} className={enabled ? "text-amber-600" : "text-muted-foreground"} />
+        <span className="font-medium">Chế độ dữ liệu mô phỏng (Mock Mode)</span>
+        {enabled && (
+          <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/40 dark:text-amber-300">
+            Đang bật
+          </Badge>
+        )}
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Khi hệ thống camera/dữ liệu thật gặp sự cố, bật chế độ này để xem toàn bộ giao diện
+        (camera, dự báo, mô hình AI, báo cáo, quyết định, thư viện dữ liệu...) với dữ liệu giả lập,
+        tự cập nhật liên tục. Đăng nhập vẫn dùng tài khoản thật — không bị ảnh hưởng.
+      </p>
+      <Button onClick={handleToggle} size="sm" variant={enabled ? "outline" : "default"}>
+        {enabled ? "Tắt chế độ mô phỏng" : "Bật chế độ mô phỏng"}
+      </Button>
     </div>
   );
 }
